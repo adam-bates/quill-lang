@@ -19,6 +19,9 @@ typedef struct {
     } res;
 } ScanResult;
 
+#define scanres_assert(scanres) \
+    if (!scanres.ok) { err_print(scanres.res.err); assert(scanres.ok); }
+
 Scanner scanner_create(char const* source);
 ScanResult scanner_scan(Scanner scanner);
 

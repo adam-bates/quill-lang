@@ -52,8 +52,8 @@ int main(void) {
     Scanner scanner = scanner_create(src);
     ScanResult scan_res = scanner_scan(scanner);
 
-    assert(scan_res.ok);
-    Tokens tokens = scan_res.res.val;
+    scanres_assert(scan_res);
+    Tokens tokens = scan_res.res.tokens;
 
     assert(tokens.length == expected_tokens.length);
 

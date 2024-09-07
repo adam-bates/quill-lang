@@ -19,12 +19,9 @@ int main(int argc, char const* argv[]) {
     printf("\n\n");
 
     Scanner s = scanner_create(source);
-
     ScanResult scan_res = scanner_scan(s);
-    if (!scan_res.ok) {
-        err_print(scan_res.res.err);
-        return EXIT_FAILURE;
-    }
+
+    scanres_assert(scan_res);
     Tokens tokens = scan_res.res.tokens;
 
     // print out tokens
