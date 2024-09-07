@@ -1,0 +1,9 @@
+# program outputs
+.bin
+
+# editor config
+.ignore
+
+# mac os file
+.DS_Store
+
