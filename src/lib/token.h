@@ -79,14 +79,14 @@ typedef struct {
     TokenType type;
 
     char const* start;
-    int length;
+    size_t length;
 
-    int line;
+    size_t line;
 } Token;
 
 typedef struct {
     size_t length;
-    Token* arr;
+    Token*  arr;
 } Tokens;
 
 #endif
