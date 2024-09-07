@@ -12,7 +12,7 @@ test-scanner: setup
 test: test-scanner
 
 run: build
-	.bin/snowy
+	.bin/snowy ./examples/hello.sny
 
 clean:
 	rm -rf ./.bin

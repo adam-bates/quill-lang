@@ -3,6 +3,7 @@
 
 typedef enum {
     ET_UNSPECIFIED,
+    ET_OUT_OF_MEMORY,
 
     ET_COUNT,
 } ErrorType;

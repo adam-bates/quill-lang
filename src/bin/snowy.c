@@ -3,18 +3,16 @@
 #include <string.h>
 
 #include "../lib/common.h"
-// #include "../lib/fs.h"
+#include "../lib/fs.h"
 #include "../lib/scanner.h"
 
 int main(int argc, char const* argv[]) {
-    // if (argc != 2) {
-    //     fprintf(stderr, "Usage: adam [path]\n");
-    //     return EXIT_FAILURE;
-    // }
+    if (argc != 2) {
+        fprintf(stderr, "Usage: adam [path]\n");
+        return EXIT_FAILURE;
+    }
 
-    // char const* source = read_file(argv[1]);
-    char* source = calloc(25, sizeof(char));
-    strncpy(source, "void main() {\n\t// no-op\n}", 25);
+    char const* source = read_file(argv[1]);
 
     printf("---SOURCE---\n%s\n-^--------^-\n", source);
 
@@ -29,6 +27,7 @@ int main(int argc, char const* argv[]) {
     }
     Tokens tokens = scan_res.res.val;
 
+    // print out tokens
     for (size_t i = 0; i < tokens.length; ++i) {
         Token token = tokens.arr[i];
 
@@ -40,6 +39,7 @@ int main(int argc, char const* argv[]) {
         free(token_str);
     }
 
+    // cleanup
     free(tokens.arr);
     free((void*)source);
 
