@@ -4,11 +4,19 @@
 #include "error.h"
 #include "scanner.h"
 
-Scanner scanner_create(char const* source) {
-    // TODO
+static ScanResult scanres_err(Error err) {
+    return (ScanResult){ .ok = false, .res.err = err };
+}
 
+static ScanResult scanres_ok(Tokens tokens) {
+    return (ScanResult){ .ok = true, .res.tokens = tokens };
+}
+
+Scanner scanner_create(char const* source) {
     return (Scanner){
         .source = source,
+        .current = source,
+        .line = 1,
     };
 }
 
@@ -65,11 +73,7 @@ ScanResult scanner_scan(Scanner scanner) {
     //     .line = 3,
     // };
 
-    // return (ScanResult){ .ok = true, .res.val = tokens };
+    // return scanres_ok(tokens);
 
-    return (ScanResult){
-        .ok = false,
-        .res.err = err_create_unspecified("Not implemented: scanner_scan"),
-    };
+    return scanres_err(err_create(ET_UNIMPLEMENTED, "scanner_scan"));
 }
-

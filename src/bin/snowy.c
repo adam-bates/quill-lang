@@ -22,10 +22,10 @@ int main(int argc, char const* argv[]) {
 
     ScanResult scan_res = scanner_scan(s);
     if (!scan_res.ok) {
-        fprintf(stderr, "Error(%d): %s\n", scan_res.res.err.type, scan_res.res.err.msg);
+        err_print(scan_res.res.err);
         return EXIT_FAILURE;
     }
-    Tokens tokens = scan_res.res.val;
+    Tokens tokens = scan_res.res.tokens;
 
     // print out tokens
     for (size_t i = 0; i < tokens.length; ++i) {

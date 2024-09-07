@@ -6,12 +6,15 @@
 
 typedef struct {
     char const* source;
+
+    char const* current;
+    int line;
 } Scanner;
 
 typedef struct {
     bool ok;
     union {
-        Tokens val;
+        Tokens tokens;
         Error err;
     } res;
 } ScanResult;
