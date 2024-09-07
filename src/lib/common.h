@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "allocator.h"
 #include "error.h"
 
 #define EXIT_SUCCESS 0

@@ -12,13 +12,15 @@ int main(int argc, char const* argv[]) {
         return EXIT_FAILURE;
     }
 
-    char const* source = read_file(argv[1]);
+    Allocator const alloc = allocator_create();
+
+    char const* source = read_file(alloc, argv[1]);
 
     printf("---SOURCE---\n%s\n-^--------^-\n", source);
 
     printf("\n\n");
 
-    Lexer lexer = lexer_create(source);
+    Lexer lexer = lexer_create(alloc, source);
     ScanResult scan_res = lexer_scan(lexer);
 
     scanres_assert(scan_res);
@@ -28,7 +30,7 @@ int main(int argc, char const* argv[]) {
     for (size_t i = 0; i < tokens.length; ++i) {
         Token token = tokens.arr[i];
 
-        char* token_str = calloc(token.length, sizeof(char));
+        char* token_str = alloc.calloc(token.length, sizeof(char));
         strncpy(token_str, token.start, token.length);
 
         printf("%lu | %d | %s\n", token.line, token.type, token_str);
@@ -37,8 +39,8 @@ int main(int argc, char const* argv[]) {
     }
 
     // cleanup
-    free(tokens.arr);
-    free((void*)source);
+    alloc.free(tokens.arr);
+    alloc.free((void*)source);
 
     return EXIT_SUCCESS;
 }

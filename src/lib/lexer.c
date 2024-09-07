@@ -12,11 +12,13 @@ static ScanResult scanres_ok(Tokens tokens) {
     return (ScanResult){ .ok = true, .res.tokens = tokens };
 }
 
-Lexer lexer_create(char const* source) {
+Lexer lexer_create(Allocator const alloc, char const* source) {
     return (Lexer){
         .source = source,
         .current = source,
         .line = 1,
+
+        .alloc = alloc,
     };
 }
 

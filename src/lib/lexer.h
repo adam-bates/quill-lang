@@ -9,6 +9,8 @@ typedef struct {
 
     char const* current;
     int line;
+
+    Allocator alloc;
 } Lexer;
 
 typedef struct {
@@ -22,7 +24,7 @@ typedef struct {
 #define scanres_assert(scanres) \
     if (!scanres.ok) { err_print(scanres.res.err); assert(scanres.ok); }
 
-Lexer lexer_create(char const* source);
+Lexer lexer_create(Allocator alloc, char const* source);
 ScanResult lexer_scan(Lexer lexer);
 
 #endif

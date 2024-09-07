@@ -1,6 +1,3 @@
-setup:
-	mkdir -p ./.bin
-
 build: setup
 	gcc -std=c99 -Wall -Wextra -pedantic -I./src/lib -o .bin/snowy src/bin/snowy.c src/lib/*.c
 
@@ -13,6 +10,9 @@ test: test-lexer
 
 run: build
 	.bin/snowy ./examples/hello.sny
+
+setup:
+	mkdir -p ./.bin
 
 clean:
 	rm -rf ./.bin

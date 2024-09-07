@@ -1,10 +1,9 @@
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "common.h"
 #include "fs.h"
 
-char const* read_file(char const* path) {
+char const* read_file(Allocator const alloc, char const* path) {
     FILE *file = fopen(path, "rb");
     if (file == NULL) {
         fprintf(stderr, "Could not open file \"%s\".\n", path);
@@ -24,7 +23,7 @@ char const* read_file(char const* path) {
     
     rewind(file);
 
-    char *buffer = (char*)malloc(file_size + 1);
+    char *buffer = (char*)alloc.malloc(file_size + 1);
     if (buffer == NULL) {
         fprintf(stderr, "Not enough memory to read \"%s\".\n", path);
         exit(74);

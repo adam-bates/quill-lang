@@ -4,6 +4,8 @@
 #include "../src/lib/lexer.h"
 
 int main(void) {
+    Allocator alloc = allocator_create();
+
     char const* src = "void main() {\n\t// no-op\n}";
 
     Token expected_tokens_arr[] = {
@@ -49,7 +51,7 @@ int main(void) {
         .arr = expected_tokens_arr,
     };
 
-    Lexer lexer = lexer_create(src);
+    Lexer lexer = lexer_create(alloc, src);
     ScanResult scan_res = lexer_scan(lexer);
 
     scanres_assert(scan_res);
