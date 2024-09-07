@@ -1,5 +1,5 @@
-#ifndef snowy_scanner_h
-#define snowy_scanner_h
+#ifndef snowy_lexer_h
+#define snowy_lexer_h
 
 #include "common.h"
 #include "token.h"
@@ -9,7 +9,7 @@ typedef struct {
 
     char const* current;
     int line;
-} Scanner;
+} Lexer;
 
 typedef struct {
     bool ok;
@@ -22,7 +22,7 @@ typedef struct {
 #define scanres_assert(scanres) \
     if (!scanres.ok) { err_print(scanres.res.err); assert(scanres.ok); }
 
-Scanner scanner_create(char const* source);
-ScanResult scanner_scan(Scanner scanner);
+Lexer lexer_create(char const* source);
+ScanResult lexer_scan(Lexer lexer);
 
 #endif

@@ -4,7 +4,7 @@
 
 #include "../lib/common.h"
 #include "../lib/fs.h"
-#include "../lib/scanner.h"
+#include "../lib/lexer.h"
 
 int main(int argc, char const* argv[]) {
     if (argc != 2) {
@@ -18,8 +18,8 @@ int main(int argc, char const* argv[]) {
 
     printf("\n\n");
 
-    Scanner s = scanner_create(source);
-    ScanResult scan_res = scanner_scan(s);
+    Lexer lexer = lexer_create(source);
+    ScanResult scan_res = lexer_scan(lexer);
 
     scanres_assert(scan_res);
     Tokens tokens = scan_res.res.tokens;

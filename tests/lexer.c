@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 
-#include "../src/lib/scanner.h"
+#include "../src/lib/lexer.h"
 
 int main(void) {
     char const* src = "void main() {\n\t// no-op\n}";
@@ -49,8 +49,8 @@ int main(void) {
         .arr = expected_tokens_arr,
     };
 
-    Scanner scanner = scanner_create(src);
-    ScanResult scan_res = scanner_scan(scanner);
+    Lexer lexer = lexer_create(src);
+    ScanResult scan_res = lexer_scan(lexer);
 
     scanres_assert(scan_res);
     Tokens tokens = scan_res.res.tokens;

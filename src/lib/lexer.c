@@ -2,7 +2,7 @@
 
 #include "common.h"
 #include "error.h"
-#include "scanner.h"
+#include "lexer.h"
 
 static ScanResult scanres_err(Error err) {
     return (ScanResult){ .ok = false, .res.err = err };
@@ -12,15 +12,15 @@ static ScanResult scanres_ok(Tokens tokens) {
     return (ScanResult){ .ok = true, .res.tokens = tokens };
 }
 
-Scanner scanner_create(char const* source) {
-    return (Scanner){
+Lexer lexer_create(char const* source) {
+    return (Lexer){
         .source = source,
         .current = source,
         .line = 1,
     };
 }
 
-ScanResult scanner_scan(Scanner scanner) {
+ScanResult lexer_scan(Lexer lexer) {
     // TODO
 
     // Tokens tokens = {
@@ -38,42 +38,42 @@ ScanResult scanner_scan(Scanner scanner) {
     // size_t idx = 0;
     // tokens.arr[idx++] = (Token){
     //         .type = TT_VOID,
-    //         .start = scanner.source + 0,
+    //         .start = lexer.source + 0,
     //         .length = 4,
     //         .line = 1,
     //     };
     // tokens.arr[idx++] = (Token){
     //     .type = TT_IDENTIFIER,
-    //     .start = scanner.source + 5,
+    //     .start = lexer.source + 5,
     //     .length = 4,
     //     .line = 1,
     // };
     // tokens.arr[idx++] = (Token){
     //     .type = TT_LEFT_PAREN,
-    //     .start = scanner.source + 9,
+    //     .start = lexer.source + 9,
     //     .length = 1,
     //     .line = 1,
     // };
     // tokens.arr[idx++] = (Token){
     //     .type = TT_RIGHT_PAREN,
-    //     .start = scanner.source + 10,
+    //     .start = lexer.source + 10,
     //     .length = 1,
     //     .line = 1,
     // };
     // tokens.arr[idx++] = (Token){
     //     .type = TT_LEFT_BRACE,
-    //     .start = scanner.source + 12,
+    //     .start = lexer.source + 12,
     //     .length = 1,
     //     .line = 1,
     // };
     // tokens.arr[idx++] = (Token){
     //     .type = TT_RIGHT_BRACE,
-    //     .start = scanner.source + 24,
+    //     .start = lexer.source + 24,
     //     .length = 1,
     //     .line = 3,
     // };
 
     // return scanres_ok(tokens);
 
-    return scanres_err(err_create(ET_UNIMPLEMENTED, "scanner_scan"));
+    return scanres_err(err_create(ET_UNIMPLEMENTED, "lexer_scan"));
 }
