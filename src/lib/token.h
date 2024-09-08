@@ -1,5 +1,5 @@
-#ifndef snowy_token_h
-#define snowy_token_h
+#ifndef quillc_token_h
+#define quillc_token_h
 
 #include "common.h"
 

@@ -1,5 +1,5 @@
-#ifndef snowy_common_h
-#define snowy_common_h
+#ifndef quillc_common_h
+#define quillc_common_h
 
 #include <assert.h>
 #include <stdbool.h>

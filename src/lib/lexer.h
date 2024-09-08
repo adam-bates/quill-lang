@@ -1,5 +1,5 @@
-#ifndef snowy_lexer_h
-#define snowy_lexer_h
+#ifndef quillc_lexer_h
+#define quillc_lexer_h
 
 #include "common.h"
 #include "token.h"

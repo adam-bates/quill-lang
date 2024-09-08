@@ -8,7 +8,7 @@
 
 int main(int const argc, char const* argv[]) {
     if (argc != 2) {
-        fprintf(stderr, "Usage: adam [path]\n");
+        fprintf(stderr, "Usage: quillc [path]\n");
         return EXIT_FAILURE;
     }
 

@@ -1,5 +1,5 @@
-#ifndef snowy_error_h
-#define snowy_error_h
+#ifndef quillc_error_h
+#define quillc_error_h
 
 #include <stdlib.h>
 

@@ -1,5 +1,5 @@
-#ifndef snowy_allocator_h
-#define snowy_allocator_h
+#ifndef quillc_allocator_h
+#define quillc_allocator_h
 
 #include <stdlib.h>
 

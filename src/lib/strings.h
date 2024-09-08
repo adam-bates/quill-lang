@@ -1,5 +1,5 @@
-#ifndef snowy_string_h
-#define snowy_string_h
+#ifndef quillc_string_h
+#define quillc_string_h
 
 #include <stdlib.h>
 

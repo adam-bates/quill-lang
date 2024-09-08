@@ -1,5 +1,5 @@
-#ifndef snowy_fs_h
-#define snowy_fs_h
+#ifndef quillc_fs_h
+#define quillc_fs_h
 
 #include "common.h"
 

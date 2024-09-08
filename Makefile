@@ -1,5 +1,5 @@
 build: setup
-	gcc -std=c99 -Wall -Wextra -pedantic -I./src/lib -o .bin/snowy src/bin/snowy.c src/lib/*.c
+	gcc -std=c99 -Wall -Wextra -pedantic -I./src/lib -o .bin/quillc src/bin/quillc.c src/lib/*.c
 
 test-lexer: setup
 	gcc -std=c99 -Wall -Wextra -pedantic -I./src/lib -o .bin/lexer_test tests/lexer.c src/lib/*.c
@@ -9,7 +9,7 @@ test-lexer: setup
 test: test-lexer
 
 run: build
-	.bin/snowy ./examples/hello.sny
+	.bin/quillc ./examples/hello.ql
 
 setup:
 	mkdir -p ./.bin
