@@ -3,8 +3,8 @@
 
 #define INITIAL_TOKENS_CAPACITY 64
 
-ArrayList_Token arraylist_token_create_with_capacity(Allocator const* const allocator, size_t const capacity) {
-    Token* array = allocator->calloc(capacity, sizeof(Token));
+ArrayList_Token arraylist_token_create_with_capacity(Allocator const allocator, size_t const capacity) {
+    Token* array = quill_calloc(allocator, capacity, sizeof(Token));
     
     return (ArrayList_Token){
         .allocator = allocator,
@@ -16,14 +16,14 @@ ArrayList_Token arraylist_token_create_with_capacity(Allocator const* const allo
     };
 }
 
-ArrayList_Token arraylist_token_create(Allocator const* const allocator) {
+ArrayList_Token arraylist_token_create(Allocator const allocator) {
     return arraylist_token_create_with_capacity(allocator, INITIAL_TOKENS_CAPACITY);
 }
 
 void arraylist_token_push(ArrayList_Token* const list, Token const token) {
     if (list->length >= list->capacity) {
         list->capacity = list->length * 2;
-        list->array = list->allocator->realloc(list->array, sizeof(Token) * list->capacity);
+        list->array = quill_realloc(list->allocator, list->array, sizeof(Token) * list->capacity);
     }
 
     list->array[list->length] = token;
@@ -41,7 +41,7 @@ ArrayListResult_Token arraylist_token_set(ArrayList_Token* const list, size_t co
                 list->capacity *= 2;
             }
 
-            list->array = list->allocator->realloc(list->array, sizeof(Token) * list->capacity);
+            list->array = quill_realloc(list->allocator, list->array, sizeof(Token) * list->capacity);
         }
 
         has_value = false;
@@ -67,7 +67,7 @@ void arraylist_token_insert(ArrayList_Token* const list, size_t const idx, Token
 
     if (list->length >= list->capacity) {
         list->capacity = list->length * 2;
-        list->array = list->allocator->realloc(list->array, sizeof(Token) * list->capacity);
+        list->array = quill_realloc(list->allocator, list->array, sizeof(Token) * list->capacity);
     }
 
     for (size_t i = list->length - 1; i >= idx; --i) {

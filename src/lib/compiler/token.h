@@ -7,9 +7,9 @@ typedef enum {
     TT_IDENTIFIER,
 
     // single-character tokens
-    TT_LEFT_PAREN, TT_RIGHT_PAREN,
-    TT_LEFT_BRACE, TT_RIGHT_BRACE,
-    TT_LEFT_BRACKET, TT_RIGHT_BRACKET,
+    TT_LEFT_PAREN, TT_RIGHT_PAREN,     // ()
+    TT_LEFT_BRACE, TT_RIGHT_BRACE,     // {}
+    TT_LEFT_BRACKET, TT_RIGHT_BRACKET, // []
     TT_COMMA, TT_DOT, TT_SEMICOLON,
     TT_QUESTION, TT_CARET,
 
@@ -85,7 +85,7 @@ typedef struct {
 } Token;
 
 typedef struct {
-    Allocator const* const allocator;
+    Allocator const allocator;
 
     size_t capacity;
     size_t length;
@@ -100,8 +100,8 @@ typedef struct {
     } const res;
 } ArrayListResult_Token;
 
-ArrayList_Token arraylist_token_create(Allocator const* const allocator);
-ArrayList_Token arraylist_token_create_with_capacity(Allocator const* const allocator, size_t const capacity);
+ArrayList_Token arraylist_token_create(Allocator const allocator);
+ArrayList_Token arraylist_token_create_with_capacity(Allocator const allocator, size_t const capacity);
 
 void arraylist_token_push(ArrayList_Token* const list, Token const token);
 ArrayListResult_Token arraylist_token_set(ArrayList_Token* const list, size_t const idx, Token const token);

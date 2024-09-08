@@ -5,6 +5,6 @@
 #include "./base.h"
 #include "./strings.h"
 
-String read_file(Allocator const* const allocator, char const* path);
+String read_file(Allocator const allocator, char const* path);
 
 #endif

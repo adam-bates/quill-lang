@@ -4,8 +4,12 @@
 #include "../src/lib/compiler/lexer.h"
 
 int main(void) {
-    Allocator const allocator_s = allocator_create();
-    Allocator const* const allocator = &allocator_s;
+    MaybeAllocator const m_allocator = allocator_create();
+    if (!m_allocator.ok) {
+        fprintf(stderr, "Couldn't initialize allocator");
+        return EXIT_FAILURE;
+    }
+    Allocator const allocator = m_allocator.maybe.allocator;
 
     String const src = c_str("void main() {\n\t// no-op\n}");
 
@@ -52,8 +56,8 @@ int main(void) {
         .array = (Token*)expected_tokens_arr,
     };
 
-    Lexer const lexer = lexer_create(allocator, src);
-    ScanResult const scan_res = lexer_scan(lexer);
+    Lexer lexer = lexer_create(allocator, src);
+    ScanResult const scan_res = lexer_scan(&lexer);
 
     scanres_assert(scan_res);
     ArrayList_Token const tokens = scan_res.res.tokens;

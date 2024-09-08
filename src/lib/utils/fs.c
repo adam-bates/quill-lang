@@ -3,7 +3,7 @@
 
 #include "./utils.h"
 
-String read_file(Allocator const* const allocator, char const* path) {
+String read_file(Allocator const allocator, char const* path) {
     FILE *file = fopen(path, "rb");
     if (file == NULL) {
         fprintf(stderr, "Could not open file \"%s\".\n", path);
@@ -23,7 +23,7 @@ String read_file(Allocator const* const allocator, char const* path) {
     
     rewind(file);
 
-    char *buffer = (char*)allocator->malloc(file_size + 1);
+    char *buffer = (char*)quill_malloc(allocator, file_size + 1);
     if (buffer == NULL) {
         fprintf(stderr, "Not enough memory to read \"%s\".\n", path);
         exit(74);

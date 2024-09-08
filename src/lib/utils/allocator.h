@@ -3,24 +3,27 @@
 
 #include "./base.h"
 
-typedef void* (*const MallocFn)(size_t size);
-typedef void* (*const VallocFn)(size_t size);
-typedef void* (*const CallocFn)(size_t count, size_t size);
-typedef void* (*const ReallocFn)(void* ptr, size_t size);
-typedef void* (*const ReallocOrFreeFn)(void* ptr, size_t size);
-typedef void* (*const AlignedAllocFn)(size_t alignment, size_t size);
-typedef void (*const FreeFn)(void* ptr);
-
 typedef struct {
-    MallocFn const        malloc;
-    VallocFn const        valloc;
-    CallocFn const        calloc;
-    ReallocFn const       realloc;
-    ReallocOrFreeFn const reallocf;
-    AlignedAllocFn const  aligned_alloc;
-    FreeFn const          free;
+    void const* const _internal;
 } Allocator;
 
-Allocator allocator_create(void);
+typedef struct {
+    bool const ok;
+    union {
+        Allocator const allocator;
+        void const* const _;
+    } maybe;
+} MaybeAllocator;
+
+MaybeAllocator allocator_create(void);
+void allocator_destroy(Allocator const allocator);
+
+void* quill_malloc(Allocator const allocator, size_t const size);
+void* quill_valloc(Allocator const allocator, size_t const size);
+void* quill_calloc(Allocator const allocator, size_t const count, size_t const size);
+void* quill_realloc(Allocator const allocator, void* const ptr, size_t const size);
+void* quill_reallocf(Allocator const allocator, void* const ptr, size_t const size);
+void* quill_aligned_alloc(Allocator const allocator, size_t const alignment, size_t const size);
+void  quill_free(Allocator const allocator, void* const ptr);
 
 #endif
