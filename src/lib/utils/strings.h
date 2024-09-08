@@ -4,8 +4,8 @@
 #include "./base.h"
 
 typedef struct {
-    size_t            length;
-    char const* const chars;
+    size_t      length;
+    char const* chars;
 } String;
 
 String c_str(char const* const chars);

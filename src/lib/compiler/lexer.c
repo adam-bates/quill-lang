@@ -175,10 +175,9 @@ static MaybeToken lexer_scan_maybetoken_keyword(Lexer* const lexer) {
 
         size_t const keyword_len = strlen(keyword.pattern);
 
-        if (lexer->current - lexer->start == keyword_len
+        if ((size_t)(lexer->current - lexer->start) == keyword_len
             && memcmp(lexer->start, keyword.pattern, keyword_len) == 0
         ) {
-            printf("MATCH: %s\n", keyword.pattern);
             return maybetoken_some(lexer_token_create(lexer, keyword.type));
         }
     }
@@ -224,6 +223,20 @@ static Token lexer_scan_token(Lexer* const lexer) {
         // TODO: number
     }
 
+    if (c == ':' && lexer_peek(lexer) == ':') {
+        lexer_advance(lexer);
+        return lexer_token_create(lexer, TT_COLON_COLON);
+    }
+
+    if (c == '"') {
+        char cc = lexer_peek(lexer);
+        while (cc != '"') {
+            cc = lexer_advance(lexer);
+        }
+
+        return lexer_token_create(lexer, TT_LITERAL_STRING);
+    }
+
     switch (c) {
         case ':': return lexer_token_create(lexer, TT_COLON);
         case ';': return lexer_token_create(lexer, TT_SEMICOLON);
@@ -255,12 +268,12 @@ ScanResult lexer_scan(Lexer* const lexer) {
     while (!lexer_is_at_end(lexer)) {
         Token const token = lexer_scan_token(lexer);
 
-        {
-            char* token_str = quill_calloc(lexer->allocator, token.length, sizeof(char));
-            strncpy(token_str, token.start, token.length);
-            printf("Token(%d): %s\n", token.type, token_str);
-            quill_free(lexer->allocator, token_str);
-        }
+        // {
+        //     char* token_str = quill_calloc(lexer->allocator, token.length, sizeof(char));
+        //     strncpy(token_str, token.start, token.length);
+        //     printf("Token(%d): %s\n", token.type, token_str);
+        //     quill_free(lexer->allocator, token_str);
+        // }
 
         arraylist_token_push(&tokens, token);
     }
