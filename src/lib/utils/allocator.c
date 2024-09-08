@@ -2,8 +2,8 @@
 
 #include "./utils.h"
 
-Allocator_s allocator_create(void) {
-    return (Allocator_s){
+Allocator allocator_create(void) {
+    return (Allocator){
         .malloc = malloc,
         .valloc = valloc,
         .calloc = calloc,

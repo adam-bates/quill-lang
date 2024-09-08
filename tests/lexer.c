@@ -4,8 +4,8 @@
 #include "../src/lib/compiler/lexer.h"
 
 int main(void) {
-    Allocator_s const allocator_s = allocator_create();
-    Allocator const allocator = &allocator_s;
+    Allocator const allocator_s = allocator_create();
+    Allocator const* const allocator = &allocator_s;
 
     String const src = c_str("void main() {\n\t// no-op\n}");
 

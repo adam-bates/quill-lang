@@ -19,10 +19,8 @@ typedef struct {
     ReallocOrFreeFn const reallocf;
     AlignedAllocFn const  aligned_alloc;
     FreeFn const          free;
-} Allocator_s;
+} Allocator;
 
-typedef Allocator_s const* Allocator;
-
-Allocator_s allocator_create(void);
+Allocator allocator_create(void);
 
 #endif

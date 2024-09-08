@@ -3,7 +3,7 @@
 
 #define INITIAL_TOKENS_CAPACITY 64
 
-ArrayList_Token arraylist_token_create_with_capacity(Allocator const allocator, size_t const capacity) {
+ArrayList_Token arraylist_token_create_with_capacity(Allocator const* const allocator, size_t const capacity) {
     Token* array = allocator->calloc(capacity, sizeof(Token));
     
     return (ArrayList_Token){
@@ -16,7 +16,7 @@ ArrayList_Token arraylist_token_create_with_capacity(Allocator const allocator, 
     };
 }
 
-ArrayList_Token arraylist_token_create(Allocator const allocator) {
+ArrayList_Token arraylist_token_create(Allocator const* const allocator) {
     return arraylist_token_create_with_capacity(allocator, INITIAL_TOKENS_CAPACITY);
 }
 

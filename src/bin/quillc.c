@@ -9,8 +9,8 @@ int main(int const argc, char const* argv[]) {
         return EXIT_FAILURE;
     }
 
-    Allocator_s const allocator_s = allocator_create();
-    Allocator const allocator = &allocator_s;
+    Allocator const allocator_s = allocator_create();
+    Allocator const* const allocator = &allocator_s;
 
     String const source = read_file(allocator, argv[1]);
 

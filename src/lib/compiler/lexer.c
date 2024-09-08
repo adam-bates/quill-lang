@@ -1,19 +1,38 @@
 #include "./compiler.h"
 #include "../utils/utils.h"
+#include "token.h"
 
-static ScanResult scanres_err(Error err) {
+static ScanResult scanres_err(Error const err) {
     return (ScanResult){ .ok = false, .res.err = err };
 }
 
-static ScanResult scanres_ok(ArrayList_Token tokens) {
+static ScanResult scanres_ok(ArrayList_Token const tokens) {
     return (ScanResult){ .ok = true, .res.tokens = tokens };
 }
 
-static bool is_end(Lexer lexer) {
-    return lexer.current[0] == '\0';
+static bool is_at_end(Lexer const lexer) {
+    return *lexer.current == '\0';
 }
 
-Lexer lexer_create(Allocator const allocator, String const source) {
+static bool is_alpha(Lexer const lexer, char const c) {
+    return false; // TODO
+}
+
+static void scan_token(Lexer const lexer) {
+    char const c = *lexer.current;
+
+    if (is_alpha(lexer, c)) {
+        // TODO
+    }
+
+    switch (c) {
+        default: exit(1); // TODO
+    }
+
+    // TODO
+}
+
+Lexer lexer_create(Allocator const* const allocator, String const source) {
     return (Lexer){
         .allocator = allocator,
         .source = source,
@@ -24,6 +43,13 @@ Lexer lexer_create(Allocator const allocator, String const source) {
 }
 
 ScanResult lexer_scan(Lexer const lexer) {
+    ArrayList_Token const tokens = arraylist_token_create(lexer.allocator);
+
+    while (!is_at_end(lexer)) {
+        scan_token(lexer);
+        // TODO
+    }    
+
     // TODO
 
     // ArrayList_Token const tokens = {

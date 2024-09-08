@@ -5,7 +5,7 @@
 #include "./token.h"
 
 typedef struct {
-    Allocator const allocator;
+    Allocator const* const allocator;
 
     String const source;
 
@@ -24,7 +24,7 @@ typedef struct {
 #define scanres_assert(scanres) \
     if (!scanres.ok) { err_print(scanres.res.err); assert(scanres.ok); }
 
-Lexer lexer_create(Allocator const allocator, String const source);
+Lexer lexer_create(Allocator const* const allocator, String const source);
 ScanResult lexer_scan(Lexer const lexer);
 
 #endif
