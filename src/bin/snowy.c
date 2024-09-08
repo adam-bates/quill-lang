@@ -6,41 +6,42 @@
 #include "../lib/fs.h"
 #include "../lib/lexer.h"
 
-int main(int argc, char const* argv[]) {
+int main(int const argc, char const* argv[]) {
     if (argc != 2) {
         fprintf(stderr, "Usage: adam [path]\n");
         return EXIT_FAILURE;
     }
 
-    Allocator const alloc = allocator_create();
+    Allocator_s const allocator_s = allocator_create();
+    Allocator const allocator = &allocator_s;
 
-    char const* source = read_file(alloc, argv[1]);
+    String const source = read_file(allocator, argv[1]);
 
-    printf("---SOURCE---\n%s\n-^--------^-\n", source);
+    printf("---SOURCE---\n%s\n-^--------^-\n", source.chars);
 
     printf("\n\n");
 
-    Lexer lexer = lexer_create(alloc, source);
-    ScanResult scan_res = lexer_scan(lexer);
+    Lexer const lexer = lexer_create(allocator, source);
+    ScanResult const scan_res = lexer_scan(lexer);
 
     scanres_assert(scan_res);
-    Tokens tokens = scan_res.res.tokens;
+    ArrayList_Token const tokens = scan_res.res.tokens;
 
     // print out tokens
     for (size_t i = 0; i < tokens.length; ++i) {
-        Token token = tokens.arr[i];
+        Token const token = tokens.array[i];
 
-        char* token_str = alloc.calloc(token.length, sizeof(char));
+        char* token_str = allocator->calloc(token.length, sizeof(char));
         strncpy(token_str, token.start, token.length);
 
         printf("%lu | %d | %s\n", token.line, token.type, token_str);
 
-        free(token_str);
+        allocator->free(token_str);
     }
 
     // cleanup
-    alloc.free(tokens.arr);
-    alloc.free((void*)source);
+    allocator->free(tokens.array);
+    allocator->free((void*)source.chars);
 
     return EXIT_SUCCESS;
 }

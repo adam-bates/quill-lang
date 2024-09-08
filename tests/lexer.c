@@ -4,64 +4,65 @@
 #include "../src/lib/lexer.h"
 
 int main(void) {
-    Allocator alloc = allocator_create();
+    Allocator_s const allocator_s = allocator_create();
+    Allocator const allocator = &allocator_s;
 
-    char const* src = "void main() {\n\t// no-op\n}";
+    String const src = c_str("void main() {\n\t// no-op\n}");
 
-    Token expected_tokens_arr[] = {
+    Token const expected_tokens_arr[] = {
         {
             .type = TT_VOID,
-            .start = src + 0,
+            .start = src.chars + 0,
             .length = 4,
             .line = 1,
         },
         {
             .type = TT_IDENTIFIER,
-            .start = src + 5,
+            .start = src.chars + 5,
             .length = 4,
             .line = 1,
         },
         {
             .type = TT_LEFT_PAREN,
-            .start = src + 9,
+            .start = src.chars + 9,
             .length = 1,
             .line = 1,
         },
         {
             .type = TT_RIGHT_PAREN,
-            .start = src + 10,
+            .start = src.chars + 10,
             .length = 1,
             .line = 1,
         },
         {
             .type = TT_LEFT_BRACE,
-            .start = src + 12,
+            .start = src.chars + 12,
             .length = 1,
             .line = 1,
         },
         {
             .type = TT_RIGHT_BRACE,
-            .start = src + 24,
+            .start = src.chars + 24,
             .length = 1,
             .line = 3,
         },
     };
-    Tokens expected_tokens = {
+    ArrayList_Token const expected_tokens = {
         .length = 6,
-        .arr = expected_tokens_arr,
+        .array = (Token*)expected_tokens_arr,
     };
 
-    Lexer lexer = lexer_create(alloc, src);
-    ScanResult scan_res = lexer_scan(lexer);
+    Lexer const lexer = lexer_create(allocator, src);
+    ScanResult const scan_res = lexer_scan(lexer);
 
     scanres_assert(scan_res);
-    Tokens tokens = scan_res.res.tokens;
+    ArrayList_Token const tokens = scan_res.res.tokens;
 
     assert(tokens.length == expected_tokens.length);
 
     for (size_t i = 0; i < tokens.length; ++i) {
-        Token token = tokens.arr[i];
-        Token expected_token = expected_tokens.arr[i];
+        Token const token = tokens.array[i];
+        Token const expected_token = expected_tokens.array[i];
 
         assert(token.type == expected_token.type);
         assert(token.type == expected_token.type);

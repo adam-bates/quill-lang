@@ -3,6 +3,8 @@
 
 #include <stdlib.h>
 
+#include "strings.h"
+
 typedef enum {
     ET_UNSPECIFIED,
     ET_UNIMPLEMENTED,
@@ -12,16 +14,21 @@ typedef enum {
 } ErrorType;
 
 typedef struct {
-    ErrorType   type;
-    char const* msg;
+    ErrorType const type;
+    String const    msg;
 
-    char const* file;
-    size_t line;
+    char const* const file;
+    size_t const      line;
 } Error;
 
 #define err_create(type, msg) _err_create(type, msg, __FILE__, __LINE__)
 
-Error _err_create(ErrorType type, char const* msg, char const* file, size_t line);
-void err_print(Error err);
+Error _err_create(
+    ErrorType const type,
+    char const* const msg,
+    char const* const file,
+    size_t const line);
+
+void err_print(Error const err);
 
 #endif

@@ -4,17 +4,22 @@
 #include "common.h"
 #include "error.h"
 
-Error _err_create(ErrorType type, char const* msg, char const* file, size_t line) {
+Error _err_create(
+    ErrorType const type,
+    char const* const msg,
+    char const* const file,
+    size_t const line
+) {
     return (Error){
         .type = type,
-        .msg = msg,
+        .msg = c_str(msg),
         .file = file,
         .line = line,
     };
 }
 
-void err_print(Error err) {
-    char* tstr;
+void err_print(Error const err) {
+    char const* tstr;
     switch (err.type) {
         case ET_UNSPECIFIED: tstr = "Unspecified"; break;
         case ET_UNIMPLEMENTED: tstr = "Not Implemented"; break;
@@ -23,5 +28,5 @@ void err_print(Error err) {
         case ET_COUNT: assert(err.type != ET_COUNT); return;
     }
 
-    fprintf(stderr, "[%s:%lu] Error! %s: %s\n", err.file, err.line, tstr, err.msg);
+    fprintf(stderr, "[%s:%lu] Error! %s: %s\n", err.file, err.line, tstr, err.msg.chars);
 }

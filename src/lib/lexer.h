@@ -5,26 +5,26 @@
 #include "token.h"
 
 typedef struct {
-    char const* source;
+    Allocator const allocator;
+
+    String const source;
 
     char const* current;
     int line;
-
-    Allocator alloc;
 } Lexer;
 
 typedef struct {
-    bool ok;
+    bool const ok;
     union {
-        Tokens tokens;
-        Error err;
-    } res;
+        ArrayList_Token const tokens;
+        Error const err;
+    } const res;
 } ScanResult;
 
 #define scanres_assert(scanres) \
     if (!scanres.ok) { err_print(scanres.res.err); assert(scanres.ok); }
 
-Lexer lexer_create(Allocator alloc, char const* source);
-ScanResult lexer_scan(Lexer lexer);
+Lexer lexer_create(Allocator const allocator, String const source);
+ScanResult lexer_scan(Lexer const lexer);
 
 #endif

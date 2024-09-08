@@ -8,69 +8,70 @@ static ScanResult scanres_err(Error err) {
     return (ScanResult){ .ok = false, .res.err = err };
 }
 
-static ScanResult scanres_ok(Tokens tokens) {
+static ScanResult scanres_ok(ArrayList_Token tokens) {
     return (ScanResult){ .ok = true, .res.tokens = tokens };
 }
 
-Lexer lexer_create(Allocator const alloc, char const* source) {
-    return (Lexer){
-        .source = source,
-        .current = source,
-        .line = 1,
+static bool is_end(Lexer lexer) {
+    return lexer.current[0] == '\0';
+}
 
-        .alloc = alloc,
+Lexer lexer_create(Allocator const allocator, String const source) {
+    return (Lexer){
+        .allocator = allocator,
+        .source = source,
+
+        .current = source.chars,
+        .line = 1,
     };
 }
 
-ScanResult lexer_scan(Lexer lexer) {
+ScanResult lexer_scan(Lexer const lexer) {
     // TODO
 
-    // Tokens tokens = {
+    // ArrayList_Token const tokens = {
     //     .length = 6,
-    //     .arr = calloc(6, sizeof(Token)),
+    //     .array = lexer.allocator->calloc(6, sizeof(Token)),
     // };
 
-    // if (tokens.arr == NULL) {
-    //     return (ScanResult) {
-    //         .ok = false,
-    //         .res.err = err_create(ET_OUT_OF_MEMORY, "Couldn't allocate tokens for scanner"),
-    //     };
+    // if (tokens.array == NULL) {
+    //     return scanres_err(err_create(ET_OUT_OF_MEMORY, "Couldn't allocate tokens for scanner"));
     // }
 
     // size_t idx = 0;
-    // tokens.arr[idx++] = (Token){
+    // tokens.array[idx++] = (Token){
     //         .type = TT_VOID,
-    //         .start = lexer.source + 0,
+    //         .start = lexer.source.chars + 0,
     //         .length = 4,
     //         .line = 1,
     //     };
-    // tokens.arr[idx++] = (Token){
+    // tokens.array[idx++] = (Token){
     //     .type = TT_IDENTIFIER,
-    //     .start = lexer.source + 5,
+    //     .start = lexer.source.chars + 5,
     //     .length = 4,
     //     .line = 1,
     // };
-    // tokens.arr[idx++] = (Token){
+    // tokens.array[idx++] = (Token){
     //     .type = TT_LEFT_PAREN,
-    //     .start = lexer.source + 9,
+    //     .start = lexer.source.chars + 9,
     //     .length = 1,
     //     .line = 1,
     // };
-    // tokens.arr[idx++] = (Token){
+    // tokens.array[idx++] = (Token){
     //     .type = TT_RIGHT_PAREN,
-    //     .start = lexer.source + 10,
+    //     .start = lexer.source.chars + 10,
     //     .length = 1,
     //     .line = 1,
     // };
-    // tokens.arr[idx++] = (Token){
+    // tokens.array[idx++] = (Token){
     //     .type = TT_LEFT_BRACE,
-    //     .start = lexer.source + 12,
+    //     .start = lexer.source.chars + 12,
     //     .length = 1,
     //     .line = 1,
     // };
-    // tokens.arr[idx++] = (Token){
+    // tokens.array[idx++] = (Token){
     //     .type = TT_RIGHT_BRACE,
-    //     .start = lexer.source + 24,
+    //     .start = lexer.source.chars + 24,
     //     .length = 1,
     //     .line = 3,
     // };

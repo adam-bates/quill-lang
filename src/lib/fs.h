@@ -3,6 +3,6 @@
 
 #include "common.h"
 
-char const* read_file(Allocator const alloc, char const* path);
+String read_file(Allocator const allocator, char const* path);
 
 #endif

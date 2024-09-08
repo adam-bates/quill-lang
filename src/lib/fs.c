@@ -3,7 +3,7 @@
 #include "common.h"
 #include "fs.h"
 
-char const* read_file(Allocator const alloc, char const* path) {
+String read_file(Allocator const allocator, char const* path) {
     FILE *file = fopen(path, "rb");
     if (file == NULL) {
         fprintf(stderr, "Could not open file \"%s\".\n", path);
@@ -23,7 +23,7 @@ char const* read_file(Allocator const alloc, char const* path) {
     
     rewind(file);
 
-    char *buffer = (char*)alloc.malloc(file_size + 1);
+    char *buffer = (char*)allocator->malloc(file_size + 1);
     if (buffer == NULL) {
         fprintf(stderr, "Not enough memory to read \"%s\".\n", path);
         exit(74);
@@ -39,6 +39,6 @@ char const* read_file(Allocator const alloc, char const* path) {
 
     fclose(file);
 
-    return (char const*)buffer;
+    return c_str(buffer);
 }
 

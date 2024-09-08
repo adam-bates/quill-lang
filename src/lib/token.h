@@ -85,8 +85,26 @@ typedef struct {
 } Token;
 
 typedef struct {
+    Allocator const allocator;
+
+    size_t capacity;
     size_t length;
-    Token*  arr;
-} Tokens;
+    Token* array;
+} ArrayList_Token;
+
+typedef struct {
+    bool const ok;
+    union {
+        Error const err;
+        Token const token;
+    } const res;
+} ArrayListResult_Token;
+
+ArrayList_Token arraylist_token_create(Allocator const allocator);
+ArrayList_Token arraylist_token_create_with_capacity(Allocator const allocator, size_t const capacity);
+
+void arraylist_token_push(ArrayList_Token* const list, Token const token);
+ArrayListResult_Token arraylist_token_set(ArrayList_Token* const list, size_t const idx, Token const token);
+void arraylist_token_insert(ArrayList_Token* const list, size_t const idx, Token const token);
 
 #endif

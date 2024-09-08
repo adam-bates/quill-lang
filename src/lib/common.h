@@ -8,6 +8,7 @@
 
 #include "allocator.h"
 #include "error.h"
+#include "strings.h"
 
 #define EXIT_SUCCESS 0
 

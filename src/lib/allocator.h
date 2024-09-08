@@ -12,15 +12,17 @@ typedef void* (*const AlignedAllocFn)(size_t alignment, size_t size);
 typedef void (*const FreeFn)(void* ptr);
 
 typedef struct {
-    MallocFn        malloc;
-    VallocFn        valloc;
-    CallocFn        calloc;
-    ReallocFn       realloc;
-    ReallocOrFreeFn reallocf;
-    AlignedAllocFn  aligned_alloc;
-    FreeFn          free;
-} Allocator;
+    MallocFn const        malloc;
+    VallocFn const        valloc;
+    CallocFn const        calloc;
+    ReallocFn const       realloc;
+    ReallocOrFreeFn const reallocf;
+    AlignedAllocFn const  aligned_alloc;
+    FreeFn const          free;
+} Allocator_s;
 
-Allocator allocator_create(void);
+typedef Allocator_s const* Allocator;
+
+Allocator_s allocator_create(void);
 
 #endif
