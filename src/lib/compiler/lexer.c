@@ -1,4 +1,3 @@
-#include <stdio.h> // for debugging
 #include <string.h>
 
 #include "./compiler.h"
@@ -153,15 +152,55 @@ static void lexer_skip_whitespace(Lexer* const lexer) {
                 lexer_advance(lexer);
                 break;
             case '/':
-                if (lexer_peek_next(lexer) != '/') {
-                    return;
-                }
+                switch (lexer_peek_next(lexer)) {
+                    case '/': {
+                        // a line comment goes until the end of the line
+                        while (lexer_peek(lexer) != '\n' && !lexer_is_at_end(lexer)) {
+                            lexer_advance(lexer);
+                        }
+                        break;
+                    }
 
-                // a line comment goes until the end of the line
-                while (lexer_peek(lexer) != '\n' && !lexer_is_at_end(lexer)) {
-                    lexer_advance(lexer);
-                }
+                    case '*': {
+                        lexer->multiline_comment_nest += 1;
+                        lexer_advance(lexer); // '/'
+                        lexer_advance(lexer); // '*'
 
+                        while (true) {
+                            if (lexer_is_at_end(lexer)) {
+                                break;
+                            }
+
+                            if (lexer_peek(lexer) == '\n') {
+                                lexer->line += 1;
+                            }
+
+                            if (lexer_peek(lexer) == '/' && lexer_peek_next(lexer) == '*') {
+                                lexer->multiline_comment_nest += 1;
+                                lexer_advance(lexer); // '/'
+                                lexer_advance(lexer); // '*'
+                                continue;
+                            }
+
+                            if (lexer_peek(lexer) == '*' && lexer_peek_next(lexer) == '/') {
+                                lexer->multiline_comment_nest -= 1;
+                                lexer_advance(lexer); // '*'
+                                lexer_advance(lexer); // '/'
+
+                                if (lexer->multiline_comment_nest == 0) {
+                                    break;
+                                } else {
+                                    continue;
+                                }
+                            }
+
+                            lexer_advance(lexer);
+                        }
+                        break;
+                    }
+
+                    default: return;
+                }
                 break;
             default:
                 return;
@@ -169,7 +208,7 @@ static void lexer_skip_whitespace(Lexer* const lexer) {
     }
 }
 
-static MaybeToken lexer_scan_maybetoken_keyword(Lexer* const lexer) {
+static MaybeToken lexer_scan_keyword_maybe(Lexer* const lexer) {
     for (size_t i = 0; i < KEYWORD_MATCHES_LEN; ++i) {
         KeywordMatch const keyword = KEYWORD_MATCHES[i];
 
@@ -185,7 +224,7 @@ static MaybeToken lexer_scan_maybetoken_keyword(Lexer* const lexer) {
     return maybetoken_none();
 }
 
-static Token lexer_scan_token_keyword_or_identifier(Lexer* const lexer) {
+static Token lexer_scan_keyword_or_identifier(Lexer* const lexer) {
     char c = lexer_peek(lexer);
 
     while (char_is_alpha(c) || char_is_digit(c)) {
@@ -194,13 +233,122 @@ static Token lexer_scan_token_keyword_or_identifier(Lexer* const lexer) {
     }
 
     // try keyword match
-    MaybeToken const m_keyword = lexer_scan_maybetoken_keyword(lexer);
+    MaybeToken const m_keyword = lexer_scan_keyword_maybe(lexer);
     if (m_keyword.ok) {
         return m_keyword.maybe.token;
     }
 
     // fallback to identifier
     return lexer_token_create(lexer, TT_IDENTIFIER);
+}
+
+static Token lexer_scan_number(Lexer* const lexer) {
+    while (char_is_digit(lexer_peek(lexer))) {
+        lexer_advance(lexer);
+    }
+
+    // look for a fractional part
+    if (lexer_peek(lexer) == '.' && char_is_digit(lexer_peek_next(lexer))) {
+        // consume to "."
+        lexer_advance(lexer);
+
+        while (char_is_digit(lexer_peek(lexer))) {
+            lexer_advance(lexer);
+        }
+    }
+
+    return lexer_token_create(lexer, TT_LITERAL_NUMBER);
+}
+
+static Token lexer_scan_chars(Lexer* const lexer) {
+    while (lexer_peek(lexer) != '\'' && !lexer_is_at_end(lexer)) {
+        if (lexer_peek(lexer) == '\n') {
+            lexer->line += 1;
+            return lexer_token_error(lexer, "Unterminated char(s)");
+        }
+
+        char const _ = lexer_advance(lexer);
+    }
+
+    if (lexer_is_at_end(lexer)) {
+        return lexer_token_error(lexer, "Unterminated char(s)");
+    }
+
+    char _ = lexer_advance(lexer);
+
+    return lexer_token_create(lexer, TT_LITERAL_CHAR);
+}
+
+static Token lexer_scan_string(Lexer* const lexer) {
+    while (lexer_peek(lexer) != '"' && !lexer_is_at_end(lexer)) {
+        if (lexer_peek(lexer) == '\n') {
+            lexer->line += 1;
+            return lexer_token_error(lexer, "Unterminated string");
+        }
+
+        char const _ = lexer_advance(lexer);
+    }
+
+    if (lexer_is_at_end(lexer)) {
+        return lexer_token_error(lexer, "Unterminated string");
+    }
+
+    char _ = lexer_advance(lexer);
+
+    return lexer_token_create(lexer, TT_LITERAL_STRING);
+}
+
+static Token lexer_scan_template_string_start(Lexer* const lexer) {
+    while (lexer_peek(lexer) != '{' && lexer_peek(lexer) != '`' && !lexer_is_at_end(lexer)) {
+        if (lexer_peek(lexer) == '\n') {
+            lexer->line += 1;
+        }
+
+        if (lexer_peek(lexer) == '\\') {
+            char const _ = lexer_advance(lexer);
+        }
+
+        char const _ = lexer_advance(lexer);
+    }
+
+    if (lexer_is_at_end(lexer)) {
+        return lexer_token_error(lexer, "Unterminated template string");
+    }
+
+    char c = lexer_advance(lexer);
+
+    if (c == '{') {
+        lexer->template_string_nest += 1;
+        return lexer_token_create(lexer, TT_LITERAL_STRING_TEMPLATE_START);
+    } else {
+        return lexer_token_create(lexer, TT_LITERAL_STRING_TEMPLATE_FULL);
+    }
+}
+
+static Token lexer_scan_template_string_cont(Lexer* const lexer) {
+    while (lexer_peek(lexer) != '{' && lexer_peek(lexer) != '`' && !lexer_is_at_end(lexer)) {
+        if (lexer_peek(lexer) == '\n') {
+            lexer->line += 1;
+        }
+
+        if (lexer_peek(lexer) == '\\') {
+            char const _ = lexer_advance(lexer);
+        }
+
+        char const _ = lexer_advance(lexer);
+    }
+
+    if (lexer_is_at_end(lexer)) {
+        return lexer_token_error(lexer, "Unterminated string");
+    }
+
+    char c = lexer_advance(lexer);
+
+    if (c == '`') {
+        lexer->template_string_nest -= 1;
+    }
+
+    return lexer_token_create(lexer, TT_LITERAL_STRING_TEMPLATE_CONT);
 }
 
 static Token lexer_scan_token(Lexer* const lexer) {
@@ -215,42 +363,80 @@ static Token lexer_scan_token(Lexer* const lexer) {
     char const c = lexer_advance(lexer);
 
     if (char_is_alpha(c)) {
-        return lexer_scan_token_keyword_or_identifier(lexer);
+        return lexer_scan_keyword_or_identifier(lexer);
     }
 
     if (char_is_digit(c)) {
-        printf("digit: %c\n", c);
-        // TODO: number
+        return lexer_scan_number(lexer);
     }
 
-    if (c == ':' && lexer_peek(lexer) == ':') {
-        lexer_advance(lexer);
-        return lexer_token_create(lexer, TT_COLON_COLON);
-    }
-
-    if (c == '"') {
-        char cc = lexer_peek(lexer);
-        while (cc != '"') {
-            cc = lexer_advance(lexer);
-        }
-
-        return lexer_token_create(lexer, TT_LITERAL_STRING);
+    if (c == '}' && lexer->template_string_nest > 0) {
+        return lexer_scan_template_string_cont(lexer);
     }
 
     switch (c) {
-        case ':': return lexer_token_create(lexer, TT_COLON);
-        case ';': return lexer_token_create(lexer, TT_SEMICOLON);
+        case '\'': return lexer_scan_chars(lexer);
+        case '"': return lexer_scan_string(lexer);
+        case '`': return lexer_scan_template_string_start(lexer);
+
         case '(': return lexer_token_create(lexer, TT_LEFT_PAREN);
         case ')': return lexer_token_create(lexer, TT_RIGHT_PAREN);
         case '{': return lexer_token_create(lexer, TT_LEFT_BRACE);
         case '}': return lexer_token_create(lexer, TT_RIGHT_BRACE);
-        case '"': return lexer_token_create(lexer, TT_LITERAL_STRING);
+        case '[': return lexer_token_create(lexer, TT_LEFT_BRACKET);
+        case ']': return lexer_token_create(lexer, TT_RIGHT_BRACKET);
         case ',': return lexer_token_create(lexer, TT_COMMA);
-        case '!': return lexer_token_create(lexer, TT_BANG);
-        default: exit(1); // TODO
+        case '.': return lexer_token_create(lexer, TT_DOT);
+        case ';': return lexer_token_create(lexer, TT_SEMICOLON);
+        case '?': return lexer_token_create(lexer, TT_QUESTION);
+
+        case '!': return lexer_token_create(lexer,
+            lexer_match_char(lexer, '=') ? TT_BANG_EQUAL : TT_BANG
+        );
+        case '=': return lexer_token_create(lexer,
+            lexer_match_char(lexer, '=') ? TT_EQUAL_EQUAL : TT_EQUAL
+        );
+        case '+': return lexer_token_create(lexer,
+            lexer_match_char(lexer, '=') ? TT_PLUS_EQUAL : TT_PLUS
+        );
+        case '-': return lexer_token_create(lexer,
+            lexer_match_char(lexer, '=') ? TT_MINUS_EQUAL : TT_MINUS
+        );
+        case '/': return lexer_token_create(lexer,
+            lexer_match_char(lexer, '=') ? TT_SLASH_EQUAL : TT_SLASH
+        );
+        case '*': return lexer_token_create(lexer,
+            lexer_match_char(lexer, '=') ? TT_STAR_EQUAL : TT_STAR
+        );
+        case '^': return lexer_token_create(lexer,
+            lexer_match_char(lexer, '=') ? TT_CARET_EQUAL : TT_CARET
+        );
+        case '>': return lexer_token_create(lexer,
+            lexer_match_char(lexer, '=') ? TT_GREATER_EQUAL : (
+                lexer_match_char(lexer, '>') ? TT_GREATER_GREATER : TT_GREATER
+            )
+        );
+        case '<': return lexer_token_create(lexer,
+            lexer_match_char(lexer, '=') ? TT_LESS_EQUAL : (
+                lexer_match_char(lexer, '<') ? TT_LESS_LESS : TT_LESS
+            )
+        );
+        case '|': return lexer_token_create(lexer,
+            lexer_match_char(lexer, '=') ? TT_PIPE_EQUAL : (
+                lexer_match_char(lexer, '|') ? TT_PIPE_PIPE : TT_PIPE
+            )
+        );
+        case '&': return lexer_token_create(lexer,
+            lexer_match_char(lexer, '=') ? TT_AMPERSAND_EQUAL : (
+                lexer_match_char(lexer, '&') ? TT_AMPERSAND_AMPERSAND : TT_AMPERSAND
+            )
+        );
+        case ':': return lexer_token_create(lexer,
+            lexer_match_char(lexer, ':') ? TT_COLON_COLON : TT_COLON
+        );
     }
 
-    // TODO
+    return lexer_token_error(lexer, "Unexpected character(s).");
 }
 
 Lexer lexer_create(Allocator const allocator, String const source) {
@@ -259,6 +445,9 @@ Lexer lexer_create(Allocator const allocator, String const source) {
         .start = source.chars,
         .current = source.chars,
         .line = 1,
+
+        .template_string_nest = 0,
+        .multiline_comment_nest = 0,
     };
 }
 
@@ -267,14 +456,6 @@ ScanResult lexer_scan(Lexer* const lexer) {
 
     while (!lexer_is_at_end(lexer)) {
         Token const token = lexer_scan_token(lexer);
-
-        // {
-        //     char* token_str = quill_calloc(lexer->allocator, token.length, sizeof(char));
-        //     strncpy(token_str, token.start, token.length);
-        //     printf("Token(%d): %s\n", token.type, token_str);
-        //     quill_free(lexer->allocator, token_str);
-        // }
-
         arraylist_token_push(&tokens, token);
     }
 
