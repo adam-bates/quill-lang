@@ -1,7 +1,7 @@
 #ifndef quillc_string_h
 #define quillc_string_h
 
-#include <stdlib.h>
+#include "./base.h"
 
 typedef struct {
     size_t            length;

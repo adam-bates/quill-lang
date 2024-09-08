@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 
-#include "../src/lib/lexer.h"
+#include "../src/lib/compiler/lexer.h"
 
 int main(void) {
     Allocator_s const allocator_s = allocator_create();

@@ -1,10 +1,7 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
-#include "../lib/common.h"
-#include "../lib/fs.h"
-#include "../lib/lexer.h"
+#include "../lib/quillc.h"
 
 int main(int const argc, char const* argv[]) {
     if (argc != 2) {

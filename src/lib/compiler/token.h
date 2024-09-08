@@ -1,7 +1,7 @@
 #ifndef quillc_token_h
 #define quillc_token_h
 
-#include "common.h"
+#include "../utils/utils.h"
 
 typedef enum {
     TT_IDENTIFIER,

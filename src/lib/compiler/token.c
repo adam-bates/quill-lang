@@ -1,5 +1,5 @@
-#include "common.h"
-#include "token.h"
+#include "./compiler.h"
+#include "../utils/utils.h"
 
 #define INITIAL_TOKENS_CAPACITY 64
 

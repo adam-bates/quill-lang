@@ -1,7 +1,7 @@
 #ifndef quillc_allocator_h
 #define quillc_allocator_h
 
-#include <stdlib.h>
+#include "./base.h"
 
 typedef void* (*const MallocFn)(size_t size);
 typedef void* (*const VallocFn)(size_t size);

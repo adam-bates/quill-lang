@@ -1,7 +1,7 @@
 #include <stdio.h>
+#include <stdlib.h>
 
-#include "common.h"
-#include "fs.h"
+#include "./utils.h"
 
 String read_file(Allocator const allocator, char const* path) {
     FILE *file = fopen(path, "rb");

@@ -1,8 +1,8 @@
 #ifndef quillc_lexer_h
 #define quillc_lexer_h
 
-#include "common.h"
-#include "token.h"
+#include "../utils/utils.h"
+#include "./token.h"
 
 typedef struct {
     Allocator const allocator;

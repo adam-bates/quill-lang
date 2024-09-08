@@ -1,8 +1,5 @@
-#include <stdlib.h>
-
-#include "common.h"
-#include "error.h"
-#include "lexer.h"
+#include "./compiler.h"
+#include "../utils/utils.h"
 
 static ScanResult scanres_err(Error err) {
     return (ScanResult){ .ok = false, .res.err = err };
