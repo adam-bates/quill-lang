@@ -15,10 +15,10 @@ int main(String[] args) {
     for i in 1..=n {
         let match = false;
 
-        if n % 3 == 0 { io::printf("Fizz"); match = true; }
-        if n % 5 == 0 { io::printf("Buzz"); match = true; }
+        if i % 3 == 0 { io::printf("Fizz"); match = true; }
+        if i % 5 == 0 { io::printf("Buzz"); match = true; }
 
-        if !match { io::printf("%d", n); }
+        if !match { io::printf("%d", i); }
 
         io::println();
     }
