@@ -16,11 +16,9 @@ ExitCode main(String[] args) {
         }
     };
 
-    Result<uint8> res = parse_uint8(args[2]);
-    if !res {
-        CRASH `Error parsing as uint8: {res.err}`;
-    }
-    uint8 n = res.val;
+    uint8 n = (let it = parse_uint8(args[2])) else {
+        CRASH `Error parsing as uint8: {it.err}`;
+    };
 
     uint64(uint8)* nth_fib_fnptr = switch speed {
         case Speed::SLOW { break nth_fib_slow; }

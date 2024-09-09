@@ -18,7 +18,7 @@ int main(String[] args) {
         if n % 3 == 0 { io::printf("Fizz"); match = true; }
         if n % 5 == 0 { io::printf("Buzz"); match = true; }
 
-        if !match { io::printf(`{n}`); }
+        if !match { io::printf("%d", n); }
 
         io::println();
     }
