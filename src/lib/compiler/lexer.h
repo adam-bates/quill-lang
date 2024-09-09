@@ -9,7 +9,7 @@ typedef struct {
 
     char const* start;
     char const* current;
-    int line;
+    size_t line;
 
     size_t template_string_nest;
     size_t multiline_comment_nest;
