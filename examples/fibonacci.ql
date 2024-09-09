@@ -7,8 +7,8 @@ ExitCode main(String[] args) {
     }
 
     let speed = switch str_to_lower(args[1]) {
-        case "slow" { break Speed::SLOW }
-        case "fast" { break Speed::FAST }
+        case "slow" { break Speed::SLOW; }
+        case "fast" { break Speed::FAST; }
 
         else {
             io::eprintln("Usage: fibonacci [slow|fast] [number]");
@@ -25,8 +25,8 @@ ExitCode main(String[] args) {
         case Speed::FAST { break nth_fib_fast; }
     };
 
-    for n in 0..n {
-        io::printf("fib(%d) = %d\n", n, nth_fib_fnptr(n));
+    for i in 0..n {
+        io::printf("fib(%d) = %d\n", i, nth_fib_fnptr(i));
     }
 
     return ExitCode::SUCCESS;
