@@ -188,8 +188,6 @@ void main() {
     language features will also work with your own custom duck-types
     the stipulation is they have to look the same as the std library type
 */
-void no_std();
-
 struct CustomString {
     uint  length;
     char* chars;
