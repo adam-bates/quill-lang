@@ -16,7 +16,7 @@ int main(int const argc, char const* const argv[]) {
     }
     Allocator const allocator = m_allocator.maybe.allocator;
 
-    String const source = read_file(allocator, argv[1]);
+    String const source = file_read(allocator, argv[1]);
 
     printf("---SOURCE---\n%s\n-^--------^-\n", source.chars);
 
