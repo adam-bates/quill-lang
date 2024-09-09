@@ -2,6 +2,10 @@
 
 /*
     multi-line comment
+
+    /* nested multi-line comments! */
+
+    note: the end of the above "inner" comment didn't close the "outer" one.
 */
 
 // import statements
