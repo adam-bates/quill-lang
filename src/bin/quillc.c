@@ -8,6 +8,7 @@ int main(int const argc, char const* const argv[]) {
         fprintf(stderr, "Usage: quillc [path]\n");
         return EXIT_FAILURE;
     }
+    char const* const source_path = argv[1];
 
     MaybeAllocator const m_allocator = allocator_create();
     if (!m_allocator.ok) {
@@ -16,11 +17,7 @@ int main(int const argc, char const* const argv[]) {
     }
     Allocator const allocator = m_allocator.maybe.allocator;
 
-    String const source = file_read(allocator, argv[1]);
-
-    printf("---SOURCE---\n%s\n-^--------^-\n", source.chars);
-
-    printf("\n\n");
+    String const source = file_read(allocator, source_path);
 
     Lexer lexer = lexer_create(allocator, source);
     ScanResult const scan_res = lexer_scan(&lexer);
