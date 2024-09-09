@@ -58,3 +58,22 @@ int main(String[] args) {
 ## Why does this exist?
 
 It's the langauge I want to write code in.
+
+## Using the language
+
+For now, there is only a compiler which handles single files. I'll improve the tooling later.
+
+Download this repo, then build the compiler using:
+```
+make
+```
+
+You can run the repo's tests using:
+```
+make test
+```
+
+Now, assuming you have a file called `my_program.ql`, you can compile it using:
+```
+.bin/quillc my_program.ql
+```
