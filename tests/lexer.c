@@ -48,6 +48,8 @@ void test_lexer(
         assert_eq_u64(expected_token.length, token.length);
         assert_eq_u64(expected_token.line, token.line);
     }
+
+    arraylist_token_destroy(tokens);
 }
 
 int main(void) {

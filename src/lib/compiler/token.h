@@ -104,9 +104,8 @@ typedef struct {
 
 ArrayList_Token arraylist_token_create(Allocator const allocator);
 ArrayList_Token arraylist_token_create_with_capacity(Allocator const allocator, size_t const capacity);
+void arraylist_token_destroy(ArrayList_Token const list);
 
 void arraylist_token_push(ArrayList_Token* const list, Token const token);
-ArrayListResult_Token arraylist_token_set(ArrayList_Token* const list, size_t const idx, Token const token);
-void arraylist_token_insert(ArrayList_Token* const list, size_t const idx, Token const token);
 
 #endif

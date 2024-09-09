@@ -41,7 +41,7 @@ int main(int const argc, char const* argv[]) {
     }
 
     // cleanup
-    quill_free(allocator, tokens.array);
+    arraylist_token_destroy(tokens);
     quill_free(allocator, (void*)source.chars);
 
     return EXIT_SUCCESS;
