@@ -3,7 +3,7 @@
 
 #include "../lib/quillc.h"
 
-int main(int const argc, char const* argv[]) {
+int main(int const argc, char const* const argv[]) {
     if (argc != 2) {
         fprintf(stderr, "Usage: quillc [path]\n");
         return EXIT_FAILURE;
