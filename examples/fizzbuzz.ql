@@ -13,7 +13,7 @@ int main(String[] args) {
     uint n = res.val;
 
     for i in 1..=n {
-        let match = false;
+        let mut match = false;
 
         if i % 3 == 0 { io::printf("Fizz"); match = true; }
         if i % 5 == 0 { io::printf("Buzz"); match = true; }

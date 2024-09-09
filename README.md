@@ -41,7 +41,7 @@ int main(String[] args) {
     uint n = res.val;
 
     for i in 1..=n {
-        let match = false;
+        let mut match = false;
 
         if n % 3 == 0 { io::printf("Fizz"); match = true; }
         if n % 5 == 0 { io::printf("Buzz"); match = true; }
