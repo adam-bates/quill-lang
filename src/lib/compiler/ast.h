@@ -14,11 +14,13 @@ typedef enum {
     ANT_BINARY_OP,
     ANT_LITERAL,
     ANT_VAR_DECL,
-    ANT_VAL_REF,
+    ANT_VAR_REF,
     ANT_ASSIGNMENT,
     ANT_FUNCTION_CALL,
     ANT_STATEMENT_BLOCK,
     // TODO: more
+
+    ANT_COUNT
 } ASTNodeType;
 
 typedef enum {
@@ -52,8 +54,8 @@ typedef enum {
 
 typedef struct {
     BinaryOp const op;
-    struct ASTNode_s const* const left;
-    struct ASTNode_s const* const right;
+    struct ASTNode_s const* const lhs;
+    struct ASTNode_s const* const rhs;
 } ASTNodeBinaryOp;
 
 typedef enum {
@@ -64,6 +66,8 @@ typedef enum {
     LK_CHAR,
     LK_CHARS,
     LK_NULL,
+
+    LK_COUNT
 } LiteralKind;
 
 typedef struct {
@@ -79,20 +83,66 @@ typedef struct {
     } const value;
 } ASTNodeLiteral;
 
+typedef enum {
+    VDLT_NAME,
+    VDLT_TUPLE,
+
+    VDLT_COUNT
+} VarDeclLHSType;
+
+typedef struct {
+    VarDeclLHSType const type;
+    union {
+        String const name;
+        String const* const tuple_names;
+    };
+    size_t const count;
+} VarDeclLHS;
+
 typedef struct {
     // note: can also be `let` for var decls
     TokensSlice const type_tokens;
 
-    String const var_name;
+    VarDeclLHS const lhs;
     struct ASTNode_s const* const initializer;
 } ASTNodeVarDecl;
+
+typedef struct {
+    String const var_name;
+} ASTNodeVarRef;
+
+typedef enum {
+    AO_ASSIGN,
+
+    AO_PLUS_ASSIGN,
+    AO_MINUS_ASSIGN,
+    AO_MULTIPLY_ASSIGN,
+    AO_DIVIDE_ASSIGN,
+
+    AO_BIT_AND_ASSIGN,
+    AO_BIT_OR_ASSIGN,
+    AO_BIT_XOR_ASSIGN,
+
+    AO_COUNT
+} AssignmentOp;
+
+typedef struct {
+    AssignmentOp const op;
+    struct ASTNode_s const* const lhs;
+    struct ASTNode_s const* const rhs;
+} ASTNodeAssignment;
 
 typedef struct {
     struct ASTNode_s const* const function;
 
     struct ASTNode_s const* const* const args;
-    size_t args_count;
+    size_t const args_count;
 } ASTNodeFunctionCall;
+
+typedef struct {
+    struct ASTNode_s const* const* const stmts;
+    size_t const stmts_count;
+} ASTNodeStatementBlock;
 
 typedef struct ASTNode_s {
     ASTNodeType const type;
@@ -101,7 +151,9 @@ typedef struct ASTNode_s {
         ASTNodeBinaryOp const binary_op;
         ASTNodeLiteral const literal;
         ASTNodeVarDecl const var_decl;
+        ASTNodeVarRef const var_ref;
         ASTNodeFunctionCall const function_call;
+        ASTNodeStatementBlock const statement_block;
     } const node;
 } ASTNode;
 
