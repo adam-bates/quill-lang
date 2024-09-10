@@ -6,19 +6,8 @@ int main(String[] args) {
         return 1;
     }
 
-    Result<uint> res = parse_uint(args[1]);
-    if !res {
-        CRASH `Error parsing as uint: {res.err}`;
-    }
-    uint n = res.val;
-
-    uint! res = parse_uint(args[1]);
-
-    uint n = res else 0;
-    uint n = res else err { CRASH err; };
-
-    uint n = res else e {
-        CRASH `Error parsing as uint: {e}`;
+    uint n = parse_uint(args[1]) catch err {
+        CRASH `Error parsing uint: {err}`;
     };
 
     for i in 1..=n {

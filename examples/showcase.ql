@@ -71,34 +71,38 @@ void main() {
     uint    ptr = (uint)ptr;
 
     // arrays
-    int[] v = []{ 1, 2, 3 }; // <-- prefixed by the length
-    int*  v =   { 1, 2, 3 }; // <-- no length, just the raw data
+    int[] v = []{ 1, 2, 3 };
+    int*  v = []{ 1, 2, 3 };
+
+    int? v0 = v[0];
+    int? v0 = *v;
+
+    //
+
+    int[3] v = []{1, 2, 3};
+
+    int v0 = v[0];
+
+    //
+
+    std::Array<int> v = std::array_create([]{ 1, 2, 3 });
+    uint len = v.length;
+    int[] data = v.data;
+
+    int? v0 = v.get(0);
 
     // strings
     std::String v = "hello";
 
-    char[] v = []{ 'hello' };
-    char[] v = []{ 'h', 'e', 'l', 'l', 'o' };
-
-    /*
-    note:
-    std::String looks like:
-    `struct String { uint length; char* chars; }`
-
-    char[] has a .length of type uint, followed by characters in memory
-
-    Thus they are interchangable for free
-    */
-    char[] v = "hello"
-    std::String v = []{ 'hello' };
-    std::String v = []{ 'h', 'e', 'l', 'l', 'o' };
-
-    // template strings
-    std::String v = `{v}, world`;
-
     // c strings
     char*  v = { 'hello' };
     char*  v = { 'h', 'e', 'l', 'l', 'o' };
+
+    char[] v = []{ 'hello' };
+    char[] v = []{ 'h', 'e', 'l', 'l', 'o' };
+
+    // template strings
+    std::String v = `{v}, world`;
 
     // optionals (ie. nullables)
     int? v = 0;
@@ -128,17 +132,17 @@ void main() {
     };
 
     // results
-    std::Result<int> res = std::res_ok(0);
-    std::Result<int> res = std::res_err(err);
+    int! res = 0;
+    int! res = err;
 
-    if res.ok {
-        int v = res.val;
-    } else {
-        std::Error err = res.err;
+    if (let val = res) {
+        int v = val;
+    } catch err {
+        std::Error e = err
     }
 
     int v = res else 42;
-    int v = res else e { CRASH `Error: {e}`; };
+    int v = res catch e { CRASH `Error: {e}`; };
 
     int v = std::assert_ok(res);
     std::Error err = std::assert_err(res);
@@ -229,9 +233,9 @@ void no_std() {
 
     CustomString v = res else "";
 
-    if res {
+    if (let res) {
         CustomString v = res;
-    } else err {
+    } catch err {
         CustomError e = err;
     }
 }
