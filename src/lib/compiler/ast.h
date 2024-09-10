@@ -95,7 +95,7 @@ typedef struct {
     union {
         String const name;
         String const* const tuple_names;
-    };
+    } const lhs;
     size_t const count;
 } VarDeclLHS;
 
@@ -156,5 +156,13 @@ typedef struct ASTNode_s {
         ASTNodeStatementBlock const statement_block;
     } const node;
 } ASTNode;
+
+typedef struct {
+    bool const ok;
+    union {
+        ASTNode const ast;
+        Error const err;
+    } const res;
+} ASTNodeResult;
 
 #endif

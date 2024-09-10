@@ -37,6 +37,14 @@ int main(int const argc, char const* const argv[]) {
         quill_free(allocator, token_str);
     }
 
+    Parser parser = parser_create(allocator, tokens);
+    ASTNodeResult const ast_res = parser_parse(&parser);
+
+    astres_assert(ast_res);
+    ASTNode const ast = ast_res.res.ast;
+
+    //
+
     // cleanup
     arraylist_token_destroy(tokens);
     quill_free(allocator, (void*)source.chars);

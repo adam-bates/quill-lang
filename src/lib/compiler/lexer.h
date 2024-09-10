@@ -27,6 +27,7 @@ typedef struct {
     if (!scanres.ok) { err_print(scanres.res.err); assert(scanres.ok); }
 
 Lexer lexer_create(Allocator const allocator, String const source);
+
 ScanResult lexer_scan(Lexer* const lexer);
 
 #endif
