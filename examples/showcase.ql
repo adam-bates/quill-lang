@@ -104,17 +104,21 @@ void main() {
     int? v = 0;
     int? v = null;
 
+    if v {
+        int _ = v;
+    }
+
     int v2 = v else 42;
-    int v2 = if v { v } else 42;
+    int v2 = v else { CRASH "uh oh!" };
 
-    bool v2 = v; <-- (int?)0 infers to true, as it is not null
-    bool v2 = 0; <-- 0 infers as false, as is usually expected
+    int v = 1;
+    int* p = &v;
 
-    // you might see something weird here...
-    // but the compiler tries to flag when you're doing things that may be unexpected
-    int? v = 0;
-    bool b1 = (bool)v;          // true
-    bool b2 = (bool)(v else 0); // false
+    int*? p2 = null;
+    p2 = &v;
+
+    int* v = std::assert_some(p2);
+    std::assert_none(p2);
 
     // errors
     std::Error err = std::err_create(std::ErrorType::UNSPECIFIED, "example error");
@@ -123,13 +127,23 @@ void main() {
         .msg  = "example error",
     };
 
-    // results (union T or Error)
+    // results
     std::Result<int> res = std::res_ok(0);
-    std::Result<int> res = { .val = 0 };
-
-    std::Result<int> res = std::res_err_create(std::ErrorType::UNSPECIFIED, "example error");
     std::Result<int> res = std::res_err(err);
-    std::Result<int> res = { .err = err };
+
+    if res.ok {
+        int v = res.val;
+    } else {
+        std::Error err = res.err;
+    }
+
+    int v = res else 42;
+    int v = res else e { CRASH `Error: {e}`; };
+
+    int v = std::assert_ok(res);
+    std::Error err = std::assert_err(res);
+
+    //
 
     int v = 3;
     switch v {
@@ -198,13 +212,8 @@ globaltag CustomErrorType {
 }
 
 struct CustomError {
-    CustomErrorType type;
-    CustomString    msg;
-}
-
-union CustomResult<T> {
-    T val;
-    CustomError err;
+    CustomErrorType  type;
+    CustomString?    msg;
 }
 
 void no_std() {
@@ -215,13 +224,14 @@ void no_std() {
         .msg  = "custom error",
     };
 
-    CustomResult<CustomString> res = { .val = "hello, again" };
+    CustomString!CustomError res = v;
+    CustomString!CustomError res = err;
 
     CustomString v = res else "";
 
     if res {
-        CustomString v = res.val;
-    } else {
-        CustomError v = res.err;
+        CustomString v = res;
+    } else err {
+        CustomError e = err;
     }
 }

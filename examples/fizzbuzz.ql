@@ -12,6 +12,15 @@ int main(String[] args) {
     }
     uint n = res.val;
 
+    uint! res = parse_uint(args[1]);
+
+    uint n = res else 0;
+    uint n = res else err { CRASH err; };
+
+    uint n = res else e {
+        CRASH `Error parsing as uint: {e}`;
+    };
+
     for i in 1..=n {
         let mut match = false;
 
