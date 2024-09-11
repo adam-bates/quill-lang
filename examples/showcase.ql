@@ -79,13 +79,13 @@ void main() {
 
     //
 
-    int[3] v = []{1, 2, 3};
+    int[3] v = []{ 1, 2, 3 };
 
     int v0 = v[0];
 
     //
 
-    std::Array<int> v = std::array_create([]{ 1, 2, 3 });
+    std::ds::Array<int> v = std::ds::array_create([]{ 1, 2, 3 });
     uint len = v.length;
     int[] data = v.data;
 
@@ -95,11 +95,11 @@ void main() {
     std::String v = "hello";
 
     // c strings
-    char*  v = { 'hello' };
-    char*  v = { 'h', 'e', 'l', 'l', 'o' };
+    char*  v = []{ 'hello\0' };
+    char*  v = []{ 'h', 'e', 'l', 'l', 'o', 0 };
 
-    char[] v = []{ 'hello' };
-    char[] v = []{ 'h', 'e', 'l', 'l', 'o' };
+    char[] v = []{ 'hello\0' };
+    char[] v = []{ 'h', 'e', 'l', 'l', 'o', 0 };
 
     // template strings
     std::String v = `{v}, world`;
@@ -159,20 +159,12 @@ void main() {
         }
     }
 
-    int v = res else 0;
-
-    if res {
-        int v = res.val;
-    } else {
-        int err = res.err;
-    }
-
     // for-loops
     for i in 0..5 {
         // i = 0, 1, 2, 3, 4
     }
 
-    int[] fibs = []{ 1, 1, 3, 5, 8 };
+    int[_] fibs = []{ 1, 1, 3, 5, 8 };
     for i, n in fibs {
         // i = 0, 1, 2, 3, 4
         // n = 1, 1, 3, 5, 8
@@ -182,13 +174,13 @@ void main() {
     while false { }
 
     int? x = 3;
-    while x { // <-- (int?)0 is true, as the optional type only returns false for null
+    while x { // <-- int? x = 0; (bool)x is true, as the optional type only returns false for null
         x -= 1;
         if x < 0 { x = null; }
     }
 
     int x = 3;
-    while (bool)x { // <-- 0 is casted as false, all others are true
+    while (bool)x { // <-- int x = 0; (bool)x is false
         x -= 1;
     }
 
@@ -216,8 +208,8 @@ globaltag CustomErrorType {
 }
 
 struct CustomError {
-    CustomErrorType  type;
-    CustomString?    msg;
+    CustomErrorType type;
+    CustomString?   msg;
 }
 
 void no_std() {
