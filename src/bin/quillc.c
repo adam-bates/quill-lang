@@ -37,15 +37,25 @@ int main(int const argc, char const* const argv[]) {
         quill_free(allocator, token_str);
     }
 
-    Parser parser = parser_create(allocator, tokens);
+    Arena parser_arena = {0};
+
+    Parser parser = parser_create(&parser_arena, tokens);
     ASTNodeResult const ast_res = parser_parse(&parser);
 
     astres_assert(ast_res);
-    ASTNode const ast = ast_res.res.ast;
+    ASTNode const* const ast = ast_res.res.ast;
+
+    printf("AST:\n");
+    LL_ASTNode* node = ast->node.file_root.nodes;
+    while (node != NULL) {
+        printf("Node(%d)\n", node->data.type);
+        node = node->next;
+    }
 
     //
 
     // cleanup
+    arena_free(&parser_arena);
     arraylist_token_destroy(tokens);
     quill_free(allocator, (void*)source.chars);
 

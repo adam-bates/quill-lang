@@ -10,8 +10,8 @@ typedef struct {
 } TokensSlice;
 
 typedef struct StaticPath_s {
-    struct StaticPath_s const* const root;
-    String const name;
+    struct StaticPath_s* root;
+    String name;
 } StaticPath;
 
 typedef enum {
@@ -29,11 +29,12 @@ typedef enum {
 } TypeKind;
 
 typedef struct {
-    TypeKind const kind;
+    TypeKind kind;
     // TODO
 } Type;
 
 typedef enum {
+    ANT_FILE_ROOT,
     ANT_UNARY_OP,
     ANT_BINARY_OP,
     ANT_LITERAL,
@@ -68,6 +69,12 @@ typedef enum {
 
 //
 
+typedef struct {
+    struct LL_ASTNode* nodes;
+} ASTNodeFileRoot;
+
+//
+
 typedef enum {
     UO_NUM_NEGATE,
     UO_BOOL_NEGATE,
@@ -78,8 +85,8 @@ typedef enum {
 } UnaryOp;
 
 typedef struct {
-    UnaryOp const op;
-    struct ASTNode_s const* const right;    
+    UnaryOp op;
+    struct ASTNode* right;    
 } ASTNodeUnaryOp;
 
 //
@@ -101,9 +108,9 @@ typedef enum {
 } BinaryOp;
 
 typedef struct {
-    BinaryOp const op;
-    struct ASTNode_s const* const lhs;
-    struct ASTNode_s const* const rhs;
+    BinaryOp op;
+    struct ASTNode* lhs;
+    struct ASTNode* rhs;
 } ASTNodeBinaryOp;
 
 //
@@ -121,19 +128,25 @@ typedef enum {
 } LiteralKind;
 
 typedef struct {
-    LiteralKind const kind;
+    LiteralKind kind;
     union {
-        bool const lit_bool;
-        uint64_t const lit_int;
-        double const lit_float;
-        String const lit_str;
-        char const lit_char;
-        String const lit_chars;
-        void* const lit_null;
-    } const value;
+        bool lit_bool;
+        uint64_t lit_int;
+        double lit_float;
+        String lit_str;
+        char lit_char;
+        String lit_chars;
+        void* lit_null;
+    } value;
 } ASTNodeLiteral;
 
 //
+
+typedef struct {
+    bool is_let;
+    bool is_mut;
+    Type* maybe_type;
+} TypeOrLet;
 
 typedef enum {
     VDLT_NAME,
@@ -143,33 +156,25 @@ typedef enum {
 } VarDeclLHSType;
 
 typedef struct {
-    VarDeclLHSType const type;
+    VarDeclLHSType type;
     union {
-        String const name;
-        String const* const tuple_names;
-    } const lhs;
-    size_t const count;
+        String name;
+        String* tuple_names;
+    } lhs;
+    size_t count;
 } VarDeclLHS;
 
-//
-
 typedef struct {
-    bool const is_let;
-    bool const is_mut;
-    Type const* const maybe_type;
-} TypeOrLet;
+    TypeOrLet type_or_let;
 
-typedef struct {
-    TypeOrLet const type_or_let;
-
-    VarDeclLHS const lhs;
-    struct ASTNode_s const* const initializer;
+    VarDeclLHS lhs;
+    struct ASTNode* initializer;
 } ASTNodeVarDecl;
 
 //
 
 typedef struct {
-    String const var_name;
+    String var_name;
 } ASTNodeVarRef;
 
 //
@@ -191,230 +196,240 @@ typedef enum {
 
 typedef struct {
     AssignmentOp const op;
-    struct ASTNode_s const* const lhs;
-    struct ASTNode_s const* const rhs;
+    struct ASTNode* lhs;
+    struct ASTNode* rhs;
 } ASTNodeAssignment;
 
 //
 
 typedef struct {
-    struct ASTNode_s const* const function;
+    struct ASTNode* function;
 
-    struct ASTNode_s const* const* const args;
-    size_t const args_count;
+    struct LL_ASTNode* args;
 } ASTNodeFunctionCall;
 
 //
 
 typedef struct {
-    struct ASTNode_s const* const* const stmts;
-    size_t const stmts_count;
+    struct LL_ASTNode* stmts;
 } ASTNodeStatementBlock;
 
 //
 
 typedef struct {
-    struct ASTNode_s const* const cond;
-    ASTNodeStatementBlock const* const block;
+    struct ASTNode* cond;
+    ASTNodeStatementBlock* block;
 } ASTNodeIf;
 
 //
 
 typedef struct {
-    struct ASTNode_s const* const target;
-    struct ASTNode_s const* const then;
+    struct ASTNode* target;
+    struct ASTNode* then;
 } ASTNodeElse;
 
 //
 
 typedef struct {
-    struct ASTNode_s const* const target;
+    struct ASTNode* target;
 } ASTNodeTry;
 
 //
 
 typedef struct {
-    struct ASTNode_s const* const target;
-    String const error;
-    struct ASTNode_s const* const then;
+    struct ASTNode* target;
+    String error;
+    struct ASTNode* then;
 } ASTNodeCatch;
 
 //
 
 typedef struct {
-    struct ASTNode_s const* const maybe_expr;
+    struct ASTNode* maybe_expr;
 } ASTNodeBreak;
 
 //
 
 typedef struct {
-    struct ASTNode_s const* const cond;
-    ASTNodeStatementBlock const* const block;
+    struct ASTNode* cond;
+    ASTNodeStatementBlock* block;
 } ASTNodeWhile;
 
 //
 
 typedef struct {
-    ASTNodeStatementBlock const* const block;
-    struct ASTNode_s const* const cond;
+    ASTNodeStatementBlock* block;
+    struct ASTNode* cond;
 } ASTNodeDoWhile;
 
 //
 
 typedef struct {
-    VarDeclLHS const var;
-    struct ASTNode_s const* const iterable;
-    ASTNodeStatementBlock const* const block;
+    VarDeclLHS var;
+    struct ASTNode* iterable;
+    ASTNodeStatementBlock* block;
 } ASTNodeFor;
 
 //
 
 typedef struct {
-    struct ASTNode_s const* const maybe_expr;
+    struct ASTNode* maybe_expr;
 } ASTNodeReturn;
 
 //
 
 typedef struct {
-    TokensSlice const lhs;
-    struct ASTNode_s const* const rhs;
+    TokensSlice lhs;
+    struct ASTNode* rhs;
 } StructInitField;
 
 typedef struct {
-    StructInitField const* const fields;
-    size_t const fields_count;
+    StructInitField* fields;
+    size_t fields_count;
 } ASTNodeStructInit;
 
 //
 
 typedef struct {
-    TokensSlice const lhs;
-    struct ASTNode_s const* const rhs;
+    TokensSlice lhs;
+    struct ASTNode* rhs;
 } ArrayInitElem;
 
 typedef struct {
-    size_t const* const maybe_length;
-    ArrayInitElem const* const elems;
-    size_t const elems_count;
+    size_t* maybe_length;
+    ArrayInitElem* elems;
+    size_t elems_count;
 } ASTNodeArrayInit;
 
 //
 
 typedef struct {
     // note: could end in wildcard `*`
-    StaticPath const static_path;
+    StaticPath static_path;
 } ASTNodeImport;
 
 //
 
 typedef struct {
-    String const* const str_parts;
-    size_t const str_parts_count;
+    String* str_parts;
+    size_t str_parts_count;
 
-    struct ASTNode_s const* const* const template_expr_parts;
-    size_t const template_expr_parts_count;
+    struct LL_ASTNode* template_expr_parts;
 } ASTNodeTemplateString;
 
 //
 
 typedef struct {
-    struct ASTNode_s const* const maybe_expr;
+    struct ASTNode* maybe_expr;
 } ASTNodeCrash;
 
 //
 
 typedef struct {
-    struct ASTNode_s const* const* const matches;
-    size_t const matches_count;
+    struct LL_ASTNode* matches;
 
-    struct ASTNode_s const* const then;
+    struct ASTNode* then;
 } SwitchCase;
 
 typedef struct {
-    struct ASTNode_s const* const expr;
+    struct ASTNode* expr;
 
-    SwitchCase const* const cases;
-    size_t const cases_count;
+    SwitchCase* cases;
+    size_t cases_count;
 
-    ASTNodeElse const* const maybe_else;
+    ASTNodeElse* maybe_else;
 } ASTNodeSwitch;
 
 //
 
 typedef struct {
-    Type const type;
-    struct ASTNode_s const* const target;
+    Type type;
+    struct ASTNode* target;
 } ASTNodeCast;
 
 //
 
 typedef struct {
-    String const* const maybe_name;
+    String* maybe_name;
     // TODO
 } ASTNodeStructDecl;
 
 //
 
 typedef struct {
-    String const* const maybe_name;
+    String* maybe_name;
     // TODO
 } ASTNodeUnionDecl;
 
 //
 
 typedef struct {
-    String const* const maybe_name;
+    String* maybe_name;
     // TODO
 } ASTNodeEnumDecl;
 
 //
 
 typedef struct {
-    String const* const maybe_name;
+    String* maybe_name;
     // TODO
 } ASTNodeGlobaltagDecl;
 
 //
 
-typedef struct ASTNode_s {
-    ASTNodeType const type;
+typedef struct ASTNode {
+    ASTNodeType type;
     union {
-        ASTNodeUnaryOp const unary_op;
-        ASTNodeBinaryOp const binary_op;
-        ASTNodeLiteral const literal;
-        ASTNodeVarDecl const var_decl;
-        ASTNodeVarRef const var_ref;
-        ASTNodeFunctionCall const function_call;
-        ASTNodeStatementBlock const statement_block;
-        ASTNodeIf const if_;
-        ASTNodeElse const else_;
-        ASTNodeTry const try_;
-        ASTNodeCatch const catch_;
-        ASTNodeBreak const break_;
-        ASTNodeWhile const while_;
-        ASTNodeDoWhile const do_while;
-        ASTNodeFor const for_;
-        ASTNodeReturn const return_;
-        ASTNodeStructInit const struct_init;
-        ASTNodeArrayInit const array_init;
-        ASTNodeImport const import;
-        ASTNodeTemplateString const template_string;
-        ASTNodeCrash const crash;
-        ASTNodeSwitch const switch_;
-        ASTNodeCast const cast;
-        ASTNodeStructDecl const struct_decl;
-        ASTNodeUnionDecl const union_decl;
-        ASTNodeEnumDecl const enum_decl;
-        ASTNodeGlobaltagDecl const globaltag_decl;
-    } const node;
+        ASTNodeFileRoot file_root;
+        ASTNodeUnaryOp unary_op;
+        ASTNodeBinaryOp binary_op;
+        ASTNodeLiteral literal;
+        ASTNodeVarDecl var_decl;
+        ASTNodeVarRef var_ref;
+        ASTNodeFunctionCall function_call;
+        ASTNodeStatementBlock statement_block;
+        ASTNodeIf if_;
+        ASTNodeElse else_;
+        ASTNodeTry try_;
+        ASTNodeCatch catch_;
+        ASTNodeBreak break_;
+        ASTNodeWhile while_;
+        ASTNodeDoWhile do_while;
+        ASTNodeFor for_;
+        ASTNodeReturn return_;
+        ASTNodeStructInit struct_init;
+        ASTNodeArrayInit array_init;
+        ASTNodeImport import;
+        ASTNodeTemplateString template_string;
+        ASTNodeCrash crash;
+        ASTNodeSwitch switch_;
+        ASTNodeCast cast;
+        ASTNodeStructDecl struct_decl;
+        ASTNodeUnionDecl union_decl;
+        ASTNodeEnumDecl enum_decl;
+        ASTNodeGlobaltagDecl globaltag_decl;
+    } node;
 } ASTNode;
+
+typedef struct LL_ASTNode {
+    struct LL_ASTNode* next;
+    ASTNode data;
+} LL_ASTNode;
 
 typedef struct {
     bool const ok;
     union {
-        ASTNode const ast;
+        ASTNode const* const ast;
         Error const err;
     } const res;
 } ASTNodeResult;
+
+typedef struct {
+    bool const ok;
+    union {
+        Error const err;
+        ASTNode const astnode;
+    } const res;
+} ArrayListResult_ASTNode;
 
 #endif

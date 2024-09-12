@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include "./allocator.h"
+#include "./arena.h"
 #include "./base.h"
 #include "./error.h"
 #include "./fs.h"
