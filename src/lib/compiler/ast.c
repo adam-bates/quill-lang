@@ -56,7 +56,7 @@ static void print_static_path(StaticPath const* path) {
 void print_astnode(ASTNode const node) {
     switch (node.type) {
         case ANT_NONE: {
-            printf("<Incomplete AST Node>");
+            // printf("<Incomplete AST Node>");
             break;
         }
 
@@ -82,6 +82,11 @@ void print_astnode(ASTNode const node) {
                 indent += 1;
                 LLNode_ASTNode* stmt = node.node.function_decl.stmts.head;
                 while (stmt != NULL) {
+                    if (stmt->data.type == ANT_NONE) {
+                        stmt = stmt->next;
+                        continue;
+                    }
+
                     print_tabs();
                     print_astnode(stmt->data);
                     printf(";\n");
