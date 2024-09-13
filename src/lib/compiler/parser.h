@@ -11,6 +11,9 @@ typedef struct {
     ArrayList_Token const tokens;
     size_t cursor_start;
     size_t cursor_current;
+
+    bool had_error;
+    bool panic_mode;
 } Parser;
 
 #define astres_assert(astres) \

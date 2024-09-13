@@ -9,6 +9,12 @@ typedef struct {
     size_t length;
 } TokensSlice;
 
+typedef struct {
+    size_t length;
+    struct LLNode_ASTNode* head;
+    struct LLNode_ASTNode* tail;
+} LL_ASTNode;
+
 typedef struct StaticPath_s {
     struct StaticPath_s* root;
     String name;
@@ -28,12 +34,29 @@ typedef enum {
     TK_COUNT
 } TypeKind;
 
-typedef struct {
-    TypeKind kind;
+typedef enum {
+    TBI_VOID,
     // TODO
+} TypeBuiltIn;
+
+typedef struct {
+    struct Type* of;
+} TypePointer;
+
+typedef struct Type {
+    TypeKind kind;
+    union {
+        TypeBuiltIn built_in;
+        // TypeStaticPath static_path;
+        // TypeTuple tuple;
+        TypePointer ptr;
+        // TODO
+    } type;
 } Type;
 
 typedef enum {
+    ANT_NONE,
+
     ANT_FILE_ROOT,
     ANT_UNARY_OP,
     ANT_BINARY_OP,
@@ -54,6 +77,7 @@ typedef enum {
     ANT_RETURN,
     ANT_STRUCT_INIT,
     ANT_ARRAY_INIT,
+    ANT_IMPORT,
     ANT_TEMPLATE_STRING,
     ANT_CRASH,
     ANT_SWITCH,
@@ -62,7 +86,8 @@ typedef enum {
     ANT_UNION_DECL,
     ANT_ENUM_DECL,
     ANT_GLOBALTAG_DECL,
-    // TODO: more
+    ANT_FUNCTION_HEADER_DECL,
+    ANT_FUNCTION_DECL,
 
     ANT_COUNT
 } ASTNodeType;
@@ -70,7 +95,7 @@ typedef enum {
 //
 
 typedef struct {
-    struct LL_ASTNode* nodes;
+    LL_ASTNode nodes;
 } ASTNodeFileRoot;
 
 //
@@ -174,7 +199,7 @@ typedef struct {
 //
 
 typedef struct {
-    String var_name;
+    struct StaticPath_s* path;
 } ASTNodeVarRef;
 
 //
@@ -205,13 +230,13 @@ typedef struct {
 typedef struct {
     struct ASTNode* function;
 
-    struct LL_ASTNode* args;
+    LL_ASTNode args;
 } ASTNodeFunctionCall;
 
 //
 
 typedef struct {
-    struct LL_ASTNode* stmts;
+    LL_ASTNode stmts;
 } ASTNodeStatementBlock;
 
 //
@@ -305,7 +330,7 @@ typedef struct {
 
 typedef struct {
     // note: could end in wildcard `*`
-    StaticPath static_path;
+    StaticPath* static_path;
 } ASTNodeImport;
 
 //
@@ -314,7 +339,7 @@ typedef struct {
     String* str_parts;
     size_t str_parts_count;
 
-    struct LL_ASTNode* template_expr_parts;
+    LL_ASTNode template_expr_parts;
 } ASTNodeTemplateString;
 
 //
@@ -326,7 +351,7 @@ typedef struct {
 //
 
 typedef struct {
-    struct LL_ASTNode* matches;
+    LL_ASTNode* matches;
 
     struct ASTNode* then;
 } SwitchCase;
@@ -377,6 +402,25 @@ typedef struct {
 
 //
 
+typedef struct {
+    Type type;
+    bool is_mut;
+    String name;
+} FnParam;
+
+typedef struct {
+    Type return_type;
+    String name;
+    // TODO: params
+} ASTNodeFunctionHeaderDecl;
+
+typedef struct {
+    ASTNodeFunctionHeaderDecl header;
+    LL_ASTNode stmts;
+} ASTNodeFunctionDecl;
+
+//
+
 typedef struct ASTNode {
     ASTNodeType type;
     union {
@@ -408,13 +452,15 @@ typedef struct ASTNode {
         ASTNodeUnionDecl union_decl;
         ASTNodeEnumDecl enum_decl;
         ASTNodeGlobaltagDecl globaltag_decl;
+        ASTNodeFunctionHeaderDecl function_header_decl;
+        ASTNodeFunctionDecl function_decl;
     } node;
 } ASTNode;
 
-typedef struct LL_ASTNode {
-    struct LL_ASTNode* next;
+typedef struct LLNode_ASTNode {
+    struct LLNode_ASTNode* next;
     ASTNode data;
-} LL_ASTNode;
+} LLNode_ASTNode;
 
 typedef struct {
     bool const ok;
@@ -431,5 +477,9 @@ typedef struct {
         ASTNode const astnode;
     } const res;
 } ArrayListResult_ASTNode;
+
+void ll_ast_push(Arena* const arena, LL_ASTNode* const ll, ASTNode const node);
+
+void print_astnode(ASTNode const node);
 
 #endif

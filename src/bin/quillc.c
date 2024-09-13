@@ -32,10 +32,11 @@ int main(int const argc, char const* const argv[]) {
         char* token_str = quill_calloc(allocator, token.length, sizeof(char));
         strncpy(token_str, token.start, token.length);
 
-        printf("%lu | %d | %s\n", token.line, token.type, token_str);
+        printf("%lu | %.*d | %s\n", token.line, 2, token.type, token_str);
 
         quill_free(allocator, token_str);
     }
+    printf("\n");
 
     Arena parser_arena = {0};
 
@@ -45,10 +46,16 @@ int main(int const argc, char const* const argv[]) {
     astres_assert(ast_res);
     ASTNode const* const ast = ast_res.res.ast;
 
-    printf("AST:\n");
-    LL_ASTNode* node = ast->node.file_root.nodes;
+    printf("AST:");
+    if (parser.had_error) {
+        printf(" (partial due to errors)");
+    }
+    printf("\n");
+
+    LL_ASTNode nodes = ast->node.file_root.nodes;
+    LLNode_ASTNode* node = nodes.head;
     while (node != NULL) {
-        printf("Node(%d)\n", node->data.type);
+        print_astnode(node->data);
         node = node->next;
     }
 
