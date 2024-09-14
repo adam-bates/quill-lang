@@ -23,7 +23,7 @@ import std;
 
     params can be either:
     - ()
-    - (String[] args)
+    - (Array<String> args)
 */
 void main() {
 
@@ -74,8 +74,8 @@ void main() {
     int[] v = []{ 1, 2, 3 };
     int*  v = []{ 1, 2, 3 };
 
-    int? v0 = v[0];
-    int? v0 = *v;
+    int v0 = v[0];
+    int v0 = *v;
 
     //
 
@@ -85,11 +85,11 @@ void main() {
 
     //
 
-    std::ds::Array<int> v = std::ds::array_create([]{ 1, 2, 3 });
+    std::Array<int> v = std::array_create([]{ 1, 2, 3 });
     uint len = v.length;
     int[] data = v.data;
 
-    int? v0 = v.get(0);
+    int? v0 = std::array_get(0);
 
     // strings
     std::String v = "hello";
@@ -102,27 +102,37 @@ void main() {
     char[] v = []{ 'h', 'e', 'l', 'l', 'o', 0 };
 
     // template strings
-    std::String v = `{v}, world`;
+    std::ds::StringBuffer v = `{v}, world`;
 
-    // optionals (ie. nullables)
-    int? v = 0;
-    int? v = null;
+    // optionals (ie. "nullables")
+    std::Maybe<int> m = some(0);
+    std::Maybe<int> m = none();
 
-    if v {
-        int _ = v;
+    if m.is_some {
+        int _ = m.val;
     }
 
-    int v2 = v else 42;
-    int v2 = v else { CRASH "uh oh!" };
+    int v2 = m else 42;
+    int v2 = m else { CRASH "uh oh!"; };
 
     int v = 1;
     int* p = &v;
 
-    int*? p2 = null;
-    p2 = &v;
+    std::Maybe<int*> mut p2 = std::none();
 
+    p2 = std::some(&v);
     int* v = std::assert_some(p2);
+
+    p2 = std::some((int*)0); // this is still valid, but compiler warning
     std::assert_none(p2);
+
+    std::Maybe<std::Nonull<int>> mut p3 = std::none();
+    p3 = std::some(std::assert_nonull(&v));
+
+    // std::Nullable<T> is an alias for std::Maybe<std::Nonull<T>>
+
+    std::Nullable<int> mut p4 = std::none();
+    p3 = std::some(std::assert_nonull(&v));
 
     // errors
     std::Error err = std::err_create(std::ErrorType::UNSPECIFIED, "example error");
@@ -132,13 +142,13 @@ void main() {
     };
 
     // results
-    int! res = 0;
-    int! res = err;
+    std::Result<int> res = std::res_ok(0);
+    std::Result<int> res = std::res_err(err);
 
-    if (let val = res) {
-        int v = val;
-    } catch err {
-        std::Error e = err
+    if res.is_ok {
+        int _ = res.val;
+    } else {
+        std::Error _ = res.err;
     }
 
     int v = res else 42;
@@ -147,8 +157,7 @@ void main() {
     int v = std::assert_ok(res);
     std::Error err = std::assert_err(res);
 
-    //
-
+    // switch
     int v = 3;
     switch v {
         case 1, 2, 3 {
@@ -173,8 +182,12 @@ void main() {
     // while-loops
     while false { }
 
-    int? x = 3;
-    while x { // <-- int? x = 0; (bool)x is true, as the optional type only returns false for null
+    std::Maybe<int> x = std::some(3);
+    /*
+        note for when x == std::some(0)
+        `while x` resolves x to true, as Maybe doesn't look at the underlying data. It is only false when is_some = false.
+    */
+    while x { 
         x -= 1;
         if x < 0 { x = null; }
     }
@@ -187,47 +200,42 @@ void main() {
     // IO
     std::io::println("Hello, world!");
 
+    // defer
+    // the following codeblock prints: "1,2,3"
+    {
+        defer std::io::print("2");
+
+        defer {
+            std::io::print("1,");
+        }
+
+        std::io::print(",3");
+    }
+
+
     // panics
     CRASH "example panic";
 
     // TODO: figure out if anything is missing, add here
 }
 
-/*
-    std library is optional
-    language features will also work with your own custom duck-types
-    the stipulation is they have to look the same as the std library type
-*/
-struct CustomString {
-    uint  length;
-    char* chars;
+void try_example() {
+    int double = fetch_double(true) else return;    
+    int double = fetch_double(false) else return;
 }
 
-globaltag CustomErrorType {
-    MY_CUSTOM_ERR,
+Result<int> fetch_double(bool should_succeed) {
+    // Here's the first time I'm showcasing `try`
+    // This will bubble up an error, or resolve to the ok value.
+
+    int n = try fetch_int(should_succeed);
+    return n * 2;
 }
 
-struct CustomError {
-    CustomErrorType type;
-    CustomString?   msg;
-}
-
-void no_std() {
-    CustomString v = "hi, mom";
-
-    CustomError err = {
-        .type = CustomErrorType::MY_CUSTOM_ERR,
-        .msg  = "custom error",
-    };
-
-    CustomString!CustomError res = v;
-    CustomString!CustomError res = err;
-
-    CustomString v = res else "";
-
-    if (let res) {
-        CustomString v = res;
-    } catch err {
-        CustomError e = err;
+std::Result<int> fetch_int(bool should_succeed) {
+    if !should_succeed {
+        return std::res_err_create(ErrorType::UNSPECIFIED, "failed!");
     }
+
+    return std::res_ok(42);
 }

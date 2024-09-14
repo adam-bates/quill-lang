@@ -5,7 +5,7 @@ Simplified c, with some modern syntax, and a couple of modern features.
 Notable differences from c:
 - Data is constant & immutable by default. Mutable data must be marked as `mut`.
 - Namespacing: `std::io::printf("Hello, world!");`
-- Generics: `std::ds::ArrayList<char>`
+- Generics: `std::ds::HashMap<String, int>`
 - Type-inferencing: `let x = true; // x is a bool`
 - Dedicated syntax for optional/nullable data: `int?` vs `int`
 - for-each loops: `for n in 0..10 { }`
@@ -28,25 +28,30 @@ void main() {
 ```c
 import std::*;
 
-int main(String[] args) {
+int main(Array<String> args) {
     if args.length != 2 {
-        io::eprintln("Usage: fizzbuzz [number]");
+        io::eprintln("Usage: fizzbuzz [integer]");
         return 1;
     }
+    String n_str = args.data[1];
 
-    uint n = parse_uint(args[1]) catch err {
-        CRASH `Error parsing uint: {err}`;
+    uint n = conv::parse_uint(n_str) catch err {
+        CRASH `Error parsing integer: {err}`;
     };
 
+    ds::StringBuffer mut out = ds::strbuf_create();
     for i in 1..=n {
-        let mut match = false;
+        defer {
+            ds::strbuf_reset(&out);
+        }
+    
+        if i % 3 == 0 { ds::strbuf_append_str(&out, "Fizz"); }
+        if i % 5 == 0 { ds::strbuf_append_str(&out, "Buzz"); }
 
-        if i % 3 == 0 { io::printf("Fizz"); match = true; }
-        if i % 5 == 0 { io::printf("Buzz"); match = true; }
+        if out.length == 0 { ds::strbuf_append_uint(&out, i); }
 
-        if !match { io::printf("%d", i); }
-
-        io::println();
+        ds::strbuf_append_char('\n');
+        io::print(out);
     }
 
     return 0;
@@ -55,7 +60,9 @@ int main(String[] args) {
 
 ## Why does this exist?
 
-It's the langauge I want to write code in.
+For fun, learning, and because it's the langauge I want to use.
+
+It will probably never be ready for you or others to use, and that's ok. If you like what you see here, I recommend checking out Zig and C3. Both of which also attempt to iterate on C with modern features, a lean grammar, and still allowing full control of your program.
 
 ## Using the language
 

@@ -1,22 +1,24 @@
 import std::*;
 
-ExitCode! main(String[] args) {
+ExitCode main(String[] args) {
     if args.length != 3 {
-        io::eprintln("Usage: fibonacci [slow|fast] [number]");
+        io::eprintln("Usage: fibonacci [slow|fast] [integer]");
         return ExitCode::FAILURE;
     }
 
-    let speed = switch str_to_lower(args[1]) {
+    let speed = switch str_to_lower(args.data[1]) {
         case "slow" { break Speed::SLOW; }
         case "fast" { break Speed::FAST; }
 
         else {
-            io::eprintln("Usage: fibonacci [slow|fast] [number]");
+            io::eprintln("Usage: fibonacci [slow|fast] [integer]");
             return ExitCode::FAILURE;
         }
     };
 
-    uint8 n = try parse_uint8(args[2]);
+    uint8 n = parse_uint8(args.data[2]) catch err {
+        CRASH `Error parsing integer: {err}`;
+    };
 
     uint64(uint8)* nth_fib_fnptr = switch speed {
         case Speed::SLOW { break nth_fib_slow; }
