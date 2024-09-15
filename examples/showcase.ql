@@ -23,7 +23,7 @@ import std;
 
     params can be either:
     - ()
-    - (Array<String> args)
+    - (std::Array<std::String> args)
 */
 void main() {
 
@@ -187,6 +187,7 @@ void main() {
     */
     while x { 
         x -= 1;
+
         if x < 0 { x = null; }
     }
 
