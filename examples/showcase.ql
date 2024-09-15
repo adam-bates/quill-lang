@@ -105,8 +105,8 @@ void main() {
     std::ds::StringBuffer v = `{v}, world`;
 
     // optionals (ie. "nullables")
-    std::Maybe<int> m = some(0);
-    std::Maybe<int> m = none();
+    std::Maybe<int> m = std::some(0);
+    std::Maybe<int> m = std::none();
 
     if m.is_some {
         int _ = m.val;
