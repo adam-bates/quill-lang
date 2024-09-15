@@ -1,16 +1,15 @@
 # Quill Programming Langauge
 
-Simplified c, with some modern syntax, and a couple of modern features.
+Iteration on c, without maxros or confusing behaviour; with some modern syntax, and a couple of modern features.
 
 Notable differences from c:
 - Data is constant & immutable by default. Mutable data must be marked as `mut`.
 - Namespacing: `std::io::printf("Hello, world!");`
-- Generics: `std::ds::HashMap<String, int>`
+- Generics (type-erased): `std::ds::HashMap<String, int>`
 - Type-inferencing: `let x = true; // x is a bool`
-- Dedicated syntax for optional/nullable data: `int?` vs `int`
 - for-each loops: `for n in 0..10 { }`
 - break-data turns blocks into expressions: `int x = { break 1; };`
-- Strings & Arrays encode the length. c-style strings and arrays can only be used as pointers.
+- Standard library supplies fat strings, fat arrays, optionals, result types, and much more.
 - No macros, no metaprogramming. Sorry, not sorry!
 
 ## Examples
