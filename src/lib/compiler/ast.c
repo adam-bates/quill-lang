@@ -33,10 +33,7 @@ static void print_tabs(void) {
 }
 
 static void print_string(String const str) {
-    char* cstr = arena_memcpy(arena, str.chars, str.length + 1);
-    cstr[str.length] = '\0';
-
-    printf("%s", cstr);
+    printf("%s", arena_strcpy(arena, str).chars);
 }
 
 static void print_static_path(StaticPath const* path) {

@@ -85,21 +85,24 @@ void* arena_realloc(Arena* arena, void* const old_ptr, size_t const old_size, si
     return new_ptr;
 }
 
-char* arena_strcpy(Arena* arena, char const* str) {
-    size_t n = strlen(str);
-    char* cpy = (char*)arena_alloc(arena, n + 1);
+String arena_strcpy(Arena* arena, String const str) {
+    size_t const n = str.length;
+    char* const cpy = arena_alloc(arena, n + 1);
 
-    memcpy(cpy, str, n);
+    memcpy(cpy, str.chars, n);
     cpy[n] = '\0';
 
-    return cpy;
+    return (String){
+        .length = n,
+        .chars = cpy,
+    };
 }
 
 void* arena_memcpy(Arena* arena, void const* const data, size_t const size) {
     return memcpy(arena_alloc(arena, size), data, size);
 }
 
-char* arena_sprintf(Arena* arena, char const* fmt, ...) {
+StringBuffer arena_sprintf(Arena* arena, char const* fmt, ...) {
     va_list args;
 
     va_start(args, fmt);
@@ -113,7 +116,12 @@ char* arena_sprintf(Arena* arena, char const* fmt, ...) {
     vsnprintf(ptr, n + 1, fmt, args);
     va_end(args);
 
-    return ptr;
+    return (StringBuffer){
+        .arena = arena,
+        .capacity = n,
+        .length = n,
+        .chars = ptr,
+    };
 }
 
 void arena_reset(Arena* arena) {
@@ -138,4 +146,58 @@ void arena_free(Arena* arena) {
 
     arena->head = NULL;
     arena->tail = NULL;
+}
+
+StringBuffer strbuf_create_with_capacity(Arena* arena, size_t const capacity) {
+    char* const ptr = arena_alloc(arena, capacity);
+
+    return (StringBuffer){
+        .arena = arena,
+        .capacity = capacity,
+        .length = 0,
+        .chars = ptr,
+    };
+}
+
+StringBuffer strbuf_create(Arena* arena) {
+    return strbuf_create_with_capacity(arena, 8);
+}
+
+static void strbuf_grow(StringBuffer* strbuf, size_t const capacity) {
+    char* ptr = arena_realloc(strbuf->arena, strbuf->chars, strbuf->capacity, capacity);
+    strbuf->chars = ptr;
+    strbuf->capacity = capacity;
+}
+
+void strbuf_append_char(StringBuffer* strbuf, char const c) {
+    if (strbuf->length >= strbuf->capacity) {
+        strbuf_grow(strbuf, strbuf->length * 2);
+    }
+
+    strbuf->chars[strbuf->length] = c;
+}
+
+void strbuf_append_str(StringBuffer* strbuf, String const str) {
+    if (strbuf->length + str.length >= strbuf->capacity) {
+        if (strbuf->length >= str.length) {
+            strbuf_grow(strbuf, strbuf->length * 2);
+        } else {
+            strbuf_grow(strbuf, strbuf->length + str.length);
+        }
+    }
+
+    strncpy(strbuf->chars + strbuf->length, str.chars, str.length);
+}
+
+void strbuf_append_chars(StringBuffer* strbuf, char const* const chars) {
+    size_t const n = strlen(chars);
+
+    strbuf_append_str(strbuf, (String){ .chars = chars, .length = n });
+}
+
+void strbuf_reset(StringBuffer* strbuf) {
+    for (size_t i = 0; i < strbuf->length; ++i) {
+        strbuf->chars[i] = '\0';
+    }
+    strbuf->length = 0;
 }

@@ -287,6 +287,14 @@ static ParseResult parser_parse_import(Parser* const parser) {
         return parseres_none();
     }
 
+    /*
+        TODO: should we handle multi imports?
+          like `import std::{io, String}`
+
+        and then do we allow that to continue?
+          like `import std::{io::{printf, println}, ds::{StringBuffer, strbuf_create}}`
+    */
+
     StaticPath* path = parser_parse_static_path(parser);
     if (path == NULL) {
         error_at_current(parser, "Expected import target.");
@@ -526,6 +534,8 @@ static ParseResult parser_parse_filescope_decl(Parser* const parser) {
         return decl_res;
     }
     parser->cursor_current = cached_current;
+
+    // TODO: support file-scoped variables.
 
     return parseres_none();
 }

@@ -61,6 +61,16 @@ int main(int const argc, char const* const argv[]) {
 
     verify_syntax(ast);
 
+    printf("\n");
+
+    Arena codegen_arena = {0};
+
+    CodegenC codegen = codegen_c_create(&codegen_arena, ast);
+    String const c_code = generate_c_code(&codegen);
+
+    printf("C Code:\n");
+    printf("%s\n", arena_strcpy(&codegen_arena, c_code).chars);
+
     // cleanup
     arena_free(&parser_arena);
     arraylist_token_destroy(tokens);

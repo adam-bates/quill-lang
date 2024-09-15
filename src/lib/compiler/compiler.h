@@ -2,6 +2,7 @@
 #define quillc_compiler_h
 
 #include "./analyzer.h"
+#include "./codegen_c.h"
 #include "./lexer.h"
 #include "./parser.h"
 #include "./token.h"
