@@ -59,7 +59,7 @@ int main(int const argc, char const* const argv[]) {
         node = node->next;
     }
 
-    //
+    verify_syntax(ast);
 
     // cleanup
     arena_free(&parser_arena);
