@@ -126,10 +126,10 @@ void main() {
 
     p2 = std::some((int*)0); // this is still valid, but compiler warning
 
-    std::Maybe<std::Nonull<int>> mut p3 = std::none();
+    std::Maybe<std::NonullPtr<int>> mut p3 = std::none();
     p3 = std::some(std::assert_nonull(&v));
 
-    std::Nullable<int> mut p4 = std::null();
+    std::NullablePtr<int> mut p4 = std::null();
     p3 = std::nullable(&v);
 
     // errors
