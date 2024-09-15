@@ -223,7 +223,7 @@ void try_example() {
     int double = fetch_double(false) else return;
 }
 
-Result<int> fetch_double(bool should_succeed) {
+std::Result<int> fetch_double(bool should_succeed) {
     // Here's the first time I'm showcasing `try`
     // This will bubble up an error, or resolve to the ok value.
 
