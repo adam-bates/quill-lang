@@ -159,7 +159,7 @@ typedef struct {
         uint64_t lit_int;
         double lit_float;
         String lit_str;
-        char lit_char;
+        String lit_char; // String instead of char, to map chars like '\n' to "\\n"
         String lit_chars;
         void* lit_null;
     } value;

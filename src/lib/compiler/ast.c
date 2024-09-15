@@ -53,7 +53,7 @@ static void print_static_path(StaticPath const* path) {
 void print_astnode(ASTNode const node) {
     switch (node.type) {
         case ANT_NONE: {
-            // printf("<Incomplete AST Node>");
+            printf("<Incomplete AST Node>");
             break;
         }
 
@@ -78,11 +78,18 @@ void print_astnode(ASTNode const node) {
             {
                 indent += 1;
                 LLNode_ASTNode* stmt = node.node.function_decl.stmts.head;
+                bool last_was_ok = true;
                 while (stmt != NULL) {
                     if (stmt->data.type == ANT_NONE) {
+                        if (last_was_ok) {
+                            print_tabs();
+                            printf("<Unknown AST Node>\n");
+                        }
+                        last_was_ok = false;
                         stmt = stmt->next;
                         continue;
                     }
+                    last_was_ok = true;
 
                     print_tabs();
                     print_astnode(stmt->data);
@@ -128,7 +135,15 @@ void print_astnode(ASTNode const node) {
         case ANT_LITERAL: {
             switch (node.node.literal.kind) {
                 case LK_STR: {
+                    printf("\"");
                     print_string(node.node.literal.value.lit_str);
+                    printf("\"");
+                    break;
+                }
+                case LK_CHAR: {
+                    printf("'");
+                    print_string(node.node.literal.value.lit_char);
+                    printf("'");
                     break;
                 }
                 default: print_tabs(); printf("/* TODO: print_astnode(%d) */", node.type);

@@ -198,7 +198,7 @@ static void error_at(Parser* const parser, Token const* const token, char const*
         // nothing
         fprintf(stderr, " parsing broken token '%.*s'", (int)token->length, token->start);
     } else {
-        fprintf(stderr, " at '%.*s'", (int)token->length, token->start);
+        fprintf(stderr, " at [%.*s]", (int)token->length, token->start);
     }
 
     fprintf(stderr, ": %s\n", message);
@@ -320,12 +320,74 @@ static ParseResult parser_parse_lit_str(Parser* const parser) {
         return parseres_none();
     }
 
+    if (litstr.length <= 1) {
+        error(parser, "Missing string boundaries.");
+        return parseres_err((ASTNode){
+            .type = ANT_LITERAL,
+            .node.literal.kind = LK_STR,
+            .node.literal.value.lit_str = {
+                .chars = "",
+                .length = 0,
+            },
+        });
+    }
+
     return parseres_ok((ASTNode){
         .type = ANT_LITERAL,
         .node.literal.kind = LK_STR,
         .node.literal.value.lit_str = {
-            .chars = litstr.start,
-            .length = litstr.length,
+            .chars = litstr.start + 1,
+            .length = litstr.length - 2,
+        },
+    });
+}
+
+static ParseResult parser_parse_lit_char_s(Parser* const parser) {
+    Token const litchar_s = parser_peek(parser);
+
+    if (!parser_consume(parser, TT_LITERAL_CHAR, "Expected char literal.")) {
+        return parseres_none();
+    }
+
+    // token includes single-quotes
+    if (litchar_s.length <= 2) {
+        error(parser, "Empty character not allowed.");
+        return parseres_err((ASTNode){
+            .type = ANT_LITERAL,
+            .node.literal.kind = LK_CHAR,
+            .node.literal.value.lit_char = '\0',
+        });
+    }
+
+    if (litchar_s.length == 3) {
+        return parseres_ok((ASTNode){
+            .type = ANT_LITERAL,
+            .node.literal.kind = LK_CHAR,
+            // .node.literal.value.lit_char = litchar_s.start[1],
+            .node.literal.value.lit_char = {
+                .chars = litchar_s.start + 1,
+                .length = 1,
+            },
+        });
+    }
+
+    if (litchar_s.start[1] == '\\' && litchar_s.length == 4) {
+        return parseres_ok((ASTNode){
+            .type = ANT_LITERAL,
+            .node.literal.kind = LK_CHAR,
+            .node.literal.value.lit_char = {
+                .chars = litchar_s.start + 1,
+                .length = 2,
+            },
+        });
+    }
+
+    return parseres_ok((ASTNode){
+        .type = ANT_LITERAL,
+        .node.literal.kind = LK_CHARS,
+        .node.literal.value.lit_chars = {
+            .chars = litchar_s.start + 1,
+            .length = litchar_s.length - 2,
         },
     });
 }
@@ -333,6 +395,7 @@ static ParseResult parser_parse_lit_str(Parser* const parser) {
 static ParseResult parser_parse_lit(Parser* const parser) {
     switch (parser_peek(parser).type) {
         case TT_LITERAL_STRING: return parser_parse_lit_str(parser);
+        case TT_LITERAL_CHAR: return parser_parse_lit_char_s(parser);
 
         default: break;
     }
@@ -506,6 +569,9 @@ static ParseResult parser_parse_fn_decl(Parser* const parser) {
         ll_ast_push(parser->arena, &node.node.function_decl.stmts, stmt_res.node);
 
         if (stmt_res.status != PRS_OK) {
+            if (stmt_res.status == PRS_NONE) {
+                error_at(parser, &current, "Expected statmement.");
+            }
             parser_advance(parser);
         }
     }
