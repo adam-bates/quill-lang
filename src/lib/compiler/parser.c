@@ -90,6 +90,7 @@ static void debug_token_type(Parser const* const parser, TokenType token_type) {
         case TT_TRUE: printf("true"); break;
         case TT_UNION: printf("union"); break;
         case TT_WHILE: printf("while"); break;
+        case TT_DEFER: printf("defer"); break;
 
         case TT_VOID: printf("void"); break;
         case TT_BOOL: printf("bool"); break;

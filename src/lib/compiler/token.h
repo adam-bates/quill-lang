@@ -55,6 +55,7 @@ typedef enum {
     TT_TRUE,
     TT_UNION,
     TT_WHILE,
+    TT_DEFER,
 
     // built-in types
     TT_VOID,
