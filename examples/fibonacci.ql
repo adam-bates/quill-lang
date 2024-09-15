@@ -1,6 +1,6 @@
 import std::*;
 
-ExitCode main(String[] args) {
+ExitCode main(Array<String> args) {
     if args.length != 3 {
         io::eprintln("Usage: fibonacci [slow|fast] [integer]");
         return ExitCode::FAILURE;
