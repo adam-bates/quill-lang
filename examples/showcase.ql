@@ -89,7 +89,7 @@ void main() {
     uint len = v.length;
     int[] data = v.data;
 
-    int? v0 = std::array_get(0);
+    std::Maybe<int> v0 = std::array_get(0);
 
     // strings
     std::String v = "hello";
@@ -119,20 +119,18 @@ void main() {
     int* p = &v;
 
     std::Maybe<int*> mut p2 = std::none();
+    std::assert_none(p2);
 
     p2 = std::some(&v);
     int* v = std::assert_some(p2);
 
     p2 = std::some((int*)0); // this is still valid, but compiler warning
-    std::assert_none(p2);
 
     std::Maybe<std::Nonull<int>> mut p3 = std::none();
     p3 = std::some(std::assert_nonull(&v));
 
-    // std::Nullable<T> is an alias for std::Maybe<std::Nonull<T>>
-
-    std::Nullable<int> mut p4 = std::none();
-    p3 = std::some(std::assert_nonull(&v));
+    std::Nullable<int> mut p4 = std::null();
+    p3 = std::nullable(&v);
 
     // errors
     std::Error err = std::err_create(std::ErrorType::UNSPECIFIED, "example error");
