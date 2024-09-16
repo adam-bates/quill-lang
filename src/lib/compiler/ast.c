@@ -65,16 +65,9 @@ void print_astnode(ASTNode const node) {
         }
 
         case ANT_FUNCTION_DECL: {
-            bool is_main = strncmp(node.node.function_header_decl.name.chars, "main", 4) == 0;
-
-            if (is_main) {
-                printf("int ");
-            } else {
-                printf("void ");
-            }
-
+            printf("void ");
             print_string(node.node.function_header_decl.name);
-            printf("(void) {\n");
+            printf("() {\n");
             {
                 indent += 1;
                 LLNode_ASTNode* stmt = node.node.function_decl.stmts.head;
@@ -95,10 +88,6 @@ void print_astnode(ASTNode const node) {
                     print_astnode(stmt->data);
                     printf(";\n");
                     stmt = stmt->next;
-                }
-                if (is_main) {
-                    print_tabs();
-                    printf("return 0;\n");
                 }
                 
                 indent -= 1;
@@ -140,10 +129,24 @@ void print_astnode(ASTNode const node) {
                     printf("\"");
                     break;
                 }
+                case LK_CHARS: {
+                    printf("'");
+                    print_string(node.node.literal.value.lit_chars);
+                    printf("'");
+                    break;
+                }
                 case LK_CHAR: {
                     printf("'");
                     print_string(node.node.literal.value.lit_char);
                     printf("'");
+                    break;
+                }
+                case LK_INT: {
+                    printf("%llu", node.node.literal.value.lit_int);
+                    break;
+                }
+                case LK_FLOAT: {
+                    printf("%f", node.node.literal.value.lit_float);
                     break;
                 }
                 default: print_tabs(); printf("/* TODO: print_astnode(%d) */", node.type);

@@ -392,10 +392,43 @@ static ParseResult parser_parse_lit_char_s(Parser* const parser) {
     });
 }
 
+static ParseResult parser_parse_lit_number(Parser* const parser) {
+    Token const litnum = parser_peek(parser);
+
+    if (!parser_consume(parser, TT_LITERAL_NUMBER, "Expected number literal.")) {
+        return parseres_none();
+    }
+
+    String const str = arena_strcpy(parser->arena, (String){ .chars = litnum.start, .length = litnum.length });
+
+    bool has_decimal = false;
+    for (size_t i = 0; i < str.length; ++i) {
+        if (str.chars[i] == '.') {
+            has_decimal = true;
+            break;
+        }
+    }
+
+    if (has_decimal) {
+        return parseres_ok((ASTNode){
+            .type = ANT_LITERAL,
+            .node.literal.kind = LK_FLOAT,
+            .node.literal.value.lit_float = atof(str.chars),
+        });
+    }
+
+    return parseres_ok((ASTNode){
+        .type = ANT_LITERAL,
+        .node.literal.kind = LK_INT,
+        .node.literal.value.lit_int = atoll(str.chars),
+    });
+}
+
 static ParseResult parser_parse_lit(Parser* const parser) {
     switch (parser_peek(parser).type) {
         case TT_LITERAL_STRING: return parser_parse_lit_str(parser);
         case TT_LITERAL_CHAR: return parser_parse_lit_char_s(parser);
+        case TT_LITERAL_NUMBER: return parser_parse_lit_number(parser);
 
         default: break;
     }

@@ -1,6 +1,9 @@
 build: setup
 	gcc -std=c99 -Wall -Wextra -pedantic -I./src/lib -o .bin/quillc src/bin/quillc.c src/lib/**/*.c
 
+release: setup
+	gcc -std=c99 -O3 -Wall -Wextra -pedantic -I./src/lib -o .bin/quillc src/bin/quillc.c src/lib/**/*.c
+
 test-lexer: setup
 	gcc -std=c99 -Wall -Wextra -pedantic -I./src/lib -o .bin/lexer_test tests/lexer.c src/lib/**/*.c
 	.bin/lexer_test
@@ -16,4 +19,3 @@ setup:
 
 clean:
 	rm -rf ./.bin
-
