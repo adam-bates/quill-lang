@@ -295,13 +295,13 @@ static ParseResult parser_parse_import(Parser* const parser) {
           like `import std::{io::{printf, println}, ds::{StringBuffer, strbuf_create}}`
     */
 
-    StaticPath* path = parser_parse_static_path(parser);
+    StaticPath* const path = parser_parse_static_path(parser);
     if (path == NULL) {
         error_at_current(parser, "Expected import target.");
         return parseres_none();
     }
 
-    ASTNode node = {
+    ASTNode const node = {
         .type = ANT_IMPORT,
         .node.import.static_path = path,
     };
@@ -437,7 +437,7 @@ static ParseResult parser_parse_lit(Parser* const parser) {
 }
 
 static ParseResult parser_parse_var_ref(Parser* const parser) {
-    StaticPath* path = parser_parse_static_path(parser);
+    StaticPath* const path = parser_parse_static_path(parser);
 
     if (path == NULL) {
         return parseres_none();
@@ -455,7 +455,7 @@ static ParseResult parser_parse_fn_call(Parser* const parser) {
         .node.function_call = {0},
     };
 
-    ParseResult varref_res = parser_parse_var_ref(parser);
+    ParseResult const varref_res = parser_parse_var_ref(parser);
     if (varref_res.status != PRS_OK) {
         return parseres_none();
     }
@@ -464,7 +464,7 @@ static ParseResult parser_parse_fn_call(Parser* const parser) {
         return parseres_none();
     }
 
-    ASTNode* target = arena_alloc(parser->arena, sizeof(ASTNode));
+    ASTNode* const target = arena_alloc(parser->arena, sizeof(ASTNode));
     *target = varref_res.node;
 
     fn_call.node.function_call.function = target;
@@ -500,7 +500,7 @@ static ParseResult parser_parse_fn_call(Parser* const parser) {
 
 static ParseResult parser_parse_expr(Parser* const parser) {
     ParseResult expr_res;
-    size_t cached_current = parser->cursor_current;
+    size_t const cached_current = parser->cursor_current;
 
     expr_res = parser_parse_lit(parser);
     if (expr_res.status == PRS_OK) {
@@ -519,7 +519,7 @@ static ParseResult parser_parse_expr(Parser* const parser) {
 
 static ParseResult parser_parse_stmt(Parser* const parser) {
     ParseResult stmt_res;
-    size_t cached_current = parser->cursor_current;
+    size_t const cached_current = parser->cursor_current;
 
     stmt_res = parser_parse_expr(parser);
     if (stmt_res.status == PRS_OK) {
@@ -598,7 +598,7 @@ static ParseResult parser_parse_fn_decl(Parser* const parser) {
             break;
         }
 
-        ParseResult stmt_res = parser_parse_stmt(parser);
+        ParseResult const stmt_res = parser_parse_stmt(parser);
         ll_ast_push(parser->arena, &node.node.function_decl.stmts, stmt_res.node);
 
         if (stmt_res.status != PRS_OK) {
@@ -617,7 +617,7 @@ static ParseResult parser_parse_fn_decl(Parser* const parser) {
 }
 
 static ParseResult parser_parse_filescope_decl(Parser* const parser) {
-    Token current = parser_peek(parser);
+    Token const current = parser_peek(parser);
 
     switch (current.type) {
         case TT_IMPORT: return parser_parse_import(parser);
@@ -626,7 +626,7 @@ static ParseResult parser_parse_filescope_decl(Parser* const parser) {
     }
 
     ParseResult decl_res;
-    size_t cached_current = parser->cursor_current;
+    size_t const cached_current = parser->cursor_current;
 
     decl_res = parser_parse_fn_decl(parser);
     if (decl_res.status == PRS_OK) {
@@ -673,7 +673,7 @@ ASTNodeResult parser_parse(Parser* const parser) {
         ll_ast_push(parser->arena, &nodes, node_res.node);
     }
 
-    ASTNode* file_root = arena_alloc(parser->arena, sizeof(ASTNode));
+    ASTNode* const file_root = arena_alloc(parser->arena, sizeof(ASTNode));
     file_root->type = ANT_FILE_ROOT;
     file_root->node.file_root = (ASTNodeFileRoot){ .nodes = nodes };
 
