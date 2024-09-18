@@ -1,4 +1,4 @@
-import libc/stdio;
+import libc::stdio;
 
 import ./std;
 
