@@ -1,12 +1,16 @@
 @c_header(<stdio.h>);
 
-@c_restrict
-@c_FILE
-void mut* stdout;
+typedef 
+    @c_restrict
+    @c_FILE
+    void
+as FILE;
+
+FILE mut* stdout;
 
 uint fwrite(
 	@c_restrict void* buffer,
 	uint size,
 	uint count,
-	@c_restrict @c_FILE void mut* stream,
+	FILE mut* stream,
 );
