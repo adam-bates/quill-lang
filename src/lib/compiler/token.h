@@ -49,6 +49,7 @@ typedef enum {
     TT_MUT,
     TT_NULL,
     TT_RETURN,
+    TT_SIZEOF,
     TT_STATIC,
     TT_STRUCT,
     TT_SWITCH,

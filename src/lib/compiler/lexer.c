@@ -24,6 +24,7 @@ static const KeywordMatch KEYWORD_MATCHES[KEYWORD_MATCHES_LEN] = {
     { "mut", TT_MUT },
     { "null", TT_NULL },
     { "return", TT_RETURN },
+    { "sizeof", TT_SIZEOF },
     { "static", TT_STATIC },
     { "struct", TT_STRUCT },
     { "switch", TT_SWITCH },
