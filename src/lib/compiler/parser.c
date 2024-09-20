@@ -636,6 +636,7 @@ static ParseResult parser_parse_filescope_decl(Parser* const parser) {
     Token const current = parser_peek(parser);
 
     switch (current.type) {
+        // case TT_PACKAGE: assert(false);
         case TT_IMPORT: return parser_parse_import(parser);
 
         default: break;
@@ -683,7 +684,8 @@ ASTNodeResult parser_parse(Parser* const parser) {
     
         ParseResult const node_res = parser_parse_node(parser);
         if (node_res.status != PRS_OK) {
-            break;
+            error_at_current(parser, "Unexpected error parsing tokens.");
+            parser_advance(parser);
         }
 
         ll_ast_push(parser->arena, &nodes, node_res.node);

@@ -81,7 +81,19 @@ int main(int const argc, char const* const argv[]) {
 
     LL_ASTNode nodes = ast->node.file_root.nodes;
     LLNode_ASTNode* node = nodes.head;
+
+    bool last_was_ok = true;
     while (node != NULL) {
+        if (node->data.type == ANT_NONE) {
+            if (last_was_ok) {
+                printf("<Unknown AST Node>\n");
+            }
+            last_was_ok = false;
+            node = node->next;
+            continue;
+        }
+        last_was_ok = true;
+
         print_astnode(node->data);
         node = node->next;
     }
