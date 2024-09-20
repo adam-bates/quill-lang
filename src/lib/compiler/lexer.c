@@ -242,9 +242,27 @@ static Token lexer_scan_keyword_or_identifier(Lexer* const lexer) {
     return lexer_token_create(lexer, TT_IDENTIFIER);
 }
 
-static Token lexer_scan_number(Lexer* const lexer) {
+static Token lexer_scan_at_or_compiler_directive(Lexer* const lexer) {
+    bool is_compiler_directive = false;
+    while (char_is_alpha(lexer_peek(lexer)) || char_is_digit(lexer_peek(lexer))) {
+        is_compiler_directive = true;
+        lexer_advance(lexer);
+    }
+
+    if (is_compiler_directive) {
+        return lexer_token_create(lexer, TT_COMPILER_DIRECTIVE);
+    } else {
+        return lexer_token_create(lexer, TT_AT);
+    }
+}
+
+static Token lexer_scan_number_or_identifier(Lexer* const lexer) {
     while (char_is_digit(lexer_peek(lexer))) {
         lexer_advance(lexer);
+    }
+
+    if (char_is_alpha(lexer_peek(lexer))) {
+        return lexer_scan_keyword_or_identifier(lexer);
     }
 
     // look for a fractional part
@@ -367,7 +385,7 @@ static Token lexer_scan_token(Lexer* const lexer) {
     }
 
     if (char_is_digit(c)) {
-        return lexer_scan_number(lexer);
+        return lexer_scan_number_or_identifier(lexer);
     }
 
     if (c == '}' && lexer->template_string_nest > 0) {
@@ -378,6 +396,7 @@ static Token lexer_scan_token(Lexer* const lexer) {
         case '\'': return lexer_scan_chars(lexer);
         case '"': return lexer_scan_string(lexer);
         case '`': return lexer_scan_template_string_start(lexer);
+        case '@': return lexer_scan_at_or_compiler_directive(lexer);
 
         case '(': return lexer_token_create(lexer, TT_LEFT_PAREN);
         case ')': return lexer_token_create(lexer, TT_RIGHT_PAREN);
