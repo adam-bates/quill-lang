@@ -1,4 +1,8 @@
-struct String {
-	uint  length;
-	char* bytes;
+package std;
+
+struct Array<T> {
+	uint length,
+	T*   bytes,
 }
+
+typedef String = Array<char>;

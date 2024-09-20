@@ -1,12 +1,10 @@
-@c_header(<stdio.h>);
+@c_header(<stdio.h>)
+package libc::stdio;
 
-typedef 
-    @c_restrict
-    @c_FILE
-    void
-as FILE;
+typedef FILE = @c_restrict @c_FILE void;
 
 FILE mut* stdout;
+FILE mut* stderr;
 
 uint fwrite(
 	@c_restrict void* buffer,
