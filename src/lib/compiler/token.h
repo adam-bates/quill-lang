@@ -48,6 +48,7 @@ typedef enum {
     TT_LET,
     TT_MUT,
     TT_NULL,
+    TT_PACKAGE,
     TT_RETURN,
     TT_SIZEOF,
     TT_STATIC,

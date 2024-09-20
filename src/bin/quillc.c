@@ -1,7 +1,32 @@
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "../lib/quillc.h"
+
+static int count_digits(int n) {
+    if (n < 0) {
+        if (n == INT_MIN) {
+            n = INT_MAX;
+        } else {
+            n = -n;
+        }
+    }
+
+    if (n < 10) { return 1; }
+    if (n < 100) { return 2; }
+    if (n < 1000) { return 3; }
+    if (n < 10000) { return 4; }
+    if (n < 100000) { return 5; }
+    if (n < 1000000) { return 6; }
+    if (n < 10000000) { return 7; }
+    if (n < 100000000) { return 8; }
+    if (n < 1000000000) { return 9; }
+
+    /*      2147483647 is 2^31-1 - add more ifs as needed
+       and adjust this final return as well. */
+    return 10;
+}
 
 int main(int const argc, char const* const argv[]) {
     if (argc != 2) {
@@ -32,7 +57,9 @@ int main(int const argc, char const* const argv[]) {
         char* token_str = quill_calloc(allocator, token.length, sizeof(char));
         strncpy(token_str, token.start, token.length);
 
-        printf("%lu | %.*d | %s\n", token.line, 2, token.type, token_str);
+        printf("%-*lu | %-*d | [", count_digits((int)lexer.line), token.line, count_digits(TT_COUNT), token.type);
+        debug_token_type(token.type);
+        printf("] %s\n", token_str);
 
         quill_free(allocator, token_str);
     }

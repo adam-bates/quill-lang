@@ -19,6 +19,8 @@ typedef struct {
 #define astres_assert(astres) \
     if (!astres.ok) { err_print(astres.res.err); assert(astres.ok); }
 
+void debug_token_type(TokenType token_type);
+
 Parser parser_create(Arena* const arena, ArrayList_Token const tokens);
 
 ASTNodeResult parser_parse(Parser* const parser);

@@ -19,7 +19,7 @@ typedef struct {
 
 static ParseResult parser_parse_expr(Parser* const parser);
 
-static void debug_token_type(Parser const* const parser, TokenType token_type) {
+void debug_token_type(TokenType token_type) {
     switch (token_type) {
         case TT_IDENTIFIER: printf("identifier"); break;
         case TT_COMPILER_DIRECTIVE: printf("compiler_directive"); break;
@@ -87,6 +87,7 @@ static void debug_token_type(Parser const* const parser, TokenType token_type) {
         case TT_LET: printf("let"); break;
         case TT_MUT: printf("mut"); break;
         case TT_NULL: printf("null"); break;
+        case TT_PACKAGE: printf("package"); break;
         case TT_RETURN: printf("return"); break;
         case TT_SIZEOF: printf("sizeof"); break;
         case TT_STATIC: printf("static"); break;
@@ -133,7 +134,7 @@ static void debug_token_type(Parser const* const parser, TokenType token_type) {
 
 static void debug_token(Parser const* const parser, Token token) {
     printf("Token[");
-    debug_token_type(parser, token.type);
+    debug_token_type(token.type);
 
     char* cstr = arena_memcpy(parser->arena, token.start, token.length + 1);
     cstr[token.length] = '\0';
