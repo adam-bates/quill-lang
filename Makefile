@@ -14,6 +14,9 @@ test: test-lexer
 run: build
 	.bin/quillc ./examples/hello.ql
 
+run-libc: build
+	.bin/quillc ./brainstorm/libc/stdio.ql
+
 setup:
 	mkdir -p ./.bin
 
