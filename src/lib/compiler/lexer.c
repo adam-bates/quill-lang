@@ -11,7 +11,6 @@ typedef struct {
 
 static const size_t KEYWORD_MATCHES_LEN = 40;
 static const KeywordMatch KEYWORD_MATCHES[KEYWORD_MATCHES_LEN] = {
-    { "case", TT_CASE },
     { "CRASH", TT_CRASH },
     { "else", TT_ELSE },
     { "enum", TT_ENUM },
@@ -29,6 +28,7 @@ static const KeywordMatch KEYWORD_MATCHES[KEYWORD_MATCHES_LEN] = {
     { "struct", TT_STRUCT },
     { "switch", TT_SWITCH },
     { "true", TT_TRUE },
+    { "typedef", TT_TYPEDEF },
     { "union", TT_UNION },
     { "while", TT_WHILE },
 
@@ -416,10 +416,16 @@ static Token lexer_scan_token(Lexer* const lexer) {
             lexer_match_char(lexer, '=') ? TT_EQUAL_EQUAL : TT_EQUAL
         );
         case '+': return lexer_token_create(lexer,
-            lexer_match_char(lexer, '=') ? TT_PLUS_EQUAL : TT_PLUS
+            lexer_match_char(lexer, '=') ? TT_PLUS_EQUAL : (
+                lexer_match_char(lexer, '+') ? TT_PLUS_PLUS : TT_PLUS
+            )
         );
         case '-': return lexer_token_create(lexer,
-            lexer_match_char(lexer, '=') ? TT_MINUS_EQUAL : TT_MINUS
+            lexer_match_char(lexer, '=') ? TT_MINUS_EQUAL : (
+                lexer_match_char(lexer, '-') ? (
+                    lexer_match_char(lexer, '-') ? TT_MINUS_MINUS_MINUS : TT_MINUS_MINUS
+                ) : TT_MINUS
+            )
         );
         case '/': return lexer_token_create(lexer,
             lexer_match_char(lexer, '=') ? TT_SLASH_EQUAL : TT_SLASH

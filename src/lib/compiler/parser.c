@@ -70,7 +70,6 @@ static void debug_token_type(Parser const* const parser, TokenType token_type) {
         case TT_LITERAL_STRING_TEMPLATE_CONT: printf("literal_string_template_cont"); break;
         case TT_LITERAL_STRING_TEMPLATE_FULL: printf("literal_string_template_full"); break;
 
-        case TT_CASE: printf("case"); break;
         case TT_CRASH: printf("crash"); break;
         case TT_ELSE: printf("else"); break;
         case TT_ENUM: printf("enum"); break;
@@ -433,6 +432,11 @@ static ParseResult parser_parse_lit(Parser* const parser) {
         default: break;
     }
 
+    return parseres_none();
+}
+
+static ParseResult parser_parse_compiler_directive(Parser* const parser) {
+    // TODO
     return parseres_none();
 }
 

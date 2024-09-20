@@ -5,19 +5,20 @@
 
 typedef enum {
     TT_IDENTIFIER,
+    TT_COMPILER_DIRECTIVE,
 
     // single-character tokens
     TT_LEFT_PAREN, TT_RIGHT_PAREN,     // ()
     TT_LEFT_BRACE, TT_RIGHT_BRACE,     // {}
     TT_LEFT_BRACKET, TT_RIGHT_BRACKET, // []
     TT_COMMA, TT_DOT,
-    TT_SEMICOLON, TT_QUESTION,
+    TT_SEMICOLON, TT_QUESTION, TT_AT,
 
     // one or two character tokens
     TT_BANG, TT_BANG_EQUAL,
     TT_EQUAL, TT_EQUAL_EQUAL,
-    TT_PLUS, TT_PLUS_EQUAL,
-    TT_MINUS, TT_MINUS_EQUAL,
+    TT_PLUS, TT_PLUS_EQUAL, TT_PLUS_PLUS,
+    TT_MINUS, TT_MINUS_EQUAL, TT_MINUS_MINUS, TT_MINUS_MINUS_MINUS,
     TT_SLASH, TT_SLASH_EQUAL,
     TT_STAR, TT_STAR_EQUAL,
     TT_CARET, TT_CARET_EQUAL,
@@ -35,7 +36,6 @@ typedef enum {
     TT_LITERAL_STRING_TEMPLATE_FULL,
 
     // keywords
-    TT_CASE,
     TT_CRASH,
     TT_ELSE,
     TT_ENUM,
@@ -53,6 +53,7 @@ typedef enum {
     TT_STRUCT,
     TT_SWITCH,
     TT_TRUE,
+    TT_TYPEDEF,
     TT_UNION,
     TT_WHILE,
     TT_DEFER,
