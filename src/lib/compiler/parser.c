@@ -22,6 +22,7 @@ static ParseResult parser_parse_expr(Parser* const parser);
 static void debug_token_type(Parser const* const parser, TokenType token_type) {
     switch (token_type) {
         case TT_IDENTIFIER: printf("identifier"); break;
+        case TT_COMPILER_DIRECTIVE: printf("compiler_directive"); break;
         
         case TT_LEFT_PAREN: printf("("); break;
         case TT_RIGHT_PAREN: printf(")"); break;
@@ -33,6 +34,7 @@ static void debug_token_type(Parser const* const parser, TokenType token_type) {
         case TT_DOT: printf("."); break;
         case TT_SEMICOLON: printf(";"); break;
         case TT_QUESTION: printf("?"); break;
+        case TT_AT: printf("@"); break;
 
         case TT_BANG: printf("!"); break;
         case TT_BANG_EQUAL: printf("!="); break;
@@ -40,8 +42,11 @@ static void debug_token_type(Parser const* const parser, TokenType token_type) {
         case TT_EQUAL_EQUAL: printf("=="); break;
         case TT_PLUS: printf("+"); break;
         case TT_PLUS_EQUAL: printf("+="); break;
+        case TT_PLUS_PLUS: printf("++"); break;
         case TT_MINUS: printf("-"); break;
         case TT_MINUS_EQUAL: printf("-="); break;
+        case TT_MINUS_MINUS: printf("--"); break;
+        case TT_MINUS_MINUS_MINUS: printf("---"); break;
         case TT_SLASH: printf("/"); break;
         case TT_SLASH_EQUAL: printf("/="); break;
         case TT_STAR: printf("*"); break;
@@ -83,10 +88,12 @@ static void debug_token_type(Parser const* const parser, TokenType token_type) {
         case TT_MUT: printf("mut"); break;
         case TT_NULL: printf("null"); break;
         case TT_RETURN: printf("return"); break;
+        case TT_SIZEOF: printf("sizeof"); break;
         case TT_STATIC: printf("static"); break;
         case TT_STRUCT: printf("struct"); break;
         case TT_SWITCH: printf("switch"); break;
         case TT_TRUE: printf("true"); break;
+        case TT_TYPEDEF: printf("typedef"); break;
         case TT_UNION: printf("union"); break;
         case TT_WHILE: printf("while"); break;
         case TT_DEFER: printf("defer"); break;
@@ -351,10 +358,14 @@ static ParseResult parser_parse_lit_char_s(Parser* const parser) {
     // token includes single-quotes
     if (litchar_s.length <= 2) {
         error(parser, "Empty character not allowed.");
+        static char NULL_CHAR = '\0';
         return parseres_err((ASTNode){
             .type = ANT_LITERAL,
             .node.literal.kind = LK_CHAR,
-            .node.literal.value.lit_char = '\0',
+            .node.literal.value.lit_char = {
+                .chars = &NULL_CHAR,
+                .length = 1,
+            },
         });
     }
 
