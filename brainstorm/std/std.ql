@@ -1,8 +1,6 @@
 package std;
 
-struct Array<T> {
-	uint length,
-	T*   bytes,
+struct String {
+	uint  length,
+	char* bytes,
 }
-
-typedef String = Array<char>;
