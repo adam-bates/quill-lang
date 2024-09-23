@@ -17,13 +17,14 @@ import std;
     There's a couple options for what main can look like.
 
     return type can be one of:
-    - void
-    - int
-    - std::ExitCode
+    - Simple:  void
+    - c-style: int
+    - Verbose: std::ExitCode
 
     params can be either:
-    - ()
-    - (std::Array<std::String> args)
+    - Simple:  ()
+    - c-style: (uint argc, char*[] argv)
+    - Verbose: (std::Array<std::String> args)
 */
 void main() {
 
