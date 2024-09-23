@@ -72,8 +72,9 @@ void main() {
     uint    ptr = (uint)ptr;
 
     // arrays
-    int[] v = []{ 1, 2, 3 };
-    int*  v = []{ 1, 2, 3 };
+    int[]  v = []{ 1, 2, 3 };
+    int[]* v = &[]{ 1, 2, 3 };
+    int*   v = (int*)v;
 
     int v0 = v[0];
     int v0 = *v;
@@ -95,12 +96,15 @@ void main() {
     // strings
     std::String v = "hello";
 
-    // c strings
-    char*  v = []{ 'hello\0' };
-    char*  v = []{ 'h', 'e', 'l', 'l', 'o', 0 };
-
+    // character arrays & c strings
     char[] v = []{ 'hello\0' };
     char[] v = []{ 'h', 'e', 'l', 'l', 'o', 0 };
+
+    char[]*  v = &[]{ 'hello\0' };
+    char[]*  v = &[]{ 'h', 'e', 'l', 'l', 'o', 0 };
+
+    char*  v = (char*)&[]{ 'hello\0' };
+    char*  v = (char*)&[]{ 'h', 'e', 'l', 'l', 'o', 0 };
 
     // template strings
     std::ds::StringBuffer v = `{v}, world`;
