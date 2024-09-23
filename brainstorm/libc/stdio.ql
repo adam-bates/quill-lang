@@ -1,4 +1,4 @@
-@c_header(<stdio.h>)
+@c_header("stdio.h")
 package libc::stdio;
 
 typedef FILE = @c_restrict @c_FILE void;
