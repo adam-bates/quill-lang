@@ -87,11 +87,16 @@ void main() {
 
     //
 
-    std::Array<int> v = std::array_create([]{ 1, 2, 3 });
+    std::Array<int> v = std::arr_create([]{ 1, 2, 3 });
     uint len = v.length;
     int[] data = v.data;
 
-    std::Maybe<int> v0 = std::array_get(0);
+    std::Maybe<int> v0 = std::arr_get(&v, 0);
+
+    // list
+    std::ds::ArrayBuffer<int> mut v = std::arrbuf_create();
+    std::ds::arrbuf_push(&v, 42);
+    std::Array<int> vv = std::ds::arrbuf_to_arr(v);
 
     // strings
     std::String v = "hello";
@@ -100,16 +105,20 @@ void main() {
     char[] v = []{ 'hello\0' };
     char[] v = []{ 'h', 'e', 'l', 'l', 'o', 0 };
 
-    char[]*  v = &[]{ 'hello\0' };
-    char[]*  v = &[]{ 'h', 'e', 'l', 'l', 'o', 0 };
+    char[]* v = &[]{ 'hello\0' };
+    char[]* v = &[]{ 'h', 'e', 'l', 'l', 'o', 0 };
 
-    char*  v = (char*)&[]{ 'hello\0' };
-    char*  v = (char*)&[]{ 'h', 'e', 'l', 'l', 'o', 0 };
+    char* v = (char*)&[]{ 'hello\0' };
+    char* v = (char*)&[]{ 'h', 'e', 'l', 'l', 'o', 0 };
 
     char* v = @c_str "hello";
 
     // template strings
     std::ds::StringBuffer v = `{v}, world`;
+
+    std::ds::StringBuffer mut v = std::ds::strbuf_create();
+    std::ds::strbuf_append_char(&v, '!');
+    std::String vv = std::ds::strbuf_to_str(v);
 
     // optionals (ie. "nullables")
     std::Maybe<int> m = std::some(0);
