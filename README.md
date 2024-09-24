@@ -1,11 +1,11 @@
 # Quill Programming Langauge
 
-Iteration on c, without maxros or confusing behaviour; with some modern syntax, and a couple of modern features.
+Iteration on c. Aiming for quality-of-life improvements, keeping a lean language, and removing c weirdness.
 
-Notable differences from c:
+Some notable differences from c:
 - Data is constant & immutable by default. Mutable data must be marked as `mut`.
 - Namespacing: `std::io::printf("Hello, world!");`
-- Generics (type-erased): `std::ds::HashMap<String, int>`
+- Generics: `HashTable<String, int>`
 - Type-inferencing: `let x = true; // x is a bool`
 - for-each loops: `for n in 0..10 { }`
 - break-data turns blocks into expressions: `int x = { break 1; };`
@@ -40,9 +40,7 @@ int main(Array<String> args) {
 
     ds::StringBuffer mut out = ds::strbuf_create();
     for i in 1..=n {
-        defer {
-            ds::strbuf_reset(&out);
-        }
+        defer ds::strbuf_reset(&out);
     
         if i % 3 == 0 { ds::strbuf_append_str(&out, "Fizz"); }
         if i % 5 == 0 { ds::strbuf_append_str(&out, "Buzz"); }
