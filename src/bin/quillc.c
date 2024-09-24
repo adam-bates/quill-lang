@@ -26,19 +26,19 @@ int main(int const argc, char const* const argv[]) {
     ArrayList_Token const tokens = scan_res.res.tokens;
 
     // print out tokens
-    for (size_t i = 0; i < tokens.length; ++i) {
-        Token const token = tokens.array[i];
+    // for (size_t i = 0; i < tokens.length; ++i) {
+    //     Token const token = tokens.array[i];
 
-        char* token_str = quill_calloc(allocator, token.length, sizeof(char));
-        strncpy(token_str, token.start, token.length);
+    //     char* token_str = quill_calloc(allocator, token.length, sizeof(char));
+    //     strncpy(token_str, token.start, token.length);
 
-        printf("%-*lu | %-*d | [", count_digits((int)lexer.line), token.line, count_digits(TT_COUNT), token.type);
-        debug_token_type(token.type);
-        printf("] %s\n", token_str);
+    //     printf("%-*lu | %-*d | [", count_digits((int)lexer.line), token.line, count_digits(TT_COUNT), token.type);
+    //     debug_token_type(token.type);
+    //     printf("] %s\n", token_str);
 
-        quill_free(allocator, token_str);
-    }
-    printf("\n");
+    //     quill_free(allocator, token_str);
+    // }
+    // printf("\n");
 
     Arena parser_arena = {0};
 
@@ -48,41 +48,40 @@ int main(int const argc, char const* const argv[]) {
     astres_assert(ast_res);
     ASTNode const* const ast = ast_res.res.ast;
 
-    printf("AST:");
-    if (parser.had_error) {
-        printf(" (partial due to errors)");
-    }
-    printf("\n");
+    // printf("AST:");
+    // if (parser.had_error) {
+    //     printf(" (partial due to errors)");
+    // }
+    // printf("\n");
 
-    LL_ASTNode nodes = ast->node.file_root.nodes;
-    LLNode_ASTNode* node = nodes.head;
+    // LL_ASTNode nodes = ast->node.file_root.nodes;
+    // LLNode_ASTNode* node = nodes.head;
 
-    bool last_was_ok = true;
-    while (node != NULL) {
-        if (node->data.type == ANT_NONE) {
-            if (last_was_ok) {
-                printf("<Unknown AST Node>\n");
-            }
-            last_was_ok = false;
-            node = node->next;
-            continue;
-        }
-        last_was_ok = true;
+    // bool last_was_ok = true;
+    // while (node != NULL) {
+    //     if (node->data.type == ANT_NONE) {
+    //         if (last_was_ok) {
+    //             printf("<Unknown AST Node>\n");
+    //         }
+    //         last_was_ok = false;
+    //         node = node->next;
+    //         continue;
+    //     }
+    //     last_was_ok = true;
 
-        print_astnode(node->data);
-        node = node->next;
-    }
+    //     print_astnode(node->data);
+    //     node = node->next;
+    // }
+    // printf("\n");
 
     verify_syntax(ast);
-
-    printf("\n");
 
     Arena codegen_arena = {0};
 
     CodegenC codegen = codegen_c_create(&codegen_arena, ast);
     String const c_code = generate_c_code(&codegen);
 
-    printf("C Code:\n");
+    // printf("C Code:\n");
     printf("%s\n", arena_strcpy(&codegen_arena, c_code).chars);
 
     // cleanup

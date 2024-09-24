@@ -1,7 +1,7 @@
 build: setup
 	gcc -std=c99 -Wall -Wextra -pedantic -I./src/lib -o .bin/quillc src/bin/quillc.c src/lib/**/*.c
 
-release: setup
+build-release: setup
 	gcc -std=c99 -O3 -Wall -Wextra -pedantic -I./src/lib -o .bin/quillc src/bin/quillc.c src/lib/**/*.c
 
 test-lexer: setup
@@ -12,7 +12,13 @@ test-lexer: setup
 test: test-lexer
 
 run: build
-	.bin/quillc ./examples/hello.ql
+	mkdir -p ./.bin/tmp \
+	&& .bin/quillc ./examples/hello.ql > ./.bin/tmp/main.c \
+	&& cd ./.bin/tmp \
+	&& gcc -std=c99 -o main ./main.c \
+	&& clear \
+	&& ./main \
+	&& cd ../.. \
 
 run-libc: build
 	.bin/quillc ./brainstorm/libc/stdio.ql
