@@ -11,6 +11,7 @@
 #include "./base.h"
 #include "./error.h"
 #include "./fs.h"
+#include "./numbers.h"
 #include "./strings.h"
 
 #define EXIT_SUCCESS 0
