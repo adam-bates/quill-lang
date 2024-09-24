@@ -1,5 +1,5 @@
-#ifndef quillc_compiler_h
-#define quillc_compiler_h
+#ifndef quill_compiler_h
+#define quill_compiler_h
 
 #include "./analyzer.h"
 #include "./codegen_c.h"

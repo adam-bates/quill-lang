@@ -1,5 +1,5 @@
-#ifndef quillc_codegen_c_h
-#define quillc_codegen_c_h
+#ifndef quill_codegen_c_h
+#define quill_codegen_c_h
 
 #include "./ast.h"
 #include "../utils/utils.h"

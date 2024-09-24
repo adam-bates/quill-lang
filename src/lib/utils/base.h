@@ -1,5 +1,5 @@
-#ifndef quillc_base_h
-#define quillc_base_h
+#ifndef quill_base_h
+#define quill_base_h
 
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1

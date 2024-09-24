@@ -1,5 +1,5 @@
-#ifndef quillc_ast_h
-#define quillc_ast_h
+#ifndef quill_ast_h
+#define quill_ast_h
 
 #include "../utils/utils.h"
 #include "./token.h"

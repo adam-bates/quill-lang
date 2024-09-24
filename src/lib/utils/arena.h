@@ -1,5 +1,5 @@
-#ifndef quillc_arena_h
-#define quillc_arena_h
+#ifndef quill_arena_h
+#define quill_arena_h
 
 #include "./base.h"
 #include "./strings.h"

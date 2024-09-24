@@ -1,5 +1,5 @@
-#ifndef quillc_error_h
-#define quillc_error_h
+#ifndef quill_error_h
+#define quill_error_h
 
 #include "./strings.h"
 

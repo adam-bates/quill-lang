@@ -1,5 +1,5 @@
-#ifndef quillc_lexer_h
-#define quillc_lexer_h
+#ifndef quill_lexer_h
+#define quill_lexer_h
 
 #include "./token.h"
 #include "../utils/utils.h"

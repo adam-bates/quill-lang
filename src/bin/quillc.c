@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../lib/quillc.h"
+#include "../lib/quill.h"
 
 static int count_digits(int n) {
     if (n < 0) {

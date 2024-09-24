@@ -1,5 +1,5 @@
-#ifndef quillc_allocator_h
-#define quillc_allocator_h
+#ifndef quill_allocator_h
+#define quill_allocator_h
 
 #include "./base.h"
 

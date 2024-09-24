@@ -1,5 +1,5 @@
-#ifndef quillc_analyzer_h
-#define quillc_analyzer_h
+#ifndef quill_analyzer_h
+#define quill_analyzer_h
 
 #include "./ast.h"
 

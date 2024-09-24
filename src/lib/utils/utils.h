@@ -1,5 +1,5 @@
-#ifndef quillc_utils_h
-#define quillc_utils_h
+#ifndef quill_utils_h
+#define quill_utils_h
 
 #include <assert.h>
 #include <stdbool.h>
