@@ -106,6 +106,8 @@ void main() {
     char*  v = (char*)&[]{ 'hello\0' };
     char*  v = (char*)&[]{ 'h', 'e', 'l', 'l', 'o', 0 };
 
+    char* v = @c_str "hello";
+
     // template strings
     std::ds::StringBuffer v = `{v}, world`;
 
