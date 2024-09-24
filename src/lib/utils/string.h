@@ -1,5 +1,5 @@
-#ifndef quill_strings_h
-#define quill_strings_h
+#ifndef quill_string_h
+#define quill_string_h
 
 #include "./base.h"
 

@@ -1,6 +1,6 @@
 #include <limits.h>
 
-#include "./numbers.h"
+#include "./number.h"
 
 int count_digits(int const num) {
     int n = num;

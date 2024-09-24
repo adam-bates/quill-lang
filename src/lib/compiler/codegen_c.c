@@ -10,8 +10,10 @@ CodegenC codegen_c_create(Arena* const arena, ASTNode const* const ast) {
 String generate_c_code(CodegenC* const codegen) {
     StringBuffer strbuf = strbuf_create(codegen->arena);
 
+    strbuf_append_chars(&strbuf, "todo");
+
     // TODO
     
-    return c_str("todo");
+    return strbuf_to_str(strbuf);
 }
 

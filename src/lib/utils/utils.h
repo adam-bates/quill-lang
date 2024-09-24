@@ -8,11 +8,12 @@
 
 #include "./allocator.h"
 #include "./arena.h"
+#include "./arena_alloc.h"
 #include "./base.h"
 #include "./error.h"
 #include "./fs.h"
-#include "./numbers.h"
-#include "./strings.h"
+#include "./number.h"
+#include "./string.h"
 
 #define EXIT_SUCCESS 0
 
