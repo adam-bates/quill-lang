@@ -21,6 +21,22 @@ void ll_ast_push(Arena* const arena, LL_ASTNode* const ll, ASTNode const node) {
     ll->length += 1;
 }
 
+void ll_directive_push(Arena* const arena, LL_Directive* const ll, Directive const directive) {
+    LLNode_Directive* const llnode = arena_alloc(arena, sizeof(LLNode_Directive));
+    llnode->data = directive;
+    llnode->next = NULL;
+
+    if (ll->head == NULL) {
+        ll->head = llnode;
+        ll->tail = ll->head;
+    } else {
+        ll->tail->next = llnode;
+        ll->tail = llnode;
+    }
+
+    ll->length += 1;
+}
+
 static Arena ast_print_arena = {0};
 static Arena* arena = &ast_print_arena;
 
@@ -51,6 +67,17 @@ static void print_static_path(StaticPath const* path) {
 }
 
 void print_astnode(ASTNode const node) {
+    if (node.directives.length > 0) {
+        LLNode_Directive* curr = node.directives.head;
+        while (curr != NULL) {
+            switch (curr->data.type) {
+                case DT_c_header: printf("@c_header "); break;
+            }
+
+            curr = curr->next;
+        }
+    }
+
     switch (node.type) {
         case ANT_NONE: {
             printf("<Incomplete AST Node>");

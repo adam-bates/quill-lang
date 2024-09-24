@@ -15,6 +15,12 @@ typedef struct {
     struct LLNode_ASTNode* tail;
 } LL_ASTNode;
 
+typedef struct {
+    size_t length;
+    struct LLNode_Directive* head;
+    struct LLNode_Directive* tail;
+} LL_Directive;
+
 typedef struct StaticPath_s {
     struct StaticPath_s* root;
     String name;
@@ -455,12 +461,33 @@ typedef struct ASTNode {
         ASTNodeFunctionHeaderDecl function_header_decl;
         ASTNodeFunctionDecl function_decl;
     } node;
+    LL_Directive directives;
 } ASTNode;
+
+typedef enum {
+    DT_c_header,
+} DirectiveType;
+
+typedef struct {
+    // TODO
+} DirectiveCHeader;
+
+typedef struct {
+    DirectiveType type;
+    union {
+        DirectiveCHeader c_header;
+    } dir;
+} Directive;
 
 typedef struct LLNode_ASTNode {
     struct LLNode_ASTNode* next;
     ASTNode data;
 } LLNode_ASTNode;
+
+typedef struct LLNode_Directive {
+    struct LLNode_Directive* next;
+    Directive data;
+} LLNode_Directive;
 
 typedef struct {
     bool const ok;
@@ -470,15 +497,8 @@ typedef struct {
     } const res;
 } ASTNodeResult;
 
-typedef struct {
-    bool const ok;
-    union {
-        Error const err;
-        ASTNode const astnode;
-    } const res;
-} ArrayListResult_ASTNode;
-
 void ll_ast_push(Arena* const arena, LL_ASTNode* const ll, ASTNode const node);
+void ll_directive_push(Arena* const arena, LL_Directive* const ll, Directive const directive);
 
 void print_astnode(ASTNode const node);
 

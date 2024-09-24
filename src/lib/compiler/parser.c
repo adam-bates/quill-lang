@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "../utils/utils.h"
 #include "./compiler.h"
@@ -289,7 +290,7 @@ static Type* parser_parse_type(Parser* const parser) {
     return type;
 }
 
-static ParseResult parser_parse_import(Parser* const parser) {
+static ParseResult parser_parse_import(Parser* const parser, LL_Directive const directives) {
     if (!parser_consume(parser, TT_IMPORT, "Expected `import` keyword.")) {
         return parseres_none();
     }
@@ -311,6 +312,7 @@ static ParseResult parser_parse_import(Parser* const parser) {
     ASTNode const node = {
         .type = ANT_IMPORT,
         .node.import.static_path = path,
+        .directives = directives,
     };
 
     if (!parser_consume(parser, TT_SEMICOLON, "Expected semicolon.")) {
@@ -632,12 +634,53 @@ static ParseResult parser_parse_fn_decl(Parser* const parser) {
     return parseres_ok(node);
 }
 
+static LL_Directive parser_parse_directives(Parser* const parser) {
+    static LL_Directive const EMPTY = {0};
+
+    if (parser_peek(parser).type != TT_COMPILER_DIRECTIVE) {
+        return EMPTY;
+    }
+
+    LL_Directive directives = {0};
+
+    Token current = parser_peek(parser);
+    while (current.type == TT_COMPILER_DIRECTIVE) {
+        bool is_c_header = strncmp(current.start, "@c_header", 9) == 0;
+        assert(is_c_header);
+
+        parser_advance(parser);
+        current = parser_peek(parser);
+
+        assert(parser_consume(parser, TT_LEFT_PAREN, "Expected '(' after @c_header."));
+        current = parser_peek(parser);
+
+        while (current.type != TT_RIGHT_PAREN && current.type != TT_EOF) {
+            parser_advance(parser);
+            current = parser_peek(parser);
+
+            // TODO: handle token
+        }
+        parser_advance(parser);
+
+        Directive directive = {
+            .type = DT_c_header,
+            .dir.c_header = {},
+        };
+
+        ll_directive_push(parser->arena, &directives, directive);
+    }
+
+    return directives;
+}
+
 static ParseResult parser_parse_filescope_decl(Parser* const parser) {
+    LL_Directive const directives = parser_parse_directives(parser);
+
     Token const current = parser_peek(parser);
 
     switch (current.type) {
-        // case TT_PACKAGE: assert(false);
-        case TT_IMPORT: return parser_parse_import(parser);
+        case TT_PACKAGE: assert(false);
+        case TT_IMPORT: return parser_parse_import(parser, directives);
 
         default: break;
     }
