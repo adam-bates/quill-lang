@@ -1,10 +1,24 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "./ast.h"
 #include "./codegen_c.h"
 
 static void append_static_path(StringBuffer* strbuf, StaticPath* path) {
-    strbuf_append_chars(strbuf, "printf"); // TODO
+    if (path->root != NULL) {
+        if (
+            strncmp(path->name.chars, "io", 2) == 0
+            && strncmp(path->root->name.chars, "std", 3) == 0
+        ) {
+            strbuf_append_chars(strbuf, "printf"); // TODO
+            return;
+        }
+
+        append_static_path(strbuf, path->root);
+        strbuf_append_chars(strbuf, "::");
+    }
+
+    strbuf_append_str(strbuf, path->name);
 }
 
 static void append_type(StringBuffer* strbuf, Type type) {
@@ -37,6 +51,13 @@ static void append_ast_node(StringBuffer* strbuf, ASTNode const* node) {
 
         case ANT_IMPORT: {
             strbuf_append_chars(strbuf, "#include <stdio.h>\n"); // TODO
+            break;
+        }
+
+        case ANT_PACKAGE: {
+            strbuf_append_chars(strbuf, "/* package ");
+            append_static_path(strbuf, node->node.package.static_path);
+            strbuf_append_chars(strbuf, " */\n");
             break;
         }
 
@@ -118,9 +139,28 @@ static void append_ast_node(StringBuffer* strbuf, ASTNode const* node) {
 }
 
 String generate_c_code(CodegenC* const codegen) {
+    assert(codegen->ast->type == ANT_FILE_ROOT);
+    assert(codegen->ast->directives.length == 0);
+
     StringBuffer strbuf = strbuf_create(codegen->arena);
 
-    assert(codegen->ast->directives.length == 0);
+    // Don't generate code for @c_header files
+    {
+        ASTNodeFileRoot root = codegen->ast->node.file_root;
+        if (root.nodes.length > 0) {
+            ASTNode first = root.nodes.head->data;
+            if (first.type == ANT_PACKAGE && first.directives.length > 0) {
+                assert(first.directives.length == 1);
+                assert(first.directives.head->data.type == DT_C_HEADER);
+
+                strbuf_append_chars(&strbuf, "/* This file provides Quill types for the c file: ");
+                strbuf_append_str(&strbuf, first.directives.head->data.dir.c_header.include);
+                strbuf_append_chars(&strbuf, " */");
+
+                return strbuf_to_str(strbuf);
+            }
+        }
+    }
 
     append_ast_node(&strbuf, codegen->ast);
     // strbuf_append_chars(&strbuf, "todo");

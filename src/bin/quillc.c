@@ -48,31 +48,31 @@ int main(int const argc, char const* const argv[]) {
     astres_assert(ast_res);
     ASTNode const* const ast = ast_res.res.ast;
 
-    // printf("AST:");
-    // if (parser.had_error) {
-    //     printf(" (partial due to errors)");
-    // }
-    // printf("\n");
+    printf("AST:");
+    if (parser.had_error) {
+        printf(" (partial due to errors)");
+    }
+    printf("\n");
 
-    // LL_ASTNode nodes = ast->node.file_root.nodes;
-    // LLNode_ASTNode* node = nodes.head;
+    LL_ASTNode nodes = ast->node.file_root.nodes;
+    LLNode_ASTNode* node = nodes.head;
 
-    // bool last_was_ok = true;
-    // while (node != NULL) {
-    //     if (node->data.type == ANT_NONE) {
-    //         if (last_was_ok) {
-    //             printf("<Unknown AST Node>\n");
-    //         }
-    //         last_was_ok = false;
-    //         node = node->next;
-    //         continue;
-    //     }
-    //     last_was_ok = true;
+    bool last_was_ok = true;
+    while (node != NULL) {
+        if (node->data.type == ANT_NONE) {
+            if (last_was_ok) {
+                printf("<Unknown AST Node>\n");
+            }
+            last_was_ok = false;
+            node = node->next;
+            continue;
+        }
+        last_was_ok = true;
 
-    //     print_astnode(node->data);
-    //     node = node->next;
-    // }
-    // printf("\n");
+        print_astnode(node->data);
+        node = node->next;
+    }
+    printf("\n");
 
     verify_syntax(ast);
 

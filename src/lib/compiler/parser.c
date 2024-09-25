@@ -20,6 +20,27 @@ typedef struct {
 
 static ParseResult parser_parse_expr(Parser* const parser);
 
+typedef struct {
+    char const* const pattern;
+    DirectiveType const type;
+} DirectiveMatch;
+
+typedef struct {
+    bool is_some;
+    union {
+        DirectiveType val;
+        void* _;
+    } maybe;
+} Maybe_DirectiveType;
+
+static const size_t DIRECTIVE_MATCHES_LEN = 3;
+static const DirectiveMatch DIRECTIVE_MATCHES[DIRECTIVE_MATCHES_LEN] = {
+    { "@c_header", DT_C_HEADER },
+    { "@c_restrict", DT_C_RESTRICT },
+    { "@c_FILE", DT_C_FILE },
+    // TODO
+};
+
 void debug_token_type(TokenType token_type) {
     switch (token_type) {
         case TT_IDENTIFIER: printf("identifier"); break;
@@ -134,7 +155,7 @@ void debug_token_type(TokenType token_type) {
 }
 
 static void debug_token(Parser const* const parser, Token token) {
-    printf("Token[");
+    printf("<line %lu> Token[", token.line);
     debug_token_type(token.type);
 
     char* cstr = arena_memcpy(parser->arena, token.start, token.length + 1);
@@ -240,14 +261,16 @@ static bool parser_consume(Parser* const parser, TokenType const type, char cons
     return true;
 }
 
-static StaticPath* parser_parse_static_path(Parser* const parser) {
+static StaticPath* _parser_parse_static_path(Parser* const parser, bool const allow_star) {
     Token const ident = parser_peek(parser);
 
-    if (ident.type != TT_STAR && ident.type != TT_IDENTIFIER) {
+    if (
+        (allow_star && (ident.type != TT_STAR && ident.type != TT_IDENTIFIER))
+        || (!allow_star && (ident.type != TT_IDENTIFIER))
+    ) {
         return NULL;
-    } else {
-        parser_advance(parser);
     }
+    parser_advance(parser);
 
     String const name = {
         .chars = ident.start,
@@ -258,7 +281,7 @@ static StaticPath* parser_parse_static_path(Parser* const parser) {
     path->name = name;
     path->root = NULL;
 
-    if (parser_peek(parser).type != TT_COLON_COLON) {
+    if (parser_peek(parser).type != TT_COLON_COLON || ident.type == TT_STAR) {
         return path;
     }
     parser_advance(parser);
@@ -266,7 +289,7 @@ static StaticPath* parser_parse_static_path(Parser* const parser) {
     StaticPath* root = arena_alloc(parser->arena, sizeof(StaticPath));        
     root = path;
 
-    path = parser_parse_static_path(parser);
+    path = _parser_parse_static_path(parser, allow_star);
     if (path == NULL) {
         return NULL;
     }
@@ -276,18 +299,198 @@ static StaticPath* parser_parse_static_path(Parser* const parser) {
     return path;
 }
 
-static Type* parser_parse_type(Parser* const parser) {
-    // TODO: support other types
-    if (parser_peek(parser).type != TT_VOID) {
-        return NULL;
+static StaticPath* parser_parse_import_path(Parser* const parser) {
+    return _parser_parse_static_path(parser, true);
+}
+
+static StaticPath* parser_parse_ident_path(Parser* const parser) {
+    return _parser_parse_static_path(parser, false);
+}
+
+static Maybe_DirectiveType parser_parse_directive_type(Parser* const parser, Token token) {
+    for (size_t i = 0; i < DIRECTIVE_MATCHES_LEN; ++i) {
+        DirectiveMatch const dt = DIRECTIVE_MATCHES[i];
+
+        size_t const directive_len = strlen(dt.pattern);
+
+        if (token.length == directive_len
+            && memcmp(token.start, dt.pattern, directive_len) == 0
+        ) {
+            return (Maybe_DirectiveType){
+                .is_some = true,
+                .maybe.val = dt.type,
+            };
+        }
     }
-    parser_advance(parser);
 
-    Type* type = arena_alloc(parser->arena, sizeof(Type));
-    type->kind = TK_BUILT_IN;
-    type->type.built_in = TBI_VOID;
+    return (Maybe_DirectiveType){0};
+}
 
+static LL_Directive parser_parse_directives(Parser* const parser) {
+    static LL_Directive const EMPTY = {0};
+
+    if (parser_peek(parser).type != TT_COMPILER_DIRECTIVE) {
+        return EMPTY;
+    }
+
+    LL_Directive directives = {0};
+
+    Token current = parser_peek(parser);
+    while (current.type == TT_COMPILER_DIRECTIVE) {
+        Maybe_DirectiveType m_type = parser_parse_directive_type(parser, current);
+        if (!m_type.is_some) {
+            char const* str = arena_strcpy(parser->arena, (String){current.length, current.start}).chars;
+            fprintf(stderr, "Directive: [%s]\n", str);
+            assert(false); // TODO: better error
+        }
+        DirectiveType type = m_type.maybe.val;
+        
+        parser_advance(parser);
+        current = parser_peek(parser);
+
+        switch (type) {
+            case DT_C_HEADER: {
+                assert(parser_consume(parser, TT_LEFT_PAREN, "Expected '(' after @c_header."));
+
+                assert(parser_consume(parser, TT_LITERAL_STRING, "Expected string of c file name. ie. @c_header(\"stdio.h\")"));
+                Token include = parser_peek_prev(parser);
+
+                assert(parser_consume(parser, TT_RIGHT_PAREN, "Expected ')' after @c_header(..."));
+
+                Directive directive = {
+                    .type = DT_C_HEADER,
+                    .dir.c_header = {
+                        .include = {
+                            .length = include.length - 2,
+                            .chars = include.start + 1,
+                        },
+                    },
+                };
+                ll_directive_push(parser->arena, &directives, directive);
+                break;
+            }
+
+            case DT_C_RESTRICT: {
+                Directive directive = {
+                    .type = DT_C_RESTRICT,
+                };
+                ll_directive_push(parser->arena, &directives, directive);
+                break;
+            }
+
+            case DT_C_FILE: {
+                Directive directive = {
+                    .type = DT_C_FILE,
+                };
+                ll_directive_push(parser->arena, &directives, directive);
+                break;
+            }
+
+            default: fprintf(stderr, "TODO: handle [%d]\n", type); assert(false);
+        }
+    }
+
+    return directives;
+}
+
+static Type* parser_parse_type_wrap(Parser* const parser, Type* type) {
+    Token t = parser_peek(parser);
+
+    switch (t.type) {
+        case TT_STAR: {
+            parser_advance(parser);
+            Type* wrapped = arena_alloc(parser->arena, sizeof *wrapped);
+            *wrapped = (Type){
+                .kind = TK_POINTER,
+                .type.ptr.of = type,
+            };
+            return parser_parse_type_wrap(parser, wrapped);
+        }
+
+        case TT_MUT: {
+            if (parser_peek_next(parser).type != TT_STAR) {
+                break;
+            }            
+            parser_advance(parser); // mut
+            parser_advance(parser); // *
+
+            Type* wrapped = arena_alloc(parser->arena, sizeof *wrapped);
+            *wrapped = (Type){
+                .kind = TK_MUT_POINTER,
+                .type.mut_ptr.of = type,
+            };
+            return parser_parse_type_wrap(parser, wrapped);
+        }
+
+        default: break;
+    }
+    
     return type;
+}
+
+static Type* parser_parse_type(Parser* const parser) {
+    LL_Directive directives = parser_parse_directives(parser);
+
+    Type* type = arena_alloc(parser->arena, sizeof *type);
+    type->directives = directives;
+
+    Token t = parser_peek(parser);
+    switch (t.type) {
+        case TT_IDENTIFIER: {
+            parser_advance(parser);
+
+            type->kind = TK_TYPE_REF;
+            type->type.type_ref.name = (String){
+                .length = t.length,
+                .chars = t.start,
+            };
+            return parser_parse_type_wrap(parser, type);
+        }
+
+        case TT_VOID: {
+            parser_advance(parser);
+
+            type->kind = TK_BUILT_IN;
+            type->type.built_in = TBI_VOID;
+            return parser_parse_type_wrap(parser, type);
+        }
+
+        case TT_UINT: {
+            parser_advance(parser);
+
+            type->kind = TK_BUILT_IN;
+            type->type.built_in = TBI_UINT;
+            return parser_parse_type_wrap(parser, type);
+        }
+
+        default: fprintf(stderr, "TODO: handle [%d]\n", t.type); assert(false);
+    }
+    
+    return NULL;
+}
+
+static ParseResult parser_parse_package(Parser* const parser, LL_Directive const directives) {
+    if (!parser_consume(parser, TT_PACKAGE, "Expected `pacakge` keyword.")) {
+        return parseres_none();
+    }
+
+    StaticPath* const path = parser_parse_ident_path(parser);
+    if (path == NULL) {
+        error_at_current(parser, "Expected package namespace.");
+        return parseres_none();
+    }
+
+    ASTNode const node = {
+        .type = ANT_PACKAGE,
+        .node.package.static_path = path,
+        .directives = directives,
+    };
+
+    if (!parser_consume(parser, TT_SEMICOLON, "Expected semicolon.")) {
+        return parseres_err(node);
+    }
+
+    return parseres_ok(node);
 }
 
 static ParseResult parser_parse_import(Parser* const parser, LL_Directive const directives) {
@@ -303,7 +506,7 @@ static ParseResult parser_parse_import(Parser* const parser, LL_Directive const 
           like `import std::{io::{printf, println}, ds::{StringBuffer, strbuf_create}}`
     */
 
-    StaticPath* const path = parser_parse_static_path(parser);
+    StaticPath* const path = parser_parse_import_path(parser);
     if (path == NULL) {
         error_at_current(parser, "Expected import target.");
         return parseres_none();
@@ -320,6 +523,34 @@ static ParseResult parser_parse_import(Parser* const parser, LL_Directive const 
     }
 
     return parseres_ok(node);
+}
+
+static ParseResult parser_parse_typedef(Parser* const parser, LL_Directive const directives) {
+    if (!parser_consume(parser, TT_TYPEDEF, "Expected 'typedef' keyword.")) {
+        return parseres_none();
+    }
+
+    Token ident = parser_peek(parser);
+    assert(parser_consume(parser, TT_IDENTIFIER, "Expected name of typedef."));
+
+    assert(parser_consume(parser, TT_EQUAL, "Expected '=' after typedef."));
+
+    Type* type = parser_parse_type(parser);
+    assert(type);
+
+    assert(parser_consume(parser, TT_SEMICOLON, "Expected ';' after typedef."));
+
+    return parseres_ok((ASTNode){
+        .type = ANT_TYPEDEF_DECL,
+        .node.typedef_decl = {
+            .name = {
+                .length = ident.length,
+                .chars = ident.start,
+            },
+            .type = type,
+        },
+        .directives = directives,
+    });
 }
 
 static ParseResult parser_parse_lit_str(Parser* const parser) {
@@ -449,13 +680,8 @@ static ParseResult parser_parse_lit(Parser* const parser) {
     return parseres_none();
 }
 
-static ParseResult parser_parse_compiler_directive(Parser* const parser) {
-    // TODO
-    return parseres_none();
-}
-
 static ParseResult parser_parse_var_ref(Parser* const parser) {
-    StaticPath* const path = parser_parse_static_path(parser);
+    StaticPath* const path = parser_parse_ident_path(parser);
 
     if (path == NULL) {
         return parseres_none();
@@ -535,6 +761,72 @@ static ParseResult parser_parse_expr(Parser* const parser) {
     return parseres_none();
 }
 
+static ParseResult parser_parse_var_decl(Parser* const parser) {
+    Token current = parser_peek(parser);
+
+    bool is_static = false;
+    if (current.type == TT_STATIC) {
+        is_static = true;
+        parser_advance(parser);
+        current = parser_peek(parser);
+    }
+
+    TypeOrLet tol = {0};
+    {
+        if (current.type == TT_LET) {
+            tol.is_let = true;
+            parser_advance(parser);
+            current = parser_peek(parser);
+        } else {
+            tol.is_let = false;
+            tol.maybe_type = parser_parse_type(parser);
+        }
+
+        if (current.type == TT_MUT) {
+            tol.is_mut = true;
+            parser_advance(parser);
+            current = parser_peek(parser);
+        }
+    }
+
+    VarDeclLHS lhs = {0};
+
+    lhs.type = VDLT_NAME; // TODO: support others
+    lhs.count = 1;
+
+    current = parser_peek(parser);
+    assert(parser_consume(parser, TT_IDENTIFIER, "Expected variable name."));
+    lhs.lhs.name = (String){
+        .length = current.length,
+        .chars = current.start,
+    };
+    current = parser_peek(parser);
+
+    ASTNode* rhs = NULL;
+
+    if (current.type == TT_EQUAL) {
+        parser_advance(parser);
+
+        ParseResult res = parser_parse_expr(parser);        
+        assert(res.status == PRS_OK); // TODO: better error
+
+        rhs = arena_alloc(parser->arena, sizeof *rhs);
+        *rhs = res.node;
+    }
+
+    assert(parser_consume(parser, TT_SEMICOLON, "Expected ';'."));
+
+    return parseres_ok((ASTNode){
+        .type = ANT_VAR_DECL,
+        .node.var_decl = {
+            .is_static = is_static,
+            .type_or_let = tol,
+            .lhs = lhs,
+            .initializer = rhs,
+        },
+    });
+}
+
 static ParseResult parser_parse_stmt(Parser* const parser) {
     ParseResult stmt_res;
     size_t const cached_current = parser->cursor_current;
@@ -570,7 +862,43 @@ static ParseResult parser_parse_fn_decl(Parser* const parser) {
 
     parser_consume(parser, TT_LEFT_PAREN, "Expected '('.");
 
-    // TODO: parse params
+    LL_FnParam params = {0};
+
+    Token current = parser_peek(parser);
+    while (current.type != TT_RIGHT_PAREN && current.type != TT_EOF) {
+        Type* type = parser_parse_type(parser);
+        assert(type);
+        current = parser_peek(parser);
+
+        bool is_mut = false;
+        if (current.type == TT_MUT) {
+            is_mut = true;
+            parser_advance(parser);
+            current = parser_peek(parser);
+        }
+
+        current = parser_peek(parser);
+        assert(parser_consume(parser, TT_IDENTIFIER, "Expected fn param name."));
+
+        FnParam param = {
+            .type = *type,
+            .is_mut = is_mut,
+            .name = {
+                .length = current.length,
+                .chars = current.start,
+            },
+        };
+
+        current = parser_peek(parser);
+        if (current.type != TT_RIGHT_PAREN && current.type != TT_EOF) {
+            assert(parser_consume(parser, TT_COMMA, "Expected comma between params."));
+        } else if (current.type == TT_COMMA) {
+            parser_advance(parser);
+        }
+        current = parser_peek(parser);
+
+        ll_param_push(parser->arena, &params, param);
+    }
 
     if (!parser_consume(parser, TT_RIGHT_PAREN, "Expected ')'.")) {
         return parseres_none();
@@ -583,6 +911,7 @@ static ParseResult parser_parse_fn_decl(Parser* const parser) {
             .node.function_header_decl = {
                 .return_type = *type,
                 .name = c_str(cname),
+                .params = params,
             },
         });
     }
@@ -593,6 +922,7 @@ static ParseResult parser_parse_fn_decl(Parser* const parser) {
             .header = {
                 .return_type = *type,
                 .name = c_str(cname),
+                .params = params,
             },
             .stmts = {0},
         },
@@ -602,7 +932,7 @@ static ParseResult parser_parse_fn_decl(Parser* const parser) {
         return parseres_err(node);
     }
 
-    Token current = parser_peek(parser);
+    current = parser_peek(parser);
     while (current.type != TT_RIGHT_BRACE && current.type != TT_EOF) {
         current = parser_peek(parser);
 
@@ -634,53 +964,16 @@ static ParseResult parser_parse_fn_decl(Parser* const parser) {
     return parseres_ok(node);
 }
 
-static LL_Directive parser_parse_directives(Parser* const parser) {
-    static LL_Directive const EMPTY = {0};
-
-    if (parser_peek(parser).type != TT_COMPILER_DIRECTIVE) {
-        return EMPTY;
-    }
-
-    LL_Directive directives = {0};
-
-    Token current = parser_peek(parser);
-    while (current.type == TT_COMPILER_DIRECTIVE) {
-        bool is_c_header = strncmp(current.start, "@c_header", 9) == 0;
-        assert(is_c_header);
-
-        parser_advance(parser);
-        current = parser_peek(parser);
-
-        assert(parser_consume(parser, TT_LEFT_PAREN, "Expected '(' after @c_header."));
-        current = parser_peek(parser);
-
-        while (current.type != TT_RIGHT_PAREN && current.type != TT_EOF) {
-            parser_advance(parser);
-            current = parser_peek(parser);
-
-            // TODO: handle token
-        }
-        parser_advance(parser);
-
-        Directive directive = {
-            .type = DT_c_header,
-            .dir.c_header = {},
-        };
-
-        ll_directive_push(parser->arena, &directives, directive);
-    }
-
-    return directives;
-}
-
 static ParseResult parser_parse_filescope_decl(Parser* const parser) {
     LL_Directive const directives = parser_parse_directives(parser);
 
     Token const current = parser_peek(parser);
 
     switch (current.type) {
-        case TT_PACKAGE: assert(false);
+        case TT_PACKAGE: return parser_parse_package(parser, directives);
         case TT_IMPORT: return parser_parse_import(parser, directives);
+
+        case TT_TYPEDEF: return parser_parse_typedef(parser, directives);
 
         default: break;
     }
@@ -694,7 +987,11 @@ static ParseResult parser_parse_filescope_decl(Parser* const parser) {
     }
     parser->cursor_current = cached_current;
 
-    // TODO: support file-scoped variables.
+    decl_res = parser_parse_var_decl(parser);
+    if (decl_res.status == PRS_OK) {
+        return decl_res;
+    }
+    parser->cursor_current = cached_current;
 
     return parseres_none();
 }

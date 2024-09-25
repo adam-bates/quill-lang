@@ -21,6 +21,12 @@ typedef struct {
     struct LLNode_Directive* tail;
 } LL_Directive;
 
+typedef struct {
+    size_t length;
+    struct LLNode_FnParam* head;
+    struct LLNode_FnParam* tail;
+} LL_FnParam;
+
 typedef struct StaticPath_s {
     struct StaticPath_s* root;
     String name;
@@ -28,6 +34,7 @@ typedef struct StaticPath_s {
 
 typedef enum {
     TK_BUILT_IN,
+    TK_TYPE_REF,
     TK_STATIC_PATH,
     TK_TUPLE,
     TK_POINTER,
@@ -42,8 +49,13 @@ typedef enum {
 
 typedef enum {
     TBI_VOID,
+    TBI_UINT,
     // TODO
 } TypeBuiltIn;
+
+typedef struct {
+    String name;
+} TypeTypeRef;
 
 typedef struct {
     struct Type* of;
@@ -53,11 +65,14 @@ typedef struct Type {
     TypeKind kind;
     union {
         TypeBuiltIn built_in;
+        TypeTypeRef type_ref;
         // TypeStaticPath static_path;
         // TypeTuple tuple;
         TypePointer ptr;
+        TypePointer mut_ptr;
         // TODO
     } type;
+    LL_Directive directives;
 } Type;
 
 typedef enum {
@@ -84,6 +99,7 @@ typedef enum {
     ANT_STRUCT_INIT,
     ANT_ARRAY_INIT,
     ANT_IMPORT,
+    ANT_PACKAGE,
     ANT_TEMPLATE_STRING,
     ANT_CRASH,
     ANT_SWITCH,
@@ -91,6 +107,7 @@ typedef enum {
     ANT_STRUCT_DECL,
     ANT_UNION_DECL,
     ANT_ENUM_DECL,
+    ANT_TYPEDEF_DECL,
     ANT_GLOBALTAG_DECL,
     ANT_FUNCTION_HEADER_DECL,
     ANT_FUNCTION_DECL,
@@ -196,6 +213,7 @@ typedef struct {
 } VarDeclLHS;
 
 typedef struct {
+    bool is_static;
     TypeOrLet type_or_let;
 
     VarDeclLHS lhs;
@@ -342,6 +360,12 @@ typedef struct {
 //
 
 typedef struct {
+    StaticPath* static_path;
+} ASTNodePackage;
+
+//
+
+typedef struct {
     String* str_parts;
     size_t str_parts_count;
 
@@ -395,9 +419,16 @@ typedef struct {
 //
 
 typedef struct {
-    String* maybe_name;
+    String name;
     // TODO
 } ASTNodeEnumDecl;
+
+//
+
+typedef struct {
+    String name;
+    Type* type;
+} ASTNodeTypedefDecl;
 
 //
 
@@ -417,7 +448,7 @@ typedef struct {
 typedef struct {
     Type return_type;
     String name;
-    // TODO: params
+    LL_FnParam params;
 } ASTNodeFunctionHeaderDecl;
 
 typedef struct {
@@ -450,6 +481,7 @@ typedef struct ASTNode {
         ASTNodeStructInit struct_init;
         ASTNodeArrayInit array_init;
         ASTNodeImport import;
+        ASTNodePackage package;
         ASTNodeTemplateString template_string;
         ASTNodeCrash crash;
         ASTNodeSwitch switch_;
@@ -457,6 +489,7 @@ typedef struct ASTNode {
         ASTNodeStructDecl struct_decl;
         ASTNodeUnionDecl union_decl;
         ASTNodeEnumDecl enum_decl;
+        ASTNodeTypedefDecl typedef_decl;
         ASTNodeGlobaltagDecl globaltag_decl;
         ASTNodeFunctionHeaderDecl function_header_decl;
         ASTNodeFunctionDecl function_decl;
@@ -465,17 +498,25 @@ typedef struct ASTNode {
 } ASTNode;
 
 typedef enum {
-    DT_c_header,
+    DT_C_HEADER,
+    DT_C_RESTRICT,
+    DT_C_FILE,
 } DirectiveType;
 
 typedef struct {
-    // TODO
+    String include;
 } DirectiveCHeader;
+
+typedef void* DirectiveCRestrict;
+
+typedef void* DirectiveCFile;
 
 typedef struct {
     DirectiveType type;
     union {
         DirectiveCHeader c_header;
+        DirectiveCRestrict c_restrict;
+        DirectiveCFile c_file;
     } dir;
 } Directive;
 
@@ -489,6 +530,11 @@ typedef struct LLNode_Directive {
     Directive data;
 } LLNode_Directive;
 
+typedef struct LLNode_FnParam {
+    struct LLNode_FnParam* next;
+    FnParam data;
+} LLNode_FnParam;
+
 typedef struct {
     bool const ok;
     union {
@@ -499,6 +545,7 @@ typedef struct {
 
 void ll_ast_push(Arena* const arena, LL_ASTNode* const ll, ASTNode const node);
 void ll_directive_push(Arena* const arena, LL_Directive* const ll, Directive const directive);
+void ll_param_push(Arena* const arena, LL_FnParam* const ll, FnParam const param);
 
 void print_astnode(ASTNode const node);
 

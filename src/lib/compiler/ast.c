@@ -37,6 +37,22 @@ void ll_directive_push(Arena* const arena, LL_Directive* const ll, Directive con
     ll->length += 1;
 }
 
+void ll_param_push(Arena* const arena, LL_FnParam* const ll, FnParam const param) {
+    LLNode_FnParam* const llnode = arena_alloc(arena, sizeof(LLNode_FnParam));
+    llnode->data = param;
+    llnode->next = NULL;
+
+    if (ll->head == NULL) {
+        ll->head = llnode;
+        ll->tail = ll->head;
+    } else {
+        ll->tail->next = llnode;
+        ll->tail = llnode;
+    }
+
+    ll->length += 1;
+}
+
 static Arena ast_print_arena = {0};
 static Arena* arena = &ast_print_arena;
 
@@ -66,16 +82,75 @@ static void print_static_path(StaticPath const* path) {
     print_string(path->name);
 }
 
-void print_astnode(ASTNode const node) {
-    if (node.directives.length > 0) {
-        LLNode_Directive* curr = node.directives.head;
-        while (curr != NULL) {
-            switch (curr->data.type) {
-                case DT_c_header: printf("@c_header "); break;
+static void print_directives(LL_Directive directives) {
+    LLNode_Directive* curr = directives.head;
+    while (curr != NULL) {
+        switch (curr->data.type) {
+            case DT_C_HEADER: {
+                String include_str = arena_strcpy(arena, curr->data.dir.c_header.include);
+                printf("@c_header(\"%s\") ", include_str.chars);
+                break;
             }
 
-            curr = curr->next;
+            case DT_C_RESTRICT: printf("@c_restrict "); break;
+
+            case DT_C_FILE: printf("@c_FILE "); break;
         }
+
+        curr = curr->next;
+    }
+}
+
+static void print_type(Type const* type) {
+    if (type == NULL) {
+        printf("<type:NULL>");
+        return;
+    }
+
+    if (type->directives.length > 0) {
+        print_directives(type->directives);
+    }
+
+    switch (type->kind) {
+        case TK_BUILT_IN: {
+            switch (type->type.built_in) {
+                case TBI_VOID: {
+                    printf("void");
+                    return;
+                }
+
+                case TBI_UINT: {
+                    printf("uint32_t");
+                    return;
+                }
+            }
+            return;
+        }
+
+        case TK_TYPE_REF: {
+            print_string(type->type.type_ref.name);
+            return;
+        }
+
+        case TK_POINTER: {
+            print_type(type->type.ptr.of);
+            printf("*");
+            return;
+        }
+
+        case TK_MUT_POINTER: {
+            print_type(type->type.mut_ptr.of);
+            printf(" mut*");
+            return;
+        }
+
+        default: printf("<type:%d>", type->kind); return;
+    }
+}
+
+void print_astnode(ASTNode const node) {
+    if (node.directives.length > 0) {
+        print_directives(node.directives);
     }
 
     switch (node.type) {
@@ -91,10 +166,98 @@ void print_astnode(ASTNode const node) {
             break;
         }
 
-        case ANT_FUNCTION_DECL: {
-            printf("void ");
+        case ANT_PACKAGE: {
+            printf("package ");
+            print_static_path(node.node.package.static_path);
+            printf(";\n");
+            break;
+        }
+
+        case ANT_TYPEDEF_DECL: {
+            printf("typedef ");
+            print_string(node.node.typedef_decl.name);
+            printf(" = ");
+            print_type(node.node.typedef_decl.type);
+            printf(";\n");
+            break;
+        }
+
+        case ANT_VAR_DECL: {
+            if (node.node.var_decl.is_static) { printf("static "); }
+
+            if (node.node.var_decl.type_or_let.is_let) {
+                printf("let ");
+            } else {
+                print_type(node.node.var_decl.type_or_let.maybe_type);
+                printf(" ");
+            }
+
+            if (node.node.var_decl.type_or_let.is_mut) {
+                printf("mut ");
+            }
+
+            assert(node.node.var_decl.lhs.type == VDLT_NAME);
+            assert(node.node.var_decl.lhs.count == 1);
+            print_string(node.node.var_decl.lhs.lhs.name);
+
+            if (node.node.var_decl.initializer != NULL) {
+                printf(" = ");
+                print_astnode(*node.node.var_decl.initializer);
+            }
+
+            printf(";\n");
+            break;
+        }
+
+        case ANT_FUNCTION_HEADER_DECL: {
+            print_type(&node.node.function_header_decl.return_type);
+            printf(" ");
             print_string(node.node.function_header_decl.name);
-            printf("() {\n");
+            printf("(");
+            {
+                LLNode_FnParam* param = node.node.function_header_decl.params.head;
+                while (param != NULL) {
+                    print_type(&param->data.type);
+                    printf(" ");
+
+                    if (param->data.is_mut) {
+                        printf("mut ");
+                    }
+                    
+                    print_string(param->data.name);
+
+                    param = param->next;
+
+                    if (param != NULL) { printf(", "); }
+                }
+            }
+            printf(");\n");
+            
+            break;
+        }
+
+        case ANT_FUNCTION_DECL: {
+            print_type(&node.node.function_header_decl.return_type);
+            printf(" ");
+            print_string(node.node.function_header_decl.name);
+            printf("(");
+            {
+                LLNode_FnParam* param = node.node.function_header_decl.params.head;
+                while (param != NULL) {
+                    print_type(&param->data.type);
+                    printf(" ");
+
+                    if (param->data.is_mut) {
+                        printf("mut ");
+                    }
+                    
+                    print_string(param->data.name);
+                    printf(", ");
+                    
+                    param = param->next;
+                }
+            }
+            printf(") {\n");
             {
                 indent += 1;
                 LLNode_ASTNode* stmt = node.node.function_decl.stmts.head;
@@ -176,13 +339,13 @@ void print_astnode(ASTNode const node) {
                     printf("%f", node.node.literal.value.lit_float);
                     break;
                 }
-                default: print_tabs(); printf("/* TODO: print_astnode(%d) */", node.type);
+                default: print_tabs(); printf("/* TODO: print_literal(%d) */", node.type);
             }
 
             break;
         }
 
-        default: printf("/* TODO: print_astnode(%d) */", node.type);
+        default: printf("/* TODO: print_node(%d) */", node.type);
     }
 
     arena_reset(arena);
