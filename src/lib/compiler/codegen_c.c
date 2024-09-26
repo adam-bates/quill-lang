@@ -61,6 +61,29 @@ static void append_ast_node(StringBuffer* strbuf, ASTNode const* node) {
             break;
         }
 
+        case ANT_STRUCT_DECL: {
+            String* m_name = node->node.struct_decl.maybe_name;
+
+            if (m_name != NULL) {
+                strbuf_append_chars(strbuf, "typedef struct {\n");
+            } else {
+                strbuf_append_chars(strbuf, "struct {\n");
+            }
+
+            strbuf_append_chars(strbuf, "    /* TODO */\n");
+
+            strbuf_append_char(strbuf, '}');
+
+            if (m_name != NULL) {
+                strbuf_append_char(strbuf, ' ');
+                strbuf_append_str(strbuf, *m_name);
+            }
+
+            strbuf_append_chars(strbuf, ";\n");
+
+            break;
+        }
+
         case ANT_FUNCTION_DECL: {
             bool is_main = strncmp(node->node.function_decl.header.name.chars, "main", 4) == 0;
 

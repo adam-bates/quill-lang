@@ -553,6 +553,38 @@ static ParseResult parser_parse_typedef(Parser* const parser, LL_Directive const
     });
 }
 
+static ParseResult parser_parse_struct_decl(Parser* const parser, LL_Directive const directives) {
+    if (!parser_consume(parser, TT_STRUCT, "Expected 'struct' keyword.")) {
+        return parseres_none();
+    }
+
+    assert(parser_consume(parser, TT_IDENTIFIER, "Expected struct name."));
+    Token name = parser_peek_prev(parser);
+
+    String* m_name = arena_alloc(parser->arena, sizeof *m_name);
+    m_name->length = name.length;
+    m_name->chars = name.start;
+
+    assert(parser_consume(parser, TT_LEFT_BRACE, "Expected '{'."));
+
+    Token t = parser_peek(parser);
+    while (t.type != TT_RIGHT_BRACE && t.type != TT_EOF) {
+        // TODO
+
+        parser_advance(parser);
+        t = parser_peek(parser);
+    }
+
+    assert(parser_consume(parser, TT_RIGHT_BRACE, "Expected '}'."));
+
+    return parseres_ok((ASTNode){
+        .type = ANT_STRUCT_DECL,
+        .node.struct_decl = {
+            .maybe_name = m_name,
+        },
+    });
+}
+
 static ParseResult parser_parse_lit_str(Parser* const parser) {
     Token const litstr = parser_peek(parser);
 
@@ -972,8 +1004,8 @@ static ParseResult parser_parse_filescope_decl(Parser* const parser) {
     switch (current.type) {
         case TT_PACKAGE: return parser_parse_package(parser, directives);
         case TT_IMPORT: return parser_parse_import(parser, directives);
-
         case TT_TYPEDEF: return parser_parse_typedef(parser, directives);
+        case TT_STRUCT: return parser_parse_struct_decl(parser, directives);
 
         default: break;
     }

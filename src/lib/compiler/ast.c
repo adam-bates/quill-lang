@@ -182,6 +182,26 @@ void print_astnode(ASTNode const node) {
             break;
         }
 
+        case ANT_STRUCT_DECL: {
+            printf("struct ");
+
+            String* m_name = node.node.struct_decl.maybe_name;
+            if (m_name != NULL) {
+                print_string(*m_name);
+                printf(" ");
+            }
+
+            printf("{\n");
+            indent += 1;
+
+            print_tabs();
+            printf("/* TODO */\n");
+
+            indent -= 1;
+            printf("}\n");
+            break;
+        }
+
         case ANT_VAR_DECL: {
             if (node.node.var_decl.is_static) { printf("static "); }
 
