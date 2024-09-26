@@ -582,6 +582,7 @@ static ParseResult parser_parse_struct_decl(Parser* const parser, LL_Directive c
         .node.struct_decl = {
             .maybe_name = m_name,
         },
+        .directives = directives,
     });
 }
 
