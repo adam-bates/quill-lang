@@ -3,7 +3,7 @@
 
 #include "./allocator.h"
 #include "./base.h"
-#include "./strings.h"
+#include "./string.h"
 
 String file_read(Allocator const allocator, char const* path);
 

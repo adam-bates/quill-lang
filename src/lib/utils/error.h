@@ -1,7 +1,7 @@
 #ifndef quill_error_h
 #define quill_error_h
 
-#include "./strings.h"
+#include "./string.h"
 
 typedef enum {
     ET_UNSPECIFIED,
