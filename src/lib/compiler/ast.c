@@ -462,6 +462,65 @@ void print_astnode(ASTNode const node) {
             break;
         }
 
+        case ANT_GET_FIELD: {
+            assert(node.node.get_field.root);
+            print_astnode(*node.node.get_field.root);
+            printf(".");
+            print_string(node.node.get_field.name);
+            break;
+        }
+
+        case ANT_RETURN: {
+            printf("return");
+
+            if (node.node.return_.maybe_expr != NULL) {
+                printf(" ");
+                print_astnode(*node.node.return_.maybe_expr);
+            }
+            break;
+        }
+
+        case ANT_ASSIGNMENT: {
+            assert(node.node.assignment.lhs);
+            assert(node.node.assignment.rhs);
+
+            print_astnode(*node.node.assignment.lhs);
+
+            switch (node.node.assignment.op) {
+                case AO_ASSIGN:          printf(" = "); break;
+
+                case AO_PLUS_ASSIGN:     printf(" += "); break;
+                case AO_MINUS_ASSIGN:    printf(" -= "); break;
+                case AO_MULTIPLY_ASSIGN: printf(" *= "); break;
+                case AO_DIVIDE_ASSIGN:   printf(" /= "); break;
+
+                case AO_BIT_AND_ASSIGN:  printf(" &= "); break;
+                case AO_BIT_OR_ASSIGN:   printf(" |= "); break;
+                case AO_BIT_XOR_ASSIGN:  printf(" ^= "); break;
+
+                default: printf(" <op:?> ");
+            }
+
+            print_astnode(*node.node.assignment.rhs);
+            break;
+        }
+
+        case ANT_UNARY_OP: {
+            assert(node.node.unary_op.right);
+
+            switch (node.node.unary_op.op) {
+                case UO_BOOL_NEGATE: printf("!"); break;
+                case UO_NUM_NEGATE:  printf("-"); break;
+                case UO_PTR_REF:     printf("&"); break;
+                case UO_PTR_DEREF:   printf("*"); break;
+
+                default: printf("<unary_op:?>");
+            }
+
+            print_astnode(*node.node.unary_op.right);
+            break;             
+        }
+
         default: printf("/* TODO: print_node(%d) */", node.type);
     }
 

@@ -90,6 +90,7 @@ typedef enum {
     ANT_LITERAL,
     ANT_VAR_DECL,
     ANT_VAR_REF,
+    ANT_GET_FIELD,
     ANT_ASSIGNMENT,
     ANT_FUNCTION_CALL,
     ANT_STATEMENT_BLOCK,
@@ -239,6 +240,13 @@ typedef struct {
 
 //
 
+typedef struct {
+    struct ASTNode* root;
+    String name;
+} ASTNodeGetField;
+
+//
+
 typedef enum {
     AO_ASSIGN,
 
@@ -255,7 +263,7 @@ typedef enum {
 } AssignmentOp;
 
 typedef struct {
-    AssignmentOp const op;
+    AssignmentOp op;
     struct ASTNode* lhs;
     struct ASTNode* rhs;
 } ASTNodeAssignment;
@@ -501,6 +509,7 @@ typedef struct ASTNode {
         ASTNodeLiteral literal;
         ASTNodeVarDecl var_decl;
         ASTNodeVarRef var_ref;
+        ASTNodeGetField get_field;
         ASTNodeFunctionCall function_call;
         ASTNodeStatementBlock statement_block;
         ASTNodeIf if_;
@@ -528,6 +537,7 @@ typedef struct ASTNode {
         ASTNodeGlobaltagDecl globaltag_decl;
         ASTNodeFunctionHeaderDecl function_header_decl;
         ASTNodeFunctionDecl function_decl;
+        ASTNodeAssignment assignment;
     } node;
     LL_Directive directives;
 } ASTNode;

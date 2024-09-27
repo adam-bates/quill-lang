@@ -55,25 +55,6 @@ int main(int const argc, char const* const argv[]) {
     printf("\n");
 
     print_astnode(*ast);
-
-    // LL_ASTNode nodes = ast->node.file_root.nodes;
-    // LLNode_ASTNode* node = nodes.head;
-
-    // bool last_was_ok = true;
-    // while (node != NULL) {
-    //     if (node->data.type == ANT_NONE) {
-    //         if (last_was_ok) {
-    //             printf("<Unknown AST Node>\n");
-    //         }
-    //         last_was_ok = false;
-    //         node = node->next;
-    //         continue;
-    //     }
-    //     last_was_ok = true;
-
-    //     print_astnode(node->data);
-    //     node = node->next;
-    // }
     printf("\n");
 
     verify_syntax(ast);
@@ -83,7 +64,7 @@ int main(int const argc, char const* const argv[]) {
     CodegenC codegen = codegen_c_create(&codegen_arena, ast);
     String const c_code = generate_c_code(&codegen);
 
-    // printf("C Code:\n");
+    printf("C Code:\n");
     printf("%s\n", arena_strcpy(&codegen_arena, c_code).chars);
 
     // cleanup

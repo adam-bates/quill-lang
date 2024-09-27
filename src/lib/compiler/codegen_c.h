@@ -4,9 +4,20 @@
 #include "./ast.h"
 #include "../utils/utils.h"
 
+typedef enum {
+    BT_OTHER,
+    BT_IMPORT,
+    BT_FUNCTION_DECLS,
+    BT_STATIC_VARS,
+    BT_VARS,
+} BlockType;
+
 typedef struct {
     Arena* const arena;
     ASTNode const* const ast;
+
+    bool seen_file_separator;
+    BlockType prev_block;
 } CodegenC;
 
 CodegenC codegen_c_create(Arena* const arena, ASTNode const* const ast);

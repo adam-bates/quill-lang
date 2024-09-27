@@ -503,7 +503,8 @@ static Type* parser_parse_type(Parser* const parser) {
             return parser_parse_type_wrap(parser, type);
         }
 
-        default: debug_token(parser, t); fprintf(stderr, "TODO: handle [%d]\n", t.type); assert(false);
+        default: return NULL;
+        // default: debug_token(parser, t); fprintf(stderr, "TODO: handle [%d]\n", t.type); assert(false);
     }
     
     return NULL;
@@ -796,28 +797,49 @@ static ParseResult parser_parse_var_ref(Parser* const parser, LL_Directive const
     });
 }
 
-static ParseResult parser_parse_fn_call(Parser* const parser, LL_Directive const directives) {
-    ASTNode fn_call = {
-        .type = ANT_FUNCTION_CALL,
-        .node.function_call = {0},
-        .directives = directives,
-    };
-
-    ParseResult const varref_res = parser_parse_var_ref(parser, (LL_Directive){0});
-    if (varref_res.status != PRS_OK) {
+static ParseResult parser_parse_get_field(Parser* const parser, ASTNode expr) {
+    if (parser_peek(parser).type != TT_DOT) {
         return parseres_none();
     }
+    parser_advance(parser);
 
+    Token name = parser_peek(parser);
+    assert(parser_consume(parser, TT_IDENTIFIER, "Expected field name."));
+
+    ASTNode* const root = arena_alloc(parser->arena, sizeof *root);
+    *root = expr;
+
+    return parseres_ok((ASTNode){
+        .type = ANT_GET_FIELD,
+        .node.get_field = {
+            .root = root,
+            .name = {
+                .length = name.length,
+                .chars = name.start,
+            },
+        },
+        .directives = {0},
+    });
+}
+
+static ParseResult parser_parse_fn_call(Parser* const parser, ASTNode expr) {
     if (parser_peek(parser).type != TT_LEFT_PAREN) {
         return parseres_none();
     }
     parser_advance(parser);
     Token current = parser_peek(parser);
 
-    ASTNode* const target = arena_alloc(parser->arena, sizeof(ASTNode));
-    *target = varref_res.node;
+    ASTNode* const target = arena_alloc(parser->arena, sizeof *target);
+    *target = expr;
 
-    fn_call.node.function_call.function = target;
+    ASTNode fn_call = {
+        .type = ANT_FUNCTION_CALL,
+        .node.function_call = {
+            .function = target,
+            .args = {0},
+        },
+        .directives = {0},
+    };
 
     while (current.type != TT_RIGHT_PAREN && current.type != TT_EOF) {
         LL_Directive const expr_directives = parser_parse_directives(parser);
@@ -867,33 +889,91 @@ static ParseResult parser_parse_sizeof(Parser* const parser, LL_Directive const 
     });
 }
 
-static ParseResult parser_parse_expr(Parser* const parser, LL_Directive const directives) {
-    switch (parser_peek(parser).type) {
-        case TT_SIZEOF: {
-            return parser_parse_sizeof(parser, directives);
-        }
-
-        default: break;        
+static ParseResult parser_wrap_expr(Parser* const parser, ParseResult expr_res) {
+    if (expr_res.status != PRS_OK) {
+        return expr_res;
     }
-    
-    ParseResult expr_res;
+    ASTNode expr = expr_res.node;
+
+    ParseResult wrapped_res;
     size_t const cached_current = parser->cursor_current;
 
-    expr_res = parser_parse_lit(parser, directives);
-    if (expr_res.status == PRS_OK) {
-        return expr_res;
+    wrapped_res = parser_parse_fn_call(parser, expr);
+    if (wrapped_res.status == PRS_OK) {
+        wrapped_res.node.directives = expr.directives;
+        expr.directives = (LL_Directive){0};
+        return wrapped_res;
     }
     parser->cursor_current = cached_current;
 
-    expr_res = parser_parse_fn_call(parser, directives);
+    wrapped_res = parser_parse_get_field(parser, expr);
+    if (wrapped_res.status == PRS_OK) {
+        wrapped_res.node.directives = expr.directives;
+        expr.directives = (LL_Directive){0};
+        return wrapped_res;
+    }
+    parser->cursor_current = cached_current;
+
+    return expr_res;
+}
+
+static ParseResult parser_parse_unary(Parser* const parser, LL_Directive const directives) {
+    UnaryOp op;
+    switch (parser_peek(parser).type) {
+        case TT_MINUS_EQUAL: op = UO_BOOL_NEGATE; break;
+        case TT_STAR_EQUAL:  op = UO_NUM_NEGATE; break;
+        case TT_AMPERSAND:   op = UO_PTR_REF; break;
+        case TT_STAR:        op = UO_PTR_DEREF; break;
+
+        default: return parseres_none();
+    }
+    parser_advance(parser);
+
+    ParseResult rhs_res = parser_parse_expr(parser, directives);
+
+    ASTNode* rhs = arena_alloc(parser->arena, sizeof *rhs);
+    *rhs = rhs_res.node;
+
+    ASTNode unary = {
+        .type = ANT_UNARY_OP,
+        .node.unary_op = {
+            .op = op,
+            .right = rhs,
+        },
+    };
+
+    if (rhs_res.status != PRS_OK) {
+        return parseres_err(unary);
+    }
+
+    return parseres_ok(unary);
+}
+
+static ParseResult parser_parse_expr(Parser* const parser, LL_Directive const directives) {
+    switch (parser_peek(parser).type) {
+        case TT_SIZEOF: return parser_wrap_expr(parser, parser_parse_sizeof(parser, directives));
+
+        default: break;        
+    }
+
+    ParseResult expr_res;
+    size_t const cached_current = parser->cursor_current;
+
+    expr_res = parser_parse_unary(parser, directives);
     if (expr_res.status == PRS_OK) {
-        return expr_res;
+        return parser_wrap_expr(parser, expr_res);
+    }
+    parser->cursor_current = cached_current;
+
+    expr_res = parser_parse_lit(parser, directives);
+    if (expr_res.status == PRS_OK) {
+        return parser_wrap_expr(parser, expr_res);
     }
     parser->cursor_current = cached_current;
 
     expr_res = parser_parse_var_ref(parser, directives);
     if (expr_res.status == PRS_OK) {
-        return expr_res;
+        return parser_wrap_expr(parser, expr_res);
     }
     parser->cursor_current = cached_current;
 
@@ -918,6 +998,9 @@ static ParseResult parser_parse_var_decl(Parser* const parser, LL_Directive cons
         } else {
             tol.is_let = false;
             tol.maybe_type = parser_parse_type(parser);
+            if (!tol.maybe_type) {
+                return parseres_none();
+            }
         }
         current = parser_peek(parser);
 
@@ -981,18 +1064,105 @@ static ParseResult parser_parse_var_decl(Parser* const parser, LL_Directive cons
     });
 }
 
+static ParseResult parser_parse_return(Parser* const parser, LL_Directive const directives) {
+    if (!parser_consume(parser, TT_RETURN, "Expected 'return'")) {
+        return parseres_none();
+    }
+    
+    ASTNode* m_expr = NULL;
+
+    if (parser_peek(parser).type != TT_SEMICOLON && parser_peek(parser).type != TT_COLON) {
+
+        ParseResult res = parser_parse_expr(parser, (LL_Directive){0});
+        if (res.status != PRS_NONE) {
+            m_expr = arena_alloc(parser->arena, sizeof *m_expr);
+            *m_expr = res.node;
+        }
+    }
+
+    return parseres_ok((ASTNode){
+        .type = ANT_RETURN,
+        .node.return_.maybe_expr = m_expr,
+        .directives = directives,
+    });
+}
+
+static ParseResult parser_parse_assignment(Parser* const parser, ASTNode expr) {
+    AssignmentOp op;
+    switch (parser_peek(parser).type) {
+        case TT_EQUAL:           op = AO_ASSIGN; break;
+        case TT_PLUS_EQUAL:      op = AO_PLUS_ASSIGN; break;
+        case TT_MINUS_EQUAL:     op = AO_MINUS_ASSIGN; break;
+        case TT_STAR_EQUAL:      op = AO_MULTIPLY_ASSIGN; break;
+        case TT_SLASH_EQUAL:     op = AO_DIVIDE_ASSIGN; break;
+        case TT_AMPERSAND_EQUAL: op = AO_BIT_AND_ASSIGN; break;
+        case TT_PIPE_EQUAL:      op = AO_BIT_OR_ASSIGN; break;
+        case TT_CARET_EQUAL:     op = AO_BIT_XOR_ASSIGN; break;
+
+        default: return parseres_none();
+    }
+    parser_advance(parser);
+
+    ASTNode* lhs = arena_alloc(parser->arena, sizeof *lhs);
+    *lhs = expr;
+
+    LL_Directive const directives = parser_parse_directives(parser);
+    ParseResult rhs_res = parser_parse_expr(parser, directives);
+
+    ASTNode* rhs = arena_alloc(parser->arena, sizeof *rhs);
+    *rhs = rhs_res.node;
+
+    ASTNode assignment = {
+        .type = ANT_ASSIGNMENT,
+        .node.assignment = {
+            .lhs = lhs,
+            .op = op,
+            .rhs = rhs,
+        },
+    };
+
+    if (rhs_res.status != PRS_OK) {
+        return parseres_err(assignment);
+    }
+
+    return parseres_ok(assignment);
+}
+
+static ParseResult parser_wrap_stmt_expr(Parser* const parser, ParseResult expr_res) {
+    if (expr_res.status != PRS_OK) {
+        return expr_res;
+    }
+    ASTNode expr = expr_res.node;
+
+    ParseResult stmt_res;
+    size_t const cached_current = parser->cursor_current;
+
+    stmt_res = parser_parse_assignment(parser, expr);
+    if (stmt_res.status == PRS_OK) {
+        stmt_res.node.directives = expr.directives;
+        return stmt_res;
+    }
+    parser->cursor_current = cached_current;
+
+    return expr_res;
+}
+
 static ParseResult parser_parse_stmt(Parser* const parser) {
     LL_Directive const directives = parser_parse_directives(parser);
     
     Token const current = parser_peek(parser);
 
-    switch (current.type) {        
-        // TODO
+    ParseResult stmt_res;
+
+    switch (current.type) {
+        case TT_RETURN: {
+            stmt_res = parser_parse_return(parser, directives);
+            assert(parser_consume(parser, TT_SEMICOLON, "Expected semicolon."));
+            return stmt_res;
+        }
 
         default: break;
     }
-    
-    ParseResult stmt_res;
     size_t const cached_current = parser->cursor_current;
 
     stmt_res = parser_parse_var_decl(parser, directives);
@@ -1005,7 +1175,13 @@ static ParseResult parser_parse_stmt(Parser* const parser) {
 
     stmt_res = parser_parse_expr(parser, directives);
     if (stmt_res.status == PRS_OK) {
-        parser_consume(parser, TT_SEMICOLON, "Expected semicolon.");
+        if (parser_peek(parser).type == TT_SEMICOLON) {
+            parser_advance(parser);
+        } else {
+            stmt_res = parser_wrap_stmt_expr(parser, stmt_res);
+            assert(parser_consume(parser, TT_SEMICOLON, "Expected semicolon."));
+        }
+
         return stmt_res;
     }
     parser->cursor_current = cached_current;

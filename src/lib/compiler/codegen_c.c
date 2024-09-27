@@ -4,10 +4,6 @@
 #include "./ast.h"
 #include "./codegen_c.h"
 
-typedef struct {
-    bool seen_file_separator;
-} State;
-
 static void append_static_path(StringBuffer* strbuf, StaticPath* path) {
     if (path->root != NULL) {
         // if (
@@ -77,20 +73,45 @@ static void append_type(StringBuffer* strbuf, Type type) {
     }
 }
 
-static void append_ast_node(State* state, StringBuffer* strbuf, ASTNode const* node) {
+static void append_ast_node(CodegenC* c, StringBuffer* strbuf, ASTNode const* node) {
+    assert(node);
+
     switch (node->type) {
         case ANT_FILE_ROOT: {
             LLNode_ASTNode* curr = node->node.file_root.nodes.head;
+            BlockType curr_block = 0;
             while (curr != NULL) {
-                append_ast_node(state, strbuf, &curr->data);
-                strbuf_append_char(strbuf, '\n');
+                append_ast_node(c, strbuf, &curr->data);
                 curr = curr->next;
+
+                if (curr == NULL) {
+                    continue;
+                }
+
+                switch (curr->data.type) {
+                    case ANT_IMPORT: curr_block = BT_IMPORT; break;
+                    case ANT_FUNCTION_HEADER_DECL: curr_block = BT_FUNCTION_DECLS; break;
+                    case ANT_VAR_DECL: {
+                        if (curr->data.node.var_decl.is_static) {
+                            curr_block = BT_STATIC_VARS; break;
+                        } else {
+                            curr_block = BT_VARS; break;
+                        }
+                    }
+
+                    default: curr_block = BT_OTHER; break;
+                }
+                if (curr_block != c->prev_block) {
+                    strbuf_append_char(strbuf, '\n');
+                    c->prev_block = curr_block;
+                }
             }
             return;
         }
 
         case ANT_FILE_SEPARATOR: {
-            state->seen_file_separator = true;
+            c->seen_file_separator = true;
+            strbuf_append_chars(strbuf, "/* --- */\n\n");
             return;
         }
 
@@ -132,7 +153,7 @@ static void append_ast_node(State* state, StringBuffer* strbuf, ASTNode const* n
         }
 
         case ANT_FUNCTION_HEADER_DECL: {
-            if (state->seen_file_separator) {
+            if (c->seen_file_separator) {
                 // strbuf_append_chars(strbuf, "static ");
             }
 
@@ -174,7 +195,7 @@ static void append_ast_node(State* state, StringBuffer* strbuf, ASTNode const* n
         }
 
         case ANT_FUNCTION_DECL: {
-            if (state->seen_file_separator) {
+            if (c->seen_file_separator) {
                 // strbuf_append_chars(strbuf, "static ");
             }
 
@@ -215,7 +236,7 @@ static void append_ast_node(State* state, StringBuffer* strbuf, ASTNode const* n
             LLNode_ASTNode* curr = node->node.function_decl.stmts.head;
             while (curr != NULL) {
                 strbuf_append_chars(strbuf, "    ");
-                append_ast_node(state, strbuf, &curr->data);
+                append_ast_node(c, strbuf, &curr->data);
                 strbuf_append_chars(strbuf, ";\n");
                 curr = curr->next;
             }
@@ -224,17 +245,17 @@ static void append_ast_node(State* state, StringBuffer* strbuf, ASTNode const* n
                 strbuf_append_chars(strbuf, "    return 0;\n");
             }
 
-            strbuf_append_chars(strbuf, "}\n");
+            strbuf_append_chars(strbuf, "}\n\n");
             return;
         }
 
         case ANT_FUNCTION_CALL: {
-            append_ast_node(state, strbuf, node->node.function_call.function);
+            append_ast_node(c, strbuf, node->node.function_call.function);
             strbuf_append_char(strbuf, '(');
 
             LLNode_ASTNode* curr = node->node.function_call.args.head;
             while (curr != NULL) {
-                append_ast_node(state, strbuf, &curr->data);
+                append_ast_node(c, strbuf, &curr->data);
                 curr = curr->next;
 
                 if (curr != NULL) {
@@ -257,13 +278,16 @@ static void append_ast_node(State* state, StringBuffer* strbuf, ASTNode const* n
             }
 
             TypeOrLet tol = node->node.var_decl.type_or_let;
-            assert(!tol.is_let); // TODO: need type info
-
-            append_type(strbuf, *tol.maybe_type);
-            strbuf_append_char(strbuf, ' ');
+            if (tol.is_let) {
+                // assert(!tol.is_let); // TODO: need type info
+                strbuf_append_chars(strbuf, "/* TODO: let */ ");
+            } else {
+                append_type(strbuf, *tol.maybe_type);
+                strbuf_append_char(strbuf, ' ');
+            }
 
             if (!tol.is_mut) {
-                printf("const ");
+                strbuf_append_chars(strbuf, "const ");
             }
 
             VarDeclLHS lhs = node->node.var_decl.lhs;
@@ -276,7 +300,7 @@ static void append_ast_node(State* state, StringBuffer* strbuf, ASTNode const* n
 
             if (node->node.var_decl.initializer != NULL) {
                 strbuf_append_chars(strbuf, " = ");
-                append_ast_node(state, strbuf, node->node.var_decl.initializer);
+                append_ast_node(c, strbuf, node->node.var_decl.initializer);
             }
 
             return;
@@ -287,7 +311,7 @@ static void append_ast_node(State* state, StringBuffer* strbuf, ASTNode const* n
 
             switch (node->node.sizeof_.kind) {
                 case SOK_TYPE: append_type(strbuf, *node->node.sizeof_.sizeof_.type); break;
-                case SOK_EXPR: append_ast_node(state, strbuf, node->node.sizeof_.sizeof_.expr); break;
+                case SOK_EXPR: append_ast_node(c, strbuf, node->node.sizeof_.sizeof_.expr); break;
             }
 
             strbuf_append_char(strbuf, ')');
@@ -296,6 +320,13 @@ static void append_ast_node(State* state, StringBuffer* strbuf, ASTNode const* n
 
         case ANT_LITERAL: {
             switch (node->node.literal.kind) {
+                case LK_CHAR: {
+                    strbuf_append_char(strbuf, '\'');
+                    strbuf_append_str(strbuf, node->node.literal.value.lit_char);
+                    strbuf_append_char(strbuf, '\'');
+                    return;
+                }
+
                 case LK_STR: {
                     strbuf_append_char(strbuf, '"');
                     strbuf_append_str(strbuf, node->node.literal.value.lit_str);
@@ -303,10 +334,76 @@ static void append_ast_node(State* state, StringBuffer* strbuf, ASTNode const* n
                     strbuf_append_char(strbuf, '"');
                     return;
                 }
+
+                case LK_INT: {
+                    StringBuffer sb = arena_sprintf(c->arena, "%lu", node->node.literal.value.lit_int);
+                    String s = strbuf_to_str(sb);
+                    strbuf_append_str(strbuf, s);
+                    return;
+                }
+
                 default: fprintf(stderr, "TODO: handle [%d]\n", node->node.literal.kind); assert(false);
             }
             return;
         }
+
+        case ANT_GET_FIELD: {
+            assert(node->node.get_field.root);
+            append_ast_node(c, strbuf, node->node.get_field.root);
+            strbuf_append_char(strbuf, '.');
+            strbuf_append_str(strbuf, node->node.get_field.name);
+            return;
+        }
+
+        case ANT_RETURN: {
+            strbuf_append_chars(strbuf, "return");
+
+            if (node->node.return_.maybe_expr != NULL) {
+                strbuf_append_char(strbuf, ' ');
+                append_ast_node(c, strbuf, node->node.return_.maybe_expr);
+            }
+            return;
+        }
+
+        case ANT_ASSIGNMENT: {
+            assert(node->node.assignment.lhs);
+            assert(node->node.assignment.rhs);
+            append_ast_node(c, strbuf, node->node.assignment.lhs);
+
+            switch (node->node.assignment.op) {
+                case AO_ASSIGN:          strbuf_append_chars(strbuf, " = "); break;
+
+                case AO_PLUS_ASSIGN:     strbuf_append_chars(strbuf, " += "); break;
+                case AO_MINUS_ASSIGN:    strbuf_append_chars(strbuf, " -= "); break;
+                case AO_MULTIPLY_ASSIGN: strbuf_append_chars(strbuf, " *= "); break;
+                case AO_DIVIDE_ASSIGN:   strbuf_append_chars(strbuf, " /= "); break;
+
+                case AO_BIT_AND_ASSIGN:  strbuf_append_chars(strbuf, " &= "); break;
+                case AO_BIT_OR_ASSIGN:   strbuf_append_chars(strbuf, " |= "); break;
+                case AO_BIT_XOR_ASSIGN:  strbuf_append_chars(strbuf, " ^= "); break;
+
+                default: fprintf(stderr, "TODO: handle [%d]\n", node->node.assignment.op); assert(false);
+            }
+
+            append_ast_node(c, strbuf, node->node.assignment.rhs);
+            return;
+        }
+
+        case ANT_UNARY_OP: {
+            assert(node->node.unary_op.right);
+
+            switch (node->node.unary_op.op) {
+                case UO_BOOL_NEGATE: strbuf_append_char(strbuf, '!'); break;
+                case UO_NUM_NEGATE:  strbuf_append_char(strbuf, '-'); break;
+                case UO_PTR_REF:     strbuf_append_char(strbuf, '&'); break;
+                case UO_PTR_DEREF:   strbuf_append_char(strbuf, '*'); break;
+
+                default: fprintf(stderr, "TODO: handle [%d]\n", node->node.unary_op.op); assert(false);
+            }
+
+            append_ast_node(c, strbuf, node->node.unary_op.right);
+            return;
+         }
 
         default: fprintf(stderr, "TODO: handle [%d]\n", node->type); assert(false);
     }
@@ -336,10 +433,7 @@ String generate_c_code(CodegenC* const codegen) {
         }
     }
 
-    State state = {0};
-
-    append_ast_node(&state, &strbuf, codegen->ast);
-    // strbuf_append_chars(&strbuf, "todo");
+    append_ast_node(codegen, &strbuf, codegen->ast);
     
     return strbuf_to_str(strbuf);
 }
@@ -348,5 +442,8 @@ CodegenC codegen_c_create(Arena* const arena, ASTNode const* const ast) {
     return (CodegenC){
         .arena = arena,
         .ast = ast,
+
+        .seen_file_separator = false,
+        .prev_block = BT_OTHER,
     };
 }
