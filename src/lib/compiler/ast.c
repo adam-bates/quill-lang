@@ -95,6 +95,10 @@ static void print_directives(LL_Directive directives) {
             case DT_C_RESTRICT: printf("@c_restrict "); break;
 
             case DT_C_FILE: printf("@c_FILE "); break;
+
+            case DT_IGNORE_UNUSED: printf("@ignore_unused "); break;
+
+            case DT_IMPL: printf("@impl "); break;
         }
 
         curr = curr->next;
@@ -120,7 +124,12 @@ static void print_type(Type const* type) {
                 }
 
                 case TBI_UINT: {
-                    printf("uint32_t");
+                    printf("size_t");
+                    return;
+                }
+
+                case TBI_CHAR: {
+                    printf("char");
                     return;
                 }
             }
@@ -129,6 +138,11 @@ static void print_type(Type const* type) {
 
         case TK_TYPE_REF: {
             print_string(type->type.type_ref.name);
+            return;
+        }
+
+        case TK_STATIC_PATH: {
+            print_static_path(type->type.static_path.path);
             return;
         }
 
@@ -159,8 +173,77 @@ void print_astnode(ASTNode const node) {
             break;
         }
 
+        case ANT_FILE_ROOT: {
+            LL_ASTNode nodes = node.node.file_root.nodes;
+            LLNode_ASTNode* fnode = nodes.head;
+
+            typedef enum {
+                BT_OTHER,
+                BT_IMPORT,
+                BT_FUNCTION_DECLS,
+                BT_STATIC_VARS,
+                BT_VARS,
+            } BlockType;
+
+            BlockType curr_block = 0;
+            BlockType prev_block = 0;
+            bool last_was_ok = true;
+            while (fnode != NULL) {
+                if (fnode->data.type == ANT_NONE) {
+                    if (last_was_ok) {
+                        printf("<Unknown AST Node>\n");
+                    }
+                    last_was_ok = false;
+                    fnode = fnode->next;
+                    continue;
+                }
+                last_was_ok = true;
+
+                //
+
+                print_astnode(fnode->data);
+                fnode = fnode->next;
+
+                if (fnode == NULL) {
+                    continue;
+                }
+
+                switch (fnode->data.type) {
+                    case ANT_IMPORT: curr_block = BT_IMPORT; break;
+                    case ANT_FUNCTION_HEADER_DECL: curr_block = BT_FUNCTION_DECLS; break;
+                    case ANT_VAR_DECL: {
+                        if (fnode->data.node.var_decl.is_static) {
+                            curr_block = BT_STATIC_VARS; break;
+                        } else {
+                            curr_block = BT_VARS; break;
+                        }
+                    }
+
+                    default: curr_block = BT_OTHER; break;
+                }
+                if (curr_block != prev_block) {
+                    printf("\n");
+                    prev_block = curr_block;
+                }
+            }
+
+            break;
+        }
+
+        case ANT_FILE_SEPARATOR: {
+            printf("---\n\n");
+            break;
+        }
+
         case ANT_IMPORT: {
             printf("import ");
+
+            switch (node.node.import.type) {
+                case IT_DEFAULT: break;
+                case IT_LOCAL: printf("./"); break;
+                case IT_ROOT: printf("~/"); break;
+            }
+
             print_static_path(node.node.import.static_path);
             printf(";\n");
             break;
@@ -224,8 +307,6 @@ void print_astnode(ASTNode const node) {
                 printf(" = ");
                 print_astnode(*node.node.var_decl.initializer);
             }
-
-            printf(";\n");
             break;
         }
 
@@ -272,15 +353,19 @@ void print_astnode(ASTNode const node) {
                     }
                     
                     print_string(param->data.name);
-                    printf(", ");
                     
                     param = param->next;
+
+                    if (param != NULL) { printf(", "); }
                 }
             }
             printf(") {\n");
             {
                 indent += 1;
                 LLNode_ASTNode* stmt = node.node.function_decl.stmts.head;
+                if (stmt == NULL) {
+                    printf("    //\n");
+                }
                 bool last_was_ok = true;
                 while (stmt != NULL) {
                     if (stmt->data.type == ANT_NONE) {
@@ -302,7 +387,7 @@ void print_astnode(ASTNode const node) {
                 
                 indent -= 1;
             }
-            printf("}\n");
+            printf("}\n\n");
             
             break;
         }
@@ -362,6 +447,18 @@ void print_astnode(ASTNode const node) {
                 default: print_tabs(); printf("/* TODO: print_literal(%d) */", node.type);
             }
 
+            break;
+        }
+
+        case ANT_SIZEOF: {
+            printf("sizeof(");
+
+            switch (node.node.sizeof_.kind) {
+                case SOK_TYPE: print_type(node.node.sizeof_.sizeof_.type); break;
+                case SOK_EXPR: print_astnode(*node.node.sizeof_.sizeof_.expr); break;
+            }
+
+            printf(")");
             break;
         }
 

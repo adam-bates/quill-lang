@@ -11,8 +11,8 @@ typedef enum {
     TT_LEFT_PAREN, TT_RIGHT_PAREN,     // ()
     TT_LEFT_BRACE, TT_RIGHT_BRACE,     // {}
     TT_LEFT_BRACKET, TT_RIGHT_BRACKET, // []
-    TT_COMMA, TT_DOT,
-    TT_SEMICOLON, TT_QUESTION, TT_AT,
+    TT_COMMA, TT_DOT, TT_TILDE,        // ,.~
+    TT_SEMICOLON, TT_QUESTION, TT_AT,  // ;?@
 
     // one or two character tokens
     TT_BANG, TT_BANG_EQUAL,

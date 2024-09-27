@@ -18,7 +18,7 @@ typedef struct {
     ASTNode node;
 } ParseResult;
 
-static ParseResult parser_parse_expr(Parser* const parser);
+static ParseResult parser_parse_expr(Parser* const parser, LL_Directive const directives);
 
 typedef struct {
     char const* const pattern;
@@ -33,11 +33,13 @@ typedef struct {
     } maybe;
 } Maybe_DirectiveType;
 
-static const size_t DIRECTIVE_MATCHES_LEN = 3;
+static const size_t DIRECTIVE_MATCHES_LEN = 5;
 static const DirectiveMatch DIRECTIVE_MATCHES[DIRECTIVE_MATCHES_LEN] = {
     { "@c_header", DT_C_HEADER },
     { "@c_restrict", DT_C_RESTRICT },
     { "@c_FILE", DT_C_FILE },
+    { "@ignore_unused", DT_IGNORE_UNUSED },
+    { "@impl", DT_IMPL },
     // TODO
 };
 
@@ -54,6 +56,7 @@ void debug_token_type(TokenType token_type) {
         case TT_RIGHT_BRACKET: printf("]"); break;
         case TT_COMMA: printf(","); break;
         case TT_DOT: printf("."); break;
+        case TT_TILDE: printf("~"); break;
         case TT_SEMICOLON: printf(";"); break;
         case TT_QUESTION: printf("?"); break;
         case TT_AT: printf("@"); break;
@@ -373,6 +376,7 @@ static LL_Directive parser_parse_directives(Parser* const parser) {
             case DT_C_RESTRICT: {
                 Directive directive = {
                     .type = DT_C_RESTRICT,
+                    .dir.c_restrict = NULL,
                 };
                 ll_directive_push(parser->arena, &directives, directive);
                 break;
@@ -381,6 +385,25 @@ static LL_Directive parser_parse_directives(Parser* const parser) {
             case DT_C_FILE: {
                 Directive directive = {
                     .type = DT_C_FILE,
+                    .dir.c_file = NULL,
+                };
+                ll_directive_push(parser->arena, &directives, directive);
+                break;
+            }
+
+            case DT_IGNORE_UNUSED: {
+                Directive directive = {
+                    .type = DT_IGNORE_UNUSED,
+                    .dir.ignore_unused = NULL,
+                };
+                ll_directive_push(parser->arena, &directives, directive);
+                break;
+            }
+
+            case DT_IMPL: {
+                Directive directive = {
+                    .type = DT_IMPL,
+                    .dir.impl = NULL,
                 };
                 ll_directive_push(parser->arena, &directives, directive);
                 break;
@@ -429,7 +452,7 @@ static Type* parser_parse_type_wrap(Parser* const parser, Type* type) {
 }
 
 static Type* parser_parse_type(Parser* const parser) {
-    LL_Directive directives = parser_parse_directives(parser);
+    LL_Directive const directives = parser_parse_directives(parser);
 
     Type* type = arena_alloc(parser->arena, sizeof *type);
     type->directives = directives;
@@ -437,14 +460,23 @@ static Type* parser_parse_type(Parser* const parser) {
     Token t = parser_peek(parser);
     switch (t.type) {
         case TT_IDENTIFIER: {
-            parser_advance(parser);
+            if (parser_peek_next(parser).type == TT_COLON_COLON) {
+                StaticPath* path = parser_parse_ident_path(parser);
+                assert(path);
 
-            type->kind = TK_TYPE_REF;
-            type->type.type_ref.name = (String){
-                .length = t.length,
-                .chars = t.start,
-            };
-            return parser_parse_type_wrap(parser, type);
+                type->kind = TK_STATIC_PATH;
+                type->type.static_path.path = path;
+                return parser_parse_type_wrap(parser, type);
+            } else {            
+                parser_advance(parser);
+
+                type->kind = TK_TYPE_REF;
+                type->type.type_ref.name = (String){
+                    .length = t.length,
+                    .chars = t.start,
+                };
+                return parser_parse_type_wrap(parser, type);
+            }
         }
 
         case TT_VOID: {
@@ -463,7 +495,15 @@ static Type* parser_parse_type(Parser* const parser) {
             return parser_parse_type_wrap(parser, type);
         }
 
-        default: fprintf(stderr, "TODO: handle [%d]\n", t.type); assert(false);
+        case TT_CHAR: {
+            parser_advance(parser);
+
+            type->kind = TK_BUILT_IN;
+            type->type.built_in = TBI_CHAR;
+            return parser_parse_type_wrap(parser, type);
+        }
+
+        default: debug_token(parser, t); fprintf(stderr, "TODO: handle [%d]\n", t.type); assert(false);
     }
     
     return NULL;
@@ -506,6 +546,18 @@ static ParseResult parser_parse_import(Parser* const parser, LL_Directive const 
           like `import std::{io::{printf, println}, ds::{StringBuffer, strbuf_create}}`
     */
 
+    ImportType type = IT_DEFAULT;
+
+    if (parser_peek(parser).type == TT_DOT) {
+        parser_advance(parser);
+        assert(parser_consume(parser, TT_SLASH, "Expected './'."));
+        type = IT_LOCAL;
+    } else if (parser_peek(parser).type == TT_TILDE) {
+        parser_advance(parser);
+        assert(parser_consume(parser, TT_SLASH, "Expected './'."));
+        type = IT_ROOT;
+    }
+
     StaticPath* const path = parser_parse_import_path(parser);
     if (path == NULL) {
         error_at_current(parser, "Expected import target.");
@@ -514,7 +566,10 @@ static ParseResult parser_parse_import(Parser* const parser, LL_Directive const 
 
     ASTNode const node = {
         .type = ANT_IMPORT,
-        .node.import.static_path = path,
+        .node.import = {
+            .type = type,
+            .static_path = path,
+        },
         .directives = directives,
     };
 
@@ -586,7 +641,7 @@ static ParseResult parser_parse_struct_decl(Parser* const parser, LL_Directive c
     });
 }
 
-static ParseResult parser_parse_lit_str(Parser* const parser) {
+static ParseResult parser_parse_lit_str(Parser* const parser, LL_Directive const directives) {
     Token const litstr = parser_peek(parser);
 
     if (!parser_consume(parser, TT_LITERAL_STRING, "Expected string literal.")) {
@@ -597,25 +652,31 @@ static ParseResult parser_parse_lit_str(Parser* const parser) {
         error(parser, "Missing string boundaries.");
         return parseres_err((ASTNode){
             .type = ANT_LITERAL,
-            .node.literal.kind = LK_STR,
-            .node.literal.value.lit_str = {
-                .chars = "",
-                .length = 0,
+            .node.literal = {
+                .kind = LK_STR,
+                .value.lit_str = {
+                    .chars = "",
+                    .length = 0,
+                },
             },
+            .directives = directives,
         });
     }
 
     return parseres_ok((ASTNode){
         .type = ANT_LITERAL,
-        .node.literal.kind = LK_STR,
-        .node.literal.value.lit_str = {
-            .chars = litstr.start + 1,
-            .length = litstr.length - 2,
+        .node.literal = {
+            .kind = LK_STR,
+            .value.lit_str = {
+                .chars = litstr.start + 1,
+                .length = litstr.length - 2,
+            },
         },
+        .directives = directives,
     });
 }
 
-static ParseResult parser_parse_lit_char_s(Parser* const parser) {
+static ParseResult parser_parse_lit_char_s(Parser* const parser, LL_Directive const directives) {
     Token const litchar_s = parser_peek(parser);
 
     if (!parser_consume(parser, TT_LITERAL_CHAR, "Expected char literal.")) {
@@ -633,21 +694,24 @@ static ParseResult parser_parse_lit_char_s(Parser* const parser) {
                 .chars = &NULL_CHAR,
                 .length = 1,
             },
+            .directives = directives,
         });
     }
 
+    // typical character
     if (litchar_s.length == 3) {
         return parseres_ok((ASTNode){
             .type = ANT_LITERAL,
             .node.literal.kind = LK_CHAR,
-            // .node.literal.value.lit_char = litchar_s.start[1],
             .node.literal.value.lit_char = {
                 .chars = litchar_s.start + 1,
                 .length = 1,
             },
+            .directives = directives,
         });
     }
 
+    // escaped character
     if (litchar_s.start[1] == '\\' && litchar_s.length == 4) {
         return parseres_ok((ASTNode){
             .type = ANT_LITERAL,
@@ -656,9 +720,11 @@ static ParseResult parser_parse_lit_char_s(Parser* const parser) {
                 .chars = litchar_s.start + 1,
                 .length = 2,
             },
+            .directives = directives,
         });
     }
 
+    // many characters
     return parseres_ok((ASTNode){
         .type = ANT_LITERAL,
         .node.literal.kind = LK_CHARS,
@@ -666,10 +732,11 @@ static ParseResult parser_parse_lit_char_s(Parser* const parser) {
             .chars = litchar_s.start + 1,
             .length = litchar_s.length - 2,
         },
+        .directives = directives,
     });
 }
 
-static ParseResult parser_parse_lit_number(Parser* const parser) {
+static ParseResult parser_parse_lit_number(Parser* const parser, LL_Directive const directives) {
     Token const litnum = parser_peek(parser);
 
     if (!parser_consume(parser, TT_LITERAL_NUMBER, "Expected number literal.")) {
@@ -691,6 +758,7 @@ static ParseResult parser_parse_lit_number(Parser* const parser) {
             .type = ANT_LITERAL,
             .node.literal.kind = LK_FLOAT,
             .node.literal.value.lit_float = atof(str.chars),
+            .directives = directives,
         });
     }
 
@@ -698,14 +766,15 @@ static ParseResult parser_parse_lit_number(Parser* const parser) {
         .type = ANT_LITERAL,
         .node.literal.kind = LK_INT,
         .node.literal.value.lit_int = atoll(str.chars),
+        .directives = directives,
     });
 }
 
-static ParseResult parser_parse_lit(Parser* const parser) {
+static ParseResult parser_parse_lit(Parser* const parser, LL_Directive const directives) {
     switch (parser_peek(parser).type) {
-        case TT_LITERAL_STRING: return parser_parse_lit_str(parser);
-        case TT_LITERAL_CHAR: return parser_parse_lit_char_s(parser);
-        case TT_LITERAL_NUMBER: return parser_parse_lit_number(parser);
+        case TT_LITERAL_STRING: return parser_parse_lit_str(parser, directives);
+        case TT_LITERAL_CHAR: return parser_parse_lit_char_s(parser, directives);
+        case TT_LITERAL_NUMBER: return parser_parse_lit_number(parser, directives);
 
         default: break;
     }
@@ -713,7 +782,7 @@ static ParseResult parser_parse_lit(Parser* const parser) {
     return parseres_none();
 }
 
-static ParseResult parser_parse_var_ref(Parser* const parser) {
+static ParseResult parser_parse_var_ref(Parser* const parser, LL_Directive const directives) {
     StaticPath* const path = parser_parse_ident_path(parser);
 
     if (path == NULL) {
@@ -723,16 +792,18 @@ static ParseResult parser_parse_var_ref(Parser* const parser) {
     return parseres_ok((ASTNode){
         .type = ANT_VAR_REF,
         .node.var_ref.path = path,
+        .directives = directives,
     });
 }
 
-static ParseResult parser_parse_fn_call(Parser* const parser) {
+static ParseResult parser_parse_fn_call(Parser* const parser, LL_Directive const directives) {
     ASTNode fn_call = {
         .type = ANT_FUNCTION_CALL,
         .node.function_call = {0},
+        .directives = directives,
     };
 
-    ParseResult const varref_res = parser_parse_var_ref(parser);
+    ParseResult const varref_res = parser_parse_var_ref(parser, (LL_Directive){0});
     if (varref_res.status != PRS_OK) {
         return parseres_none();
     }
@@ -740,17 +811,17 @@ static ParseResult parser_parse_fn_call(Parser* const parser) {
     if (parser_peek(parser).type != TT_LEFT_PAREN) {
         return parseres_none();
     }
+    parser_advance(parser);
+    Token current = parser_peek(parser);
 
     ASTNode* const target = arena_alloc(parser->arena, sizeof(ASTNode));
     *target = varref_res.node;
 
     fn_call.node.function_call.function = target;
 
-    parser_consume(parser, TT_LEFT_PAREN, "Expected '('.");
-
-    Token current = parser_peek(parser);
     while (current.type != TT_RIGHT_PAREN && current.type != TT_EOF) {
-        ParseResult arg_res = parser_parse_expr(parser);
+        LL_Directive const expr_directives = parser_parse_directives(parser);
+        ParseResult const arg_res = parser_parse_expr(parser, expr_directives);
         ll_ast_push(parser->arena, &fn_call.node.function_call.args, arg_res.node);
 
         if (arg_res.status != PRS_OK) {
@@ -775,17 +846,52 @@ static ParseResult parser_parse_fn_call(Parser* const parser) {
     return parseres_ok(fn_call);
 }
 
-static ParseResult parser_parse_expr(Parser* const parser) {
+static ParseResult parser_parse_sizeof(Parser* const parser, LL_Directive const directives) {
+    if (!parser_consume(parser, TT_SIZEOF, "Expected 'sizeof'.")) {
+        return parseres_none();
+    }
+
+    // TODO: support sizeof const expr
+
+    assert(parser_consume(parser, TT_LEFT_PAREN, "Exptected '('"));
+    Type* type = parser_parse_type(parser);
+    assert(parser_consume(parser, TT_RIGHT_PAREN, "Exptected ')'"));
+
+    return parseres_ok((ASTNode){
+        .type = ANT_SIZEOF,
+        .node.sizeof_ = {
+            .kind = SOK_TYPE,
+            .sizeof_.type = type,
+        },
+        .directives = directives,
+    });
+}
+
+static ParseResult parser_parse_expr(Parser* const parser, LL_Directive const directives) {
+    switch (parser_peek(parser).type) {
+        case TT_SIZEOF: {
+            return parser_parse_sizeof(parser, directives);
+        }
+
+        default: break;        
+    }
+    
     ParseResult expr_res;
     size_t const cached_current = parser->cursor_current;
 
-    expr_res = parser_parse_lit(parser);
+    expr_res = parser_parse_lit(parser, directives);
     if (expr_res.status == PRS_OK) {
         return expr_res;
     }
     parser->cursor_current = cached_current;
 
-    expr_res = parser_parse_fn_call(parser);
+    expr_res = parser_parse_fn_call(parser, directives);
+    if (expr_res.status == PRS_OK) {
+        return expr_res;
+    }
+    parser->cursor_current = cached_current;
+
+    expr_res = parser_parse_var_ref(parser, directives);
     if (expr_res.status == PRS_OK) {
         return expr_res;
     }
@@ -794,7 +900,7 @@ static ParseResult parser_parse_expr(Parser* const parser) {
     return parseres_none();
 }
 
-static ParseResult parser_parse_var_decl(Parser* const parser) {
+static ParseResult parser_parse_var_decl(Parser* const parser, LL_Directive const directives) {
     Token current = parser_peek(parser);
 
     bool is_static = false;
@@ -809,11 +915,11 @@ static ParseResult parser_parse_var_decl(Parser* const parser) {
         if (current.type == TT_LET) {
             tol.is_let = true;
             parser_advance(parser);
-            current = parser_peek(parser);
         } else {
             tol.is_let = false;
             tol.maybe_type = parser_parse_type(parser);
         }
+        current = parser_peek(parser);
 
         if (current.type == TT_MUT) {
             tol.is_mut = true;
@@ -828,7 +934,11 @@ static ParseResult parser_parse_var_decl(Parser* const parser) {
     lhs.count = 1;
 
     current = parser_peek(parser);
-    assert(parser_consume(parser, TT_IDENTIFIER, "Expected variable name."));
+    if (current.type != TT_IDENTIFIER) {
+        return parseres_none();
+    }
+    parser_advance(parser);
+
     lhs.lhs.name = (String){
         .length = current.length,
         .chars = current.start,
@@ -840,13 +950,23 @@ static ParseResult parser_parse_var_decl(Parser* const parser) {
     if (current.type == TT_EQUAL) {
         parser_advance(parser);
 
-        ParseResult res = parser_parse_expr(parser);        
+        LL_Directive const expr_directives = parser_parse_directives(parser);
+
+        ParseResult res = parser_parse_expr(parser, expr_directives);
         assert(res.status == PRS_OK); // TODO: better error
 
         rhs = arena_alloc(parser->arena, sizeof *rhs);
         *rhs = res.node;
     }
 
+    if (parser_peek(parser).type != TT_SEMICOLON) {
+        debug_token(parser, parser_peek_prev(parser));
+        debug_token(parser, parser_peek(parser));
+        debug_token(parser, parser_peek_next(parser));
+        assert(rhs);
+        assert(rhs->type == ANT_VAR_REF);
+        assert(rhs->type == ANT_FUNCTION_CALL);
+    }
     assert(parser_consume(parser, TT_SEMICOLON, "Expected ';'."));
 
     return parseres_ok((ASTNode){
@@ -857,14 +977,33 @@ static ParseResult parser_parse_var_decl(Parser* const parser) {
             .lhs = lhs,
             .initializer = rhs,
         },
+        .directives = directives,
     });
 }
 
 static ParseResult parser_parse_stmt(Parser* const parser) {
+    LL_Directive const directives = parser_parse_directives(parser);
+    
+    Token const current = parser_peek(parser);
+
+    switch (current.type) {        
+        // TODO
+
+        default: break;
+    }
+    
     ParseResult stmt_res;
     size_t const cached_current = parser->cursor_current;
 
-    stmt_res = parser_parse_expr(parser);
+    stmt_res = parser_parse_var_decl(parser, directives);
+    if (stmt_res.status == PRS_OK) {
+        // semicolon already consumed
+        // parser_consume(parser, TT_SEMICOLON, "Expected semicolon.");
+        return stmt_res;
+    }
+    parser->cursor_current = cached_current;
+
+    stmt_res = parser_parse_expr(parser, directives);
     if (stmt_res.status == PRS_OK) {
         parser_consume(parser, TT_SEMICOLON, "Expected semicolon.");
         return stmt_res;
@@ -874,7 +1013,7 @@ static ParseResult parser_parse_stmt(Parser* const parser) {
     return parseres_none();
 }
 
-static ParseResult parser_parse_fn_decl(Parser* const parser) {
+static ParseResult parser_parse_fn_decl(Parser* const parser, LL_Directive const directives) {
     Type const* const type = parser_parse_type(parser);
     if (type == NULL) {
         return parseres_none();
@@ -946,6 +1085,7 @@ static ParseResult parser_parse_fn_decl(Parser* const parser) {
                 .name = c_str(cname),
                 .params = params,
             },
+            .directives = directives,
         });
     }
 
@@ -959,6 +1099,7 @@ static ParseResult parser_parse_fn_decl(Parser* const parser) {
             },
             .stmts = {0},
         },
+        .directives = directives,
     };
 
     if (!parser_consume(parser, TT_LEFT_BRACE, "Expected '{'.")) {
@@ -984,7 +1125,7 @@ static ParseResult parser_parse_fn_decl(Parser* const parser) {
 
         if (stmt_res.status != PRS_OK) {
             if (stmt_res.status == PRS_NONE) {
-                error_at(parser, &current, "Expected statmement.");
+                error_at(parser, &current, "Expected statement.");
             }
             parser_advance(parser);
         }
@@ -997,12 +1138,28 @@ static ParseResult parser_parse_fn_decl(Parser* const parser) {
     return parseres_ok(node);
 }
 
+static ParseResult parser_parse_file_separator(Parser* const parser, LL_Directive const directives) {
+    if (!parser_consume(parser, TT_MINUS_MINUS_MINUS, "Expected '---' (file separator).")) {
+        return parseres_none();
+    }
+
+    assert(directives.length == 0);
+
+    return parseres_ok((ASTNode){
+        .type = ANT_FILE_SEPARATOR,
+        .node.file_separator = NULL,
+        .directives = directives,
+    });
+}
+
 static ParseResult parser_parse_filescope_decl(Parser* const parser) {
     LL_Directive const directives = parser_parse_directives(parser);
 
     Token const current = parser_peek(parser);
 
     switch (current.type) {
+        case TT_MINUS_MINUS_MINUS: return parser_parse_file_separator(parser, directives);
+        
         case TT_PACKAGE: return parser_parse_package(parser, directives);
         case TT_IMPORT: return parser_parse_import(parser, directives);
         case TT_TYPEDEF: return parser_parse_typedef(parser, directives);
@@ -1014,13 +1171,13 @@ static ParseResult parser_parse_filescope_decl(Parser* const parser) {
     ParseResult decl_res;
     size_t const cached_current = parser->cursor_current;
 
-    decl_res = parser_parse_fn_decl(parser);
+    decl_res = parser_parse_fn_decl(parser, directives);
     if (decl_res.status == PRS_OK) {
         return decl_res;
     }
     parser->cursor_current = cached_current;
 
-    decl_res = parser_parse_var_decl(parser);
+    decl_res = parser_parse_var_decl(parser, directives);
     if (decl_res.status == PRS_OK) {
         return decl_res;
     }

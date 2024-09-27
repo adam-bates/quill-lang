@@ -54,24 +54,26 @@ int main(int const argc, char const* const argv[]) {
     }
     printf("\n");
 
-    LL_ASTNode nodes = ast->node.file_root.nodes;
-    LLNode_ASTNode* node = nodes.head;
+    print_astnode(*ast);
 
-    bool last_was_ok = true;
-    while (node != NULL) {
-        if (node->data.type == ANT_NONE) {
-            if (last_was_ok) {
-                printf("<Unknown AST Node>\n");
-            }
-            last_was_ok = false;
-            node = node->next;
-            continue;
-        }
-        last_was_ok = true;
+    // LL_ASTNode nodes = ast->node.file_root.nodes;
+    // LLNode_ASTNode* node = nodes.head;
 
-        print_astnode(node->data);
-        node = node->next;
-    }
+    // bool last_was_ok = true;
+    // while (node != NULL) {
+    //     if (node->data.type == ANT_NONE) {
+    //         if (last_was_ok) {
+    //             printf("<Unknown AST Node>\n");
+    //         }
+    //         last_was_ok = false;
+    //         node = node->next;
+    //         continue;
+    //     }
+    //     last_was_ok = true;
+
+    //     print_astnode(node->data);
+    //     node = node->next;
+    // }
     printf("\n");
 
     verify_syntax(ast);

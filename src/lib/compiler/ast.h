@@ -50,12 +50,17 @@ typedef enum {
 typedef enum {
     TBI_VOID,
     TBI_UINT,
+    TBI_CHAR,
     // TODO
 } TypeBuiltIn;
 
 typedef struct {
     String name;
 } TypeTypeRef;
+
+typedef struct {
+    StaticPath* path;
+} TypeStaticPath;
 
 typedef struct {
     struct Type* of;
@@ -66,7 +71,7 @@ typedef struct Type {
     union {
         TypeBuiltIn built_in;
         TypeTypeRef type_ref;
-        // TypeStaticPath static_path;
+        TypeStaticPath static_path;
         // TypeTuple tuple;
         TypePointer ptr;
         TypePointer mut_ptr;
@@ -79,6 +84,7 @@ typedef enum {
     ANT_NONE,
 
     ANT_FILE_ROOT,
+    ANT_FILE_SEPARATOR,
     ANT_UNARY_OP,
     ANT_BINARY_OP,
     ANT_LITERAL,
@@ -102,6 +108,7 @@ typedef enum {
     ANT_PACKAGE,
     ANT_TEMPLATE_STRING,
     ANT_CRASH,
+    ANT_SIZEOF,
     ANT_SWITCH,
     ANT_CAST,
     ANT_STRUCT_DECL,
@@ -120,6 +127,10 @@ typedef enum {
 typedef struct {
     LL_ASTNode nodes;
 } ASTNodeFileRoot;
+
+//
+
+typedef void* ASTNodeFileSeparator;
 
 //
 
@@ -352,7 +363,14 @@ typedef struct {
 
 //
 
+typedef enum {
+    IT_DEFAULT,
+    IT_LOCAL,
+    IT_ROOT,
+} ImportType;
+
 typedef struct {
+    ImportType type;
     // note: could end in wildcard `*`
     StaticPath* static_path;
 } ASTNodeImport;
@@ -377,6 +395,21 @@ typedef struct {
 typedef struct {
     struct ASTNode* maybe_expr;
 } ASTNodeCrash;
+
+//
+
+typedef enum {
+    SOK_TYPE,
+    SOK_EXPR,
+} SizeofKind;
+
+typedef struct {
+    SizeofKind kind;
+    union {
+        Type* type;
+        struct ASTNode* expr;
+    } sizeof_;
+} ASTNodeSizeof;
 
 //
 
@@ -462,6 +495,7 @@ typedef struct ASTNode {
     ASTNodeType type;
     union {
         ASTNodeFileRoot file_root;
+        ASTNodeFileSeparator file_separator;
         ASTNodeUnaryOp unary_op;
         ASTNodeBinaryOp binary_op;
         ASTNodeLiteral literal;
@@ -484,6 +518,7 @@ typedef struct ASTNode {
         ASTNodePackage package;
         ASTNodeTemplateString template_string;
         ASTNodeCrash crash;
+        ASTNodeSizeof sizeof_;
         ASTNodeSwitch switch_;
         ASTNodeCast cast;
         ASTNodeStructDecl struct_decl;
@@ -501,6 +536,8 @@ typedef enum {
     DT_C_HEADER,
     DT_C_RESTRICT,
     DT_C_FILE,
+    DT_IGNORE_UNUSED,
+    DT_IMPL,
 } DirectiveType;
 
 typedef struct {
@@ -508,8 +545,9 @@ typedef struct {
 } DirectiveCHeader;
 
 typedef void* DirectiveCRestrict;
-
 typedef void* DirectiveCFile;
+typedef void* DirectiveIgnoreUnused;
+typedef void* DirectiveImpl;
 
 typedef struct {
     DirectiveType type;
@@ -517,6 +555,8 @@ typedef struct {
         DirectiveCHeader c_header;
         DirectiveCRestrict c_restrict;
         DirectiveCFile c_file;
+        DirectiveIgnoreUnused ignore_unused;
+        DirectiveImpl impl;
     } dir;
 } Directive;
 
