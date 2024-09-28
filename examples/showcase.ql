@@ -234,6 +234,10 @@ void main() {
     // TODO: figure out if anything is missing, add here
 }
 
+// file separator
+// Everything under this line is considered "private"
+---
+
 void try_example() {
     int double = fetch_double(true) else return;    
     int double = fetch_double(false) else return;
