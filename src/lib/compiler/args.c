@@ -9,15 +9,6 @@ typedef struct {
     String* arg;
 } ArgMatcher;
 
-typedef enum {
-    QO_MAIN,
-    QO_OUTPUT,
-    QO_LSTD,
-    QO_LLIBC,
-
-    QO_COUNT
-} QuillcOption;
-
 static ArgMatcher matcher_for(Strings args, QuillcOption opt) {
     switch (opt) {        
         case QO_MAIN: {
