@@ -3,12 +3,17 @@
 
 #include "../lib/quill.h"
 
-int main(int const argc, char const* const argv[]) {
-    if (argc != 2) {
-        fprintf(stderr, "Usage: quillc [path]\n");
-        return EXIT_FAILURE;
-    }
-    char const* const source_path = argv[1];
+int main(int const argc, char* const argv[]) {
+    QuillcArgs args = {0};
+    parse_args(&args, argc, argv);
+    
+    // TODO: start using args, load muliple files
+
+    // if (argc != 2) {
+    //     fprintf(stderr, "Usage: quillc [path]\n");
+    //     return EXIT_FAILURE;
+    // }
+    String const source_path = args.paths_to_include.strings[0];
 
     MaybeAllocator const m_allocator = allocator_create();
     if (!m_allocator.ok) {
@@ -25,23 +30,7 @@ int main(int const argc, char const* const argv[]) {
     scanres_assert(scan_res);
     ArrayList_Token const tokens = scan_res.res.tokens;
 
-    // print out tokens
-    // for (size_t i = 0; i < tokens.length; ++i) {
-    //     Token const token = tokens.array[i];
-
-    //     char* token_str = quill_calloc(allocator, token.length, sizeof(char));
-    //     strncpy(token_str, token.start, token.length);
-
-    //     printf("%-*lu | %-*d | [", count_digits((int)lexer.line), token.line, count_digits(TT_COUNT), token.type);
-    //     debug_token_type(token.type);
-    //     printf("] %s\n", token_str);
-
-    //     quill_free(allocator, token_str);
-    // }
-    // printf("\n");
-
     Arena parser_arena = {0};
-
     Parser parser = parser_create(&parser_arena, tokens);
     ASTNodeResult const ast_res = parser_parse(&parser);
 

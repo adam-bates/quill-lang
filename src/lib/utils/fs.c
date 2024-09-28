@@ -3,7 +3,9 @@
 
 #include "./utils.h"
 
-String file_read(Allocator const allocator, char const* path) {
+String file_read(Allocator const allocator, String path_s) {
+    char const* path = path_s.chars;
+
     FILE *file = fopen(path, "rb");
     if (file == NULL) {
         fprintf(stderr, "Could not open file \"%s\".\n", path);

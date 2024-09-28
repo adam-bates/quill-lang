@@ -2,6 +2,7 @@
 #define quill_compiler_h
 
 #include "./analyzer.h"
+#include "./args.h"
 #include "./codegen_c.h"
 #include "./lexer.h"
 #include "./parser.h"
