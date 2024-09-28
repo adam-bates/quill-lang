@@ -5,6 +5,15 @@
 
 #define ARGC_MAX 255
 
+typedef enum {
+    QO_MAIN,
+    QO_OUTPUT,
+    QO_LSTD,
+    QO_LLIBC,
+
+    QO_COUNT
+} QuillcOption;
+
 typedef struct {
     Strings opt_args;
     Strings paths_to_include;
