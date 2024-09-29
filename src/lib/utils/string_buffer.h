@@ -21,5 +21,6 @@ void strbuf_append_str(StringBuffer* strbuf, String const str);
 void strbuf_reset(StringBuffer* strbuf);
 
 String strbuf_to_str(StringBuffer strbuf);
+String strbuf_to_strcpy(StringBuffer strbuf);
 
 #endif

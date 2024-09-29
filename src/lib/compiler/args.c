@@ -2,8 +2,10 @@
 #include <string.h>
 
 #include "./args.h"
+#include "../utils/utils.h"
 
 typedef struct {
+    bool is_path;
     size_t  patterns_len;
     Strings patterns;
     String* arg;
@@ -17,6 +19,7 @@ static ArgMatcher matcher_for(Strings args, QuillcOption opt) {
             patterns.strings[0] = c_str("-m");
             patterns.strings[1] = c_str("--main");
             return (ArgMatcher){
+                .is_path = true,
                 .patterns_len = patterns_len,
                 .patterns = patterns,
                 .arg = args.strings + opt,
@@ -29,6 +32,7 @@ static ArgMatcher matcher_for(Strings args, QuillcOption opt) {
             patterns.strings[0] = c_str("-o");
             patterns.strings[1] = c_str("--output");
             return (ArgMatcher){
+                .is_path = true,
                 .patterns_len = patterns_len,
                 .patterns = patterns,
                 .arg = args.strings + opt,
@@ -40,6 +44,7 @@ static ArgMatcher matcher_for(Strings args, QuillcOption opt) {
             Strings patterns = { patterns_len, malloc(sizeof(Strings) * patterns_len) };
             patterns.strings[0] = c_str("-lstd");
             return (ArgMatcher){
+                .is_path = true,
                 .patterns_len = patterns_len,
                 .patterns = patterns,
                 .arg = args.strings + opt,
@@ -51,6 +56,7 @@ static ArgMatcher matcher_for(Strings args, QuillcOption opt) {
             Strings patterns = { patterns_len, malloc(sizeof(Strings) * patterns_len) };
             patterns.strings[0] = c_str("-llibc");
             return (ArgMatcher){
+                .is_path = true,
                 .patterns_len = patterns_len,
                 .patterns = patterns,
                 .arg = args.strings + opt,
@@ -81,6 +87,10 @@ static bool match_arg(char* const argv[], uint8_t* pi, ArgMatcher* matcher) {
             }
             *matcher->arg = c_str(m_arg);
 
+            if (matcher->is_path) {
+                *matcher->arg = normalize_path(*matcher->arg);
+            }
+
             assert(matcher->arg->length > 0);
 
             return true;
@@ -108,7 +118,7 @@ void parse_args(QuillcArgs* out, int const argc, char* const argv[]) {
         char* arg = argv[i];
 
         if (*arg != '-') {
-            out->paths_to_include.strings[paths_len++] = c_str(arg);
+            out->paths_to_include.strings[paths_len++] = normalize_path(c_str(arg));
             continue;
         }
 

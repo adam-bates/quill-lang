@@ -13,6 +13,7 @@
 #include "./error.h"
 #include "./fs.h"
 #include "./number.h"
+#include "./path.h"
 #include "./string.h"
 
 #define EXIT_SUCCESS 0

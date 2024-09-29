@@ -65,3 +65,7 @@ String strbuf_to_str(StringBuffer strbuf) {
         .length = strbuf.length,
     };
 }
+
+String strbuf_to_strcpy(StringBuffer strbuf) {
+    return arena_strcpy(strbuf.arena, strbuf_to_str(strbuf));
+}

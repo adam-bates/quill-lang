@@ -4,10 +4,16 @@
 #include "../lib/quill.h"
 
 int main(int const argc, char* const argv[]) {
+    test_normalize();
+    
     QuillcArgs args = {0};
     parse_args(&args, argc, argv);
 
     assert(args.paths_to_include.length > 0);
+
+    for (size_t i = 0; i < args.paths_to_include.length; ++i) {
+        normalize_path(args.paths_to_include.strings[i]);
+    }
 
     // TODO: start using args, load muliple files
 
