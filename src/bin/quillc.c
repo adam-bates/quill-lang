@@ -6,7 +6,9 @@
 int main(int const argc, char* const argv[]) {
     QuillcArgs args = {0};
     parse_args(&args, argc, argv);
-    
+
+    assert(args.paths_to_include.length > 0);
+
     // TODO: start using args, load muliple files
 
     // if (argc != 2) {

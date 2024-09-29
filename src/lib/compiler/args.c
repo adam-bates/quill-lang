@@ -119,7 +119,12 @@ void parse_args(QuillcArgs* out, int const argc, char* const argv[]) {
             }
         }
     }
-    assert(paths_len > 0);
+
+    if (out->opt_args.strings[QO_MAIN].chars) {
+        out->paths_to_include.strings[paths_len++] = out->opt_args.strings[QO_MAIN];
+    }
+    out->opt_args.length = QO_COUNT;
+    out->paths_to_include.length = paths_len;
 
     // debug print args
     {
