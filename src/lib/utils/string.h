@@ -15,4 +15,6 @@ typedef struct {
 
 String c_str(char const* const chars);
 
+void strs_remove(Strings* const strs, size_t const idx);
+
 #endif

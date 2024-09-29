@@ -136,6 +136,22 @@ void parse_args(QuillcArgs* out, int const argc, char* const argv[]) {
     out->opt_args.length = QO_COUNT;
     out->paths_to_include.length = paths_len;
 
+    // remove duplicates
+    for (size_t i = 0; i < out->paths_to_include.length - 1; ++i) {
+        String const istr = out->paths_to_include.strings[i];
+
+        for (size_t j = i + 1; j < out->paths_to_include.length; ++j) {
+            String const jstr = out->paths_to_include.strings[j];
+
+            if (
+                istr.length == jstr.length
+                && strncmp(istr.chars, jstr.chars, istr.length) == 0
+            ) {
+                strs_remove(&out->paths_to_include, j);
+            }
+        }
+    }
+
     // debug print args
     {
         printf("\n");
@@ -148,9 +164,9 @@ void parse_args(QuillcArgs* out, int const argc, char* const argv[]) {
             printf("- [%s] %s\n", arg_matchers[i].patterns.strings[0].chars, arg);
         }
 
-        if (paths_len > 0) {
+        if (out->paths_to_include.length > 0) {
             printf("- source paths:\n");
-            for (uint8_t i = 0; i < paths_len; ++i) {
+            for (uint8_t i = 0; i < out->paths_to_include.length; ++i) {
                 printf("  - %s\n", out->paths_to_include.strings[i].chars);
             }
         }
