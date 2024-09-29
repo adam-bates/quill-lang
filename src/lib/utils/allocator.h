@@ -4,7 +4,7 @@
 #include "./base.h"
 
 typedef struct {
-    void const* const _internal;
+    void const* _internal;
 } Allocator;
 
 typedef struct {

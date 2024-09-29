@@ -91,7 +91,7 @@ typedef struct {
 } Token;
 
 typedef struct {
-    Allocator const allocator;
+    Allocator allocator;
 
     size_t capacity;
     size_t length;
