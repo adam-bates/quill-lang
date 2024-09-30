@@ -15,7 +15,7 @@ int main(int const argc, char* const argv[]) {
     }
     Allocator const allocator = m_allocator.maybe.allocator;
 
-    Arena parser_arena = {0};
+    Arena arena = {0};
 
     ArrayList_Token* token_lists = malloc(sizeof(*token_lists) * args.paths_to_include.length);
     size_t token_lists_len = 0;
@@ -25,8 +25,12 @@ int main(int const argc, char* const argv[]) {
         .strings = malloc(sizeof(String) * args.paths_to_include.length),
     };
 
+    Packages packages = packages_create(&arena);
+
     // TODO: actually handle multiple files.
     ASTNode const* ast;
+
+    size_t next_node_id = 0;
 
     for (size_t i = 0; i < args.paths_to_include.length; ++i) {
         String const source_path = args.paths_to_include.strings[i];
@@ -39,8 +43,11 @@ int main(int const argc, char* const argv[]) {
         scanres_assert(scan_res);
         ArrayList_Token const tokens = scan_res.res.tokens;
 
-        Parser parser = parser_create(&parser_arena, tokens);
+        Parser parser = parser_create(&arena, tokens);
+
+        parser.next_id = next_node_id;
         ASTNodeResult const ast_res = parser_parse(&parser);
+        next_node_id = parser.next_id;
 
         astres_assert(ast_res);
         ast = ast_res.res.ast;
@@ -53,6 +60,15 @@ int main(int const argc, char* const argv[]) {
 
         print_astnode(*ast);
         printf("\n");
+
+        StaticPath* package_name = NULL;
+        if (parser.package) {
+            package_name = parser.package->node.package.static_path;
+        }
+
+        Package* pkg = packages_resolve(&packages, package_name);
+        assert(!pkg->ast);
+        pkg->ast = ast;
 
         token_lists[token_lists_len++] = tokens;
         sources.strings[sources.length++] = source;
@@ -70,7 +86,7 @@ int main(int const argc, char* const argv[]) {
     printf("%s\n", arena_strcpy(&codegen_arena, c_code).chars);
 
     // cleanup
-    arena_free(&parser_arena);
+    arena_free(&arena);
     {
         for (size_t i = 0; i < token_lists_len; ++i) {
             arraylist_token_destroy(token_lists[i]);

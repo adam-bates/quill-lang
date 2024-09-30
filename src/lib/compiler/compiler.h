@@ -5,6 +5,7 @@
 #include "./args.h"
 #include "./codegen_c.h"
 #include "./lexer.h"
+#include "./package.h"
 #include "./parser.h"
 #include "./token.h"
 

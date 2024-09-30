@@ -500,6 +500,7 @@ typedef struct {
 //
 
 typedef struct ASTNode {
+    size_t id;
     ASTNodeType type;
     union {
         ASTNodeFileRoot file_root;

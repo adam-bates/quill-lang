@@ -12,8 +12,11 @@ typedef struct {
     size_t cursor_start;
     size_t cursor_current;
 
+    ASTNode* package;
     bool had_error;
     bool panic_mode;
+
+    size_t next_id;
 } Parser;
 
 #define astres_assert(astres) \
