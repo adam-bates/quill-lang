@@ -4,6 +4,7 @@
 #include "../lib/quill.h"
 
 int main(int const argc, char* const argv[]) {
+    // TODO: optimize memory usage; use smaller-scoped arenas within an area, result stored in this arena.
     Arena arena = {0};
 
     QuillcArgs args = {0};
@@ -45,7 +46,8 @@ int main(int const argc, char* const argv[]) {
         astres_assert(ast_res);
         ast = ast_res.res.ast;
 
-        verify_syntax(ast);
+        Analyzer analyzer = {0};
+        verify_syntax(&analyzer, ast);
 
         printf("AST:");
         if (parser.had_error) {

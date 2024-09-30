@@ -3,6 +3,13 @@
 
 #include "./ast.h"
 
-void verify_syntax(ASTNode const* const ast);
+typedef struct {
+    bool has_package;
+    bool has_separator;
+
+    // TODO
+} Analyzer;
+
+void verify_syntax(Analyzer* analyzer, ASTNode const* const ast);
 
 #endif
