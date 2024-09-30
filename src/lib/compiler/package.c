@@ -5,8 +5,8 @@
 #define INITIAL_PACKAGES_CAPACITY 1
 #define HASHTABLE_BUCKETS 16
 
-#define FNV_PRIME 16777619U
-#define FNV_OFFSET_BASIS 2166136261U
+#define FNV_OFFSET_BASIS 14695981039346656037ULL
+#define FNV_PRIME 1099511628211ULL
 
 static ArrayList_Package arraylist_package_create_with_capacity(Arena* arena, size_t const capacity) {
     Package* array = arena_alloc(arena, capacity * sizeof(Package));
