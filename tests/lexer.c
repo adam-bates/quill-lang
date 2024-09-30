@@ -27,11 +27,11 @@
 
 void test_lexer(
     char const* const test_name,
-    Allocator const allocator,
+    Arena* const arena,
     String const src,
     ArrayList_Token expected_tokens
 ) {
-    Lexer lexer = lexer_create(allocator, src);
+    Lexer lexer = lexer_create(arena, src);
     ScanResult const scan_res = lexer_scan(&lexer);
 
     scanres_assert(scan_res);
@@ -48,22 +48,14 @@ void test_lexer(
         assert_eq_u64(expected_token.length, token.length);
         assert_eq_u64(expected_token.line, token.line);
     }
-
-    arraylist_token_destroy(tokens);
 }
 
 int main(void) {
-    MaybeAllocator const m_allocator = allocator_create();
-    if (!m_allocator.ok) {
-        fprintf(stderr, "Couldn't initialize allocator");
-        return EXIT_FAILURE;
-    }
-    Allocator const allocator = m_allocator.maybe.allocator;
-
+    Arena arena = {0};
     {
         String src;
         test_lexer("test empty program",
-            allocator,
+            &arena,
             src = c_str("void main() {\n\t// no-op\n}\n"),
             (ArrayList_Token){
                 .length = 7,
@@ -113,13 +105,13 @@ int main(void) {
                 },
             }
         );
+        arena_reset(&arena);
     }
-
 
     {
         String src;
         test_lexer("test hello world",
-            allocator,
+            &arena,
             src = c_str("import std::io;\n\nvoid main() {\n\tio::println(\"Hello, world!\");\n}\n"),
             (ArrayList_Token){
                 .length = 19,
@@ -241,6 +233,7 @@ int main(void) {
                 },
             }
         );
+        arena_reset(&arena);
     }
 
     return EXIT_SUCCESS;

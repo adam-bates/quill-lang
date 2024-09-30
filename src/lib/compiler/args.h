@@ -19,6 +19,6 @@ typedef struct {
     Strings paths_to_include;
 } QuillcArgs;
 
-void parse_args(QuillcArgs* out, int const argc, char* const argv[]);
+void parse_args(Arena* arena, QuillcArgs* out, int const argc, char* const argv[]);
 
 #endif

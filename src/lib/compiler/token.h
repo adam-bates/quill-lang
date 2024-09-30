@@ -91,7 +91,7 @@ typedef struct {
 } Token;
 
 typedef struct {
-    Allocator allocator;
+    Arena* arena;
 
     size_t capacity;
     size_t length;
@@ -106,9 +106,8 @@ typedef struct {
     } const res;
 } ArrayListResult_Token;
 
-ArrayList_Token arraylist_token_create(Allocator const allocator);
-ArrayList_Token arraylist_token_create_with_capacity(Allocator const allocator, size_t const capacity);
-void arraylist_token_destroy(ArrayList_Token const list);
+ArrayList_Token arraylist_token_create(Arena* const arena);
+ArrayList_Token arraylist_token_create_with_capacity(Arena* const arena, size_t const capacity);
 
 void arraylist_token_push(ArrayList_Token* const list, Token const token);
 

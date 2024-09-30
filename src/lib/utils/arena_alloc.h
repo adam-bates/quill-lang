@@ -7,6 +7,7 @@
 // Arena design & implementation from Tsoding: https://github.com/tsoding/arena/blob/master/arena.h
 
 void* arena_alloc(Arena* arena, size_t const size_bytes);
+void* arena_calloc(Arena* arena, size_t const count, size_t const size_bytes);
 void* arena_realloc(Arena* arena, void* const ptr, size_t const old_size, size_t const new_size);
 String arena_strcpy(Arena* arena, String const str);
 void* arena_memcpy(Arena* arena, void const* const data, size_t const size);

@@ -1,10 +1,10 @@
 #ifndef quill_fs_h
 #define quill_fs_h
 
-#include "./allocator.h"
+#include "./arena.h"
 #include "./base.h"
 #include "./string.h"
 
-String file_read(Allocator const allocator, String path_s);
+String file_read(Arena* const arena, String path_s);
 
 #endif

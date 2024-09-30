@@ -58,7 +58,7 @@ static bool name_eq(StaticPath* name1, StaticPath* name2) {
     if (!name1 || !name2) {
         return !name1 && !name2;
     }
-    
+
     if ((!name1->root) != (!name2->root)) {
         return false;
     }
@@ -101,7 +101,7 @@ Package* packages_resolve(Packages* packages, StaticPath* name) {
 Packages packages_create(Arena* arena) {
     return (Packages){
         .arena = arena,
-        .lookup_buckets = arena_alloc(arena, HASHTABLE_BUCKETS * sizeof(ArrayList_Package)),
+        .lookup_buckets = arena_calloc(arena, HASHTABLE_BUCKETS, sizeof(ArrayList_Package)),
         .lookup_length = 0,
     };
 }

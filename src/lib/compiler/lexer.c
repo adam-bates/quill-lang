@@ -466,9 +466,9 @@ static Token lexer_scan_token(Lexer* const lexer) {
     return lexer_token_error(lexer, "Unexpected character(s).");
 }
 
-Lexer lexer_create(Allocator const allocator, String const source) {
+Lexer lexer_create(Arena* const arena, String const source) {
     return (Lexer){
-        .allocator = allocator,
+        .arena = arena,
         .start = source.chars,
         .current = source.chars,
         .line = 1,
@@ -479,7 +479,7 @@ Lexer lexer_create(Allocator const allocator, String const source) {
 }
 
 ScanResult lexer_scan(Lexer* const lexer) {
-    ArrayList_Token tokens = arraylist_token_create(lexer->allocator);
+    ArrayList_Token tokens = arraylist_token_create(lexer->arena);
 
     while (!lexer_is_at_end(lexer)) {
         Token const token = lexer_scan_token(lexer);

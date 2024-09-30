@@ -69,6 +69,18 @@ void* arena_alloc(Arena* arena, size_t const size_bytes) {
     return ptr;
 }
 
+void* arena_calloc(Arena* arena, size_t const count, size_t const size_bytes) {
+    size_t total_size_bytes = count * size_bytes;
+
+    void* ptr = arena_alloc(arena, total_size_bytes);
+
+    for (size_t i = 0; i < total_size_bytes; ++i) {
+        ((char*)ptr)[i] = 0;
+    }
+
+    return ptr;
+}
+
 void* arena_realloc(Arena* arena, void* const old_ptr, size_t const old_size, size_t const new_size) {
     if (new_size <= old_size) {
         return old_ptr;

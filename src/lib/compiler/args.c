@@ -11,11 +11,11 @@ typedef struct {
     String* arg;
 } ArgMatcher;
 
-static ArgMatcher matcher_for(Strings args, QuillcOption opt) {
+static ArgMatcher matcher_for(Arena* arena, Strings args, QuillcOption opt) {
     switch (opt) {        
         case QO_MAIN: {
             static size_t const patterns_len = 2;
-            Strings patterns = { patterns_len, malloc(sizeof(Strings) * patterns_len) };
+            Strings patterns = { patterns_len, arena_calloc(arena, patterns_len, sizeof(Strings)) };
             patterns.strings[0] = c_str("-m");
             patterns.strings[1] = c_str("--main");
             return (ArgMatcher){
@@ -28,7 +28,7 @@ static ArgMatcher matcher_for(Strings args, QuillcOption opt) {
 
         case QO_OUTPUT: {
             static size_t const patterns_len = 2;
-            Strings patterns = { patterns_len, malloc(sizeof(Strings) * patterns_len) };
+            Strings patterns = { patterns_len, arena_calloc(arena, patterns_len, sizeof(Strings)) };
             patterns.strings[0] = c_str("-o");
             patterns.strings[1] = c_str("--output");
             return (ArgMatcher){
@@ -41,7 +41,7 @@ static ArgMatcher matcher_for(Strings args, QuillcOption opt) {
 
         case QO_LSTD: {
             static size_t const patterns_len = 1;
-            Strings patterns = { patterns_len, malloc(sizeof(Strings) * patterns_len) };
+            Strings patterns = { patterns_len, arena_calloc(arena, patterns_len, sizeof(Strings)) };
             patterns.strings[0] = c_str("-lstd");
             return (ArgMatcher){
                 .is_path = true,
@@ -53,7 +53,7 @@ static ArgMatcher matcher_for(Strings args, QuillcOption opt) {
 
         case QO_LLIBC: {
             static size_t const patterns_len = 1;
-            Strings patterns = { patterns_len, malloc(sizeof(Strings) * patterns_len) };
+            Strings patterns = { patterns_len, arena_calloc(arena, patterns_len, sizeof(Strings)) };
             patterns.strings[0] = c_str("-llibc");
             return (ArgMatcher){
                 .is_path = true,
@@ -100,17 +100,17 @@ static bool match_arg(char* const argv[], uint8_t* pi, ArgMatcher* matcher) {
     return false;
 }
 
-void parse_args(QuillcArgs* out, int const argc, char* const argv[]) {
+void parse_args(Arena* arena, QuillcArgs* out, int const argc, char* const argv[]) {
     assert(argc <= 255);
 
-    out->opt_args.strings = malloc(sizeof(String) * QO_COUNT);
-    out->paths_to_include.strings = malloc(sizeof(String) * argc);
+    out->opt_args.strings = arena_calloc(arena, QO_COUNT, sizeof(String));
+    out->paths_to_include.strings = arena_calloc(arena, argc, sizeof(String));
 
     uint8_t paths_len = 0;
 
     ArgMatcher arg_matchers[QO_COUNT] = {0};
     for (uint8_t i = 0; i < QO_COUNT; ++i) {
-        arg_matchers[i] = matcher_for(out->opt_args, i);
+        arg_matchers[i] = matcher_for(arena, out->opt_args, i);
     }
 
     bool has_opts = false;
@@ -172,10 +172,5 @@ void parse_args(QuillcArgs* out, int const argc, char* const argv[]) {
         }
 
         printf("\n");
-    }
-
-    // clean matchers
-    for (uint8_t i = 0; i < QO_COUNT; ++i) {
-        free(arg_matchers[i].patterns.strings);
     }
 }

@@ -6,7 +6,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "./allocator.h"
 #include "./arena.h"
 #include "./arena_alloc.h"
 #include "./base.h"

@@ -4,25 +4,18 @@
 #include "../lib/quill.h"
 
 int main(int const argc, char* const argv[]) {
-    QuillcArgs args = {0};
-    parse_args(&args, argc, argv);
-    assert(args.paths_to_include.length > 0);
-
-    MaybeAllocator const m_allocator = allocator_create();
-    if (!m_allocator.ok) {
-        fprintf(stderr, "Couldn't initialize allocator");
-        return EXIT_FAILURE;
-    }
-    Allocator const allocator = m_allocator.maybe.allocator;
-
     Arena arena = {0};
 
-    ArrayList_Token* token_lists = malloc(sizeof(*token_lists) * args.paths_to_include.length);
+    QuillcArgs args = {0};
+    parse_args(&arena, &args, argc, argv);
+    assert(args.paths_to_include.length > 0);
+
+    ArrayList_Token* token_lists = arena_calloc(&arena, args.paths_to_include.length, sizeof(*token_lists));
     size_t token_lists_len = 0;
 
     Strings sources = {
         .length = 0,
-        .strings = malloc(sizeof(String) * args.paths_to_include.length),
+        .strings = arena_calloc(&arena, args.paths_to_include.length, sizeof(String)),
     };
 
     Packages packages = packages_create(&arena);
@@ -35,9 +28,9 @@ int main(int const argc, char* const argv[]) {
     for (size_t i = 0; i < args.paths_to_include.length; ++i) {
         String const source_path = args.paths_to_include.strings[i];
 
-        String const source = file_read(allocator, source_path);
+        String const source = file_read(&arena, source_path);
 
-        Lexer lexer = lexer_create(allocator, source);
+        Lexer lexer = lexer_create(&arena, source);
         ScanResult const scan_res = lexer_scan(&lexer);
 
         scanres_assert(scan_res);
@@ -51,6 +44,8 @@ int main(int const argc, char* const argv[]) {
 
         astres_assert(ast_res);
         ast = ast_res.res.ast;
+
+        verify_syntax(ast);
 
         printf("AST:");
         if (parser.had_error) {
@@ -73,32 +68,15 @@ int main(int const argc, char* const argv[]) {
         token_lists[token_lists_len++] = tokens;
         sources.strings[sources.length++] = source;
     }
-    assert(ast);
 
-    verify_syntax(ast);
-
-    Arena codegen_arena = {0};
-
-    CodegenC codegen = codegen_c_create(&codegen_arena, ast);
+    CodegenC codegen = codegen_c_create(&arena, ast);
     String const c_code = generate_c_code(&codegen);
 
     printf("C Code:\n");
-    printf("%s\n", arena_strcpy(&codegen_arena, c_code).chars);
+    printf("%s\n", arena_strcpy(&arena, c_code).chars);
 
     // cleanup
     arena_free(&arena);
-    {
-        for (size_t i = 0; i < token_lists_len; ++i) {
-            arraylist_token_destroy(token_lists[i]);
-        }
-        free(token_lists);
-    }
-    {
-        for (size_t i = 0; i < sources.length; ++i) {
-            quill_free(allocator, (void*)sources.strings[i].chars);
-        }
-        free(sources.strings);
-    }
 
     return EXIT_SUCCESS;
 }

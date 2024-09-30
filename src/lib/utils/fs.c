@@ -3,7 +3,7 @@
 
 #include "./utils.h"
 
-String file_read(Allocator const allocator, String path_s) {
+String file_read(Arena* const arena, String path_s) {
     char const* path = path_s.chars;
 
     FILE *file = fopen(path, "rb");
@@ -25,7 +25,7 @@ String file_read(Allocator const allocator, String path_s) {
     
     rewind(file);
 
-    char *buffer = (char*)quill_malloc(allocator, file_size + 1);
+    char *buffer = arena_alloc(arena, file_size + 1);
     if (buffer == NULL) {
         fprintf(stderr, "Not enough memory to read \"%s\".\n", path);
         exit(74);

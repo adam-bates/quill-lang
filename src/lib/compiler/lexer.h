@@ -5,7 +5,7 @@
 #include "../utils/utils.h"
 
 typedef struct {
-    Allocator const allocator;
+    Arena* const arena;
 
     char const* start;
     char const* current;
@@ -26,7 +26,7 @@ typedef struct {
 #define scanres_assert(scanres) \
     if (!scanres.ok) { err_print(scanres.res.err); assert(scanres.ok); }
 
-Lexer lexer_create(Allocator const allocator, String const source);
+Lexer lexer_create(Arena* const arena, String const source);
 
 ScanResult lexer_scan(Lexer* const lexer);
 
