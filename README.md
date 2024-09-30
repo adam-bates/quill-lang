@@ -48,7 +48,7 @@ int main(Array<String> args) {
         if out.length == 0 { ds::strbuf_append_uint(&out, i); }
 
         ds::strbuf_append_char(&out, '\n');
-        io::print((String)out);
+        io::print(strbuf_as_str(out));
     }
 
     return 0;
