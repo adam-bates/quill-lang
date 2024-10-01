@@ -11,19 +11,7 @@ int main(int const argc, char* const argv[]) {
     parse_args(&arena, &args, argc, argv);
     assert(args.paths_to_include.length > 0);
 
-    ArrayList_Token* token_lists = arena_calloc(&arena, args.paths_to_include.length, sizeof(*token_lists));
-    size_t token_lists_len = 0;
-
-    Strings sources = {
-        .length = 0,
-        .strings = arena_calloc(&arena, args.paths_to_include.length, sizeof(String)),
-    };
-
     Packages packages = packages_create(&arena);
-
-    // TODO: actually handle multiple files.
-    ASTNode const* ast;
-
     size_t next_node_id = 0;
 
     for (size_t i = 0; i < args.paths_to_include.length; ++i) {
@@ -38,13 +26,13 @@ int main(int const argc, char* const argv[]) {
         ArrayList_Token const tokens = scan_res.res.tokens;
 
         Parser parser = parser_create(&arena, tokens);
-
         parser.next_id = next_node_id;
+
         ASTNodeResult const ast_res = parser_parse(&parser);
         next_node_id = parser.next_id;
 
         astres_assert(ast_res);
-        ast = ast_res.res.ast;
+        ASTNode const* ast = ast_res.res.ast;
 
         Analyzer analyzer = {0};
         verify_syntax(&analyzer, ast);
@@ -66,9 +54,6 @@ int main(int const argc, char* const argv[]) {
         Package* pkg = packages_resolve_or_create(&packages, package_name);
         assert(!pkg->ast);
         pkg->ast = ast;
-
-        token_lists[token_lists_len++] = tokens;
-        sources.strings[sources.length++] = source;
     }
 
     packages.types_length = next_node_id;
