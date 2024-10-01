@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 
 #include "./package.h"
@@ -25,8 +26,9 @@ static ArrayList_Package arraylist_package_create(Arena* arena) {
 
 static void arraylist_package_push(Arena* arena, ArrayList_Package* const list, Package const package) {
     if (list->length >= list->capacity) {
+        size_t prev_cap = list->capacity;
         list->capacity = list->length * 2;
-        list->array = arena_realloc(arena, list->array, list->capacity, sizeof(Token) * list->capacity);
+        list->array = arena_realloc(arena, list->array, prev_cap, sizeof(Token) * list->capacity);
     }
 
     list->array[list->length] = package;
@@ -78,11 +80,31 @@ static bool name_eq(StaticPath* name1, StaticPath* name2) {
     }
 }
 
-Package* packages_resolve(Packages* packages, StaticPath* name) {
+Package* packages_resolve_or_create(Packages* packages, StaticPath* name) {
     size_t idx = hash_name(name);
     ArrayList_Package* bucket = packages->lookup_buckets + idx;
     if (bucket->array == NULL) {
         *bucket = arraylist_package_create(packages->arena);
+    }
+
+    for (size_t i = 0; i < bucket->length; ++i) {
+        if (name_eq(bucket->array[i].full_name, name)) {
+            return bucket->array + i;
+        }
+    }
+    arraylist_package_push(packages->arena, bucket, (Package){
+        .full_name = name,
+        .ast = NULL,
+    });
+
+    return bucket->array + (bucket->length - 1);
+}
+
+Package* packages_resolve(Packages* packages, StaticPath* name) {
+    size_t idx = hash_name(name);
+    ArrayList_Package* bucket = packages->lookup_buckets + idx;
+    if (bucket->array == NULL) {
+        return NULL;
     }
 
     for (size_t i = 0; i < bucket->length; ++i) {

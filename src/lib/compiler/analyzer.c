@@ -26,8 +26,9 @@ static void verify_type(Analyzer* analyzer, Type const* type, size_t depth, size
                     assert(type->type.built_in == TBI_VOID);
                 }
 
+                case DT_C_HEADER: break;
+
                 // Only valid on nodes
-                case DT_C_HEADER: assert(false);
                 case DT_IGNORE_UNUSED: assert(false);
                 case DT_IMPL: assert(false);
             }

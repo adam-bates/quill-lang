@@ -2,6 +2,7 @@
 #define quill_package_h
 
 #include "./ast.h"
+#include "./resolved_type.h"
 #include "../utils/utils.h"
 
 typedef struct {
@@ -24,7 +25,7 @@ typedef enum {
 
 typedef struct {
     TypeInfoStatus status;
-    Type* type;
+    ResolvedType* type;
 } TypeInfo;
 
 typedef struct {
@@ -41,5 +42,6 @@ typedef struct {
 
 Packages packages_create(Arena* arena);
 Package* packages_resolve(Packages* packages, StaticPath* name);
+Package* packages_resolve_or_create(Packages* packages, StaticPath* name);
 
 #endif

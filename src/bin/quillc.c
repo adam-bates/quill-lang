@@ -63,7 +63,7 @@ int main(int const argc, char* const argv[]) {
             package_name = parser.package->node.package.static_path;
         }
 
-        Package* pkg = packages_resolve(&packages, package_name);
+        Package* pkg = packages_resolve_or_create(&packages, package_name);
         assert(!pkg->ast);
         pkg->ast = ast;
 

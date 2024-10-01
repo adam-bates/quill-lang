@@ -2,7 +2,7 @@ package std::io;
 
 import libc::stdio;
 
-import ./std::String;
+// import ./std::String;
 
 void println(String str);
 void eprintln(String str);

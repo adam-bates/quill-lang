@@ -23,11 +23,12 @@ ArrayList_Token arraylist_token_create(Arena* const arena) {
 
 void arraylist_token_push(ArrayList_Token* const list, Token const token) {
     if (list->length >= list->capacity) {
+        size_t prev_cap = list->capacity;
         list->capacity = list->length * 2;
         list->array = arena_realloc(
             list->arena,
             list->array,
-            sizeof(Token) * list->capacity,
+            sizeof(Token) * prev_cap,
             sizeof(Token) * list->capacity
         );
     }

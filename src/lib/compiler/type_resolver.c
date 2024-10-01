@@ -2,6 +2,7 @@
 
 #include "./ast.h"
 #include "./type_resolver.h"
+#include "./resolved_type.h"
 
 #define RESOLVE_ITERS_MAX 1024
 
@@ -33,12 +34,25 @@ Changed resolve_type_node(TypeResolver* type_resolver, ASTNode const* node) {
         }
 
         case ANT_PACKAGE: {
-            assert(false); // TODO
+            // assert(false); // TODO
             break;
         }
 
         case ANT_IMPORT: {
-            // assert(false); // TODO
+            assert(node->node.import.type == IT_DEFAULT); // TODO
+
+            Package* package = packages_resolve(&type_resolver->packages, node->node.import.static_path);
+            assert(package);
+
+            TypeInfo* ti = type_resolver->packages.types + node->id;
+            assert(ti);
+
+            ti->type = arena_alloc(type_resolver->arena, sizeof *ti->type);
+            *ti->type = (ResolvedType){
+                .kind = RTK_NAMESPACE,
+                .type.package_ast = package->ast,
+            };
+
             break;
         };
 
