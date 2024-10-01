@@ -15,6 +15,8 @@ typedef struct {
 
 String c_str(char const* const chars);
 
+bool str_eq(String str1, String str2);
+
 void strs_remove(Strings* const strs, size_t const idx);
 
 #endif

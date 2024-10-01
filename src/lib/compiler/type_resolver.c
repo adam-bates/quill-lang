@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "./ast.h"
 #include "./type_resolver.h"
@@ -6,13 +7,131 @@
 
 #define RESOLVE_ITERS_MAX 1024
 
+#define HASHTABLE_BUCKETS 256
+#define FNV_OFFSET_BASIS 14695981039346656037ULL
+#define FNV_PRIME 1099511628211ULL
+
+#define INITIAL_SCOPE_CAPACITY 8
+#define INITIAL_BUCKET_CAPACITY 1
+
 typedef bool Changed;
 
+typedef struct {
+    String key;
+    ResolvedType value;
+} BucketItem;
+
+typedef struct {
+    Arena* arena;
+
+    size_t capacity;
+    size_t length;
+    BucketItem* array;
+} Bucket;
+
 typedef struct Scope {
+    Arena* arena;
     struct Scope* parent;
 
-    // TODO
+    size_t lookup_length;
+    Bucket* lookup_buckets;
 } Scope;
+
+static size_t hash_str(String str) {
+    if (!str.length) { return 0; }
+
+    // FNV-1a
+    size_t hash = FNV_OFFSET_BASIS;
+    for (size_t i = 0; i < str.length; ++i) {
+        char c = str.chars[i];
+        hash ^= c;
+        hash *= FNV_PRIME;
+    }
+
+    // map to bucket index
+    // note: reserve index 0 for empty string
+    hash %= HASHTABLE_BUCKETS - 1;
+    return 1 + hash;
+}
+
+static Bucket bucket_create_with_capacity(Arena* arena, size_t capacity) {
+    return (Bucket){
+        .arena = arena,
+
+        .capacity = capacity,
+        .length = 0,
+        .array = arena_calloc(arena, capacity, sizeof(Bucket)),
+    };
+}
+
+static Bucket bucket_create(Arena* arena) {
+    return bucket_create_with_capacity(arena, INITIAL_BUCKET_CAPACITY);
+}
+
+static void bucket_push(Bucket* list, BucketItem item) {
+    if (list->length >= list->capacity) {
+        size_t prev_cap = list->capacity;
+        list->capacity = list->length * 2;
+        list->array = arena_realloc(
+            list->arena,
+            list->array,
+            sizeof(Token) * prev_cap,
+            sizeof(Token) * list->capacity
+        );
+    }
+
+    list->array[list->length] = item;
+    list->length += 1;
+}
+
+
+static Scope scope_create(Arena* arena, Scope* parent) {
+    return (Scope){
+        .arena = arena,
+        .parent = parent,
+
+        .lookup_length = HASHTABLE_BUCKETS,
+        .lookup_buckets = arena_calloc(arena, HASHTABLE_BUCKETS, sizeof(Bucket)),
+    };
+}
+
+static void scope_set(Scope* scope, String key, ResolvedType value) {
+    size_t idx = hash_str(key);
+    Bucket* bucket = scope->lookup_buckets + idx;
+
+    if (!bucket) {
+        *bucket = bucket_create(scope->arena);
+    }
+
+    for (size_t i = 0; i < bucket->length; ++i) {
+        BucketItem* item = bucket->array + i;
+
+        if (str_eq(item->key, key)) {
+            item->value = value;
+        }
+    }
+
+    bucket_push(bucket, (BucketItem){ key, value });
+}
+
+static ResolvedType* scope_get(Scope* scope, String key) {
+    size_t idx = hash_str(key);
+    Bucket* bucket = scope->lookup_buckets + idx;
+
+    if (!bucket) {
+        return NULL;
+    }
+
+    for (size_t i = 0; i < bucket->length; ++i) {
+        BucketItem* item = bucket->array + i;
+
+        if (str_eq(item->key, key)) {
+            return &item->value;
+        }
+    }
+
+    return NULL;
+}
 
 TypeResolver type_resolver_create(Arena* arena, Packages packages) {
     return (TypeResolver){
