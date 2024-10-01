@@ -101,7 +101,11 @@ Package* packages_resolve(Packages* packages, StaticPath* name) {
 Packages packages_create(Arena* arena) {
     return (Packages){
         .arena = arena,
+
+        .lookup_length = HASHTABLE_BUCKETS,
         .lookup_buckets = arena_calloc(arena, HASHTABLE_BUCKETS, sizeof(ArrayList_Package)),
-        .lookup_length = 0,
+
+        .types_length = 0,
+        .types = NULL,
     };
 }

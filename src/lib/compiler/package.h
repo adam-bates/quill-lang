@@ -15,11 +15,28 @@ typedef struct {
     Package* array;
 } ArrayList_Package;
 
-// HashTable<String, Package>
+typedef enum {
+    TIS_UNKNOWN,
+    TIS_HUNCH,
+    TIS_CONFIDENT,
+    TIS_COUNT
+} TypeInfoStatus;
+
+typedef struct {
+    TypeInfoStatus status;
+    Type* type;
+} TypeInfo;
+
 typedef struct {
     Arena* arena;
-    ArrayList_Package* lookup_buckets;
+
+    // HashTable<String, Package>
     size_t lookup_length;
+    ArrayList_Package* lookup_buckets;
+
+    // AST Node ID indexes into type info
+    size_t types_length;
+    TypeInfo* types;
 } Packages;
 
 Packages packages_create(Arena* arena);

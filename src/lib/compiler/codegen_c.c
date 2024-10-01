@@ -410,14 +410,14 @@ static void append_ast_node(CodegenC* c, StringBuffer* strbuf, ASTNode const* no
 }
 
 String generate_c_code(CodegenC* const codegen) {
-    assert(codegen->ast->type == ANT_FILE_ROOT);
-    assert(codegen->ast->directives.length == 0);
+    assert(codegen->packages.lookup_buckets[0].array[0].ast->type == ANT_FILE_ROOT);
+    assert(codegen->packages.lookup_buckets[0].array[0].ast->directives.length == 0);
 
     StringBuffer strbuf = strbuf_create(codegen->arena);
 
     // Don't generate code for @c_header files
     {
-        ASTNodeFileRoot root = codegen->ast->node.file_root;
+        ASTNodeFileRoot root = codegen->packages.lookup_buckets[0].array[0].ast->node.file_root;
         if (root.nodes.length > 0) {
             ASTNode first = root.nodes.head->data;
             if (first.type == ANT_PACKAGE && first.directives.length > 0) {
@@ -433,15 +433,15 @@ String generate_c_code(CodegenC* const codegen) {
         }
     }
 
-    append_ast_node(codegen, &strbuf, codegen->ast);
+    append_ast_node(codegen, &strbuf, codegen->packages.lookup_buckets[0].array[0].ast);
     
     return strbuf_to_str(strbuf);
 }
 
-CodegenC codegen_c_create(Arena* const arena, ASTNode const* const ast) {
+CodegenC codegen_c_create(Arena* const arena, Packages const packages) {
     return (CodegenC){
         .arena = arena,
-        .ast = ast,
+        .packages = packages,
 
         .seen_file_separator = false,
         .prev_block = BT_OTHER,

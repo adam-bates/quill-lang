@@ -1,7 +1,7 @@
 #ifndef quill_codegen_c_h
 #define quill_codegen_c_h
 
-#include "./ast.h"
+#include "./package.h"
 #include "../utils/utils.h"
 
 typedef enum {
@@ -14,13 +14,13 @@ typedef enum {
 
 typedef struct {
     Arena* const arena;
-    ASTNode const* const ast;
+    Packages const packages;
 
     bool seen_file_separator;
     BlockType prev_block;
 } CodegenC;
 
-CodegenC codegen_c_create(Arena* const arena, ASTNode const* const ast);
+CodegenC codegen_c_create(Arena* const arena, Packages const packages);
 
 String generate_c_code(CodegenC* const codegen);
 

@@ -8,5 +8,6 @@
 #include "./package.h"
 #include "./parser.h"
 #include "./token.h"
+#include "./type_resolver.h"
 
 #endif

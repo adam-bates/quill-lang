@@ -71,7 +71,13 @@ int main(int const argc, char* const argv[]) {
         sources.strings[sources.length++] = source;
     }
 
-    CodegenC codegen = codegen_c_create(&arena, ast);
+    packages.types_length = next_node_id;
+    packages.types = arena_calloc(&arena, packages.types_length, sizeof *packages.types);
+
+    TypeResolver type_resolver = type_resolver_create(&arena, packages);
+    resolve_types(&type_resolver);
+
+    CodegenC codegen = codegen_c_create(&arena, packages);
     String const c_code = generate_c_code(&codegen);
 
     printf("C Code:\n");
