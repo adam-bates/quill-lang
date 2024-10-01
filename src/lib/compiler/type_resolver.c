@@ -3,6 +3,8 @@
 #include "./ast.h"
 #include "./type_resolver.h"
 
+#define RESOLVE_ITERS_MAX 1024
+
 typedef bool Changed;
 
 typedef struct Scope {
@@ -183,12 +185,14 @@ Changed resolve_type_node(TypeResolver* type_resolver, ASTNode const* node) {
         default: assert(false);
     }
 
-    return false;
+    return changed;
 }
 
 void resolve_types(TypeResolver* type_resolver) {
+    size_t iter = 0;
     Changed changed = true;
     while (changed) {
+        assert(iter++ < RESOLVE_ITERS_MAX);
         changed = false;
 
         for (size_t i = 0; i < type_resolver->packages.lookup_length; ++i) {
