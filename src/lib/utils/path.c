@@ -105,13 +105,13 @@ String normalize_path(String path) {
     // printf("\n");
 
     // Resolve dots
-    while (true) {
+    bool made_changes = true;
+    while (made_changes) {
+        made_changes = false;
         for (size_t i = 1; i < sections_len; ++i) {
             Section section = sections[i];
 
             if (section.is_dots) {
-                bool made_changes = false;
-
                 for (size_t r = 0; r < section.str.length; ++r) {
                     size_t to_remove = i - r;
 
@@ -133,18 +133,13 @@ String normalize_path(String path) {
                         sections[0].str = strbuf_to_strcpy(sb);
                         strbuf_reset(&sb);
                     }
-
-                    made_changes = true;
                 }
 
                 if (made_changes) {
-                    continue;
+                    break;
                 }
             }
         }
-
-        // no changes, all done :)
-        break;
     }
 
     if (start_slash && sections[0].is_dots && sections[0].str.length == 1) {

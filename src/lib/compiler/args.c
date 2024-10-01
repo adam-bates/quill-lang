@@ -6,7 +6,6 @@
 
 typedef struct {
     bool is_path;
-    size_t  patterns_len;
     Strings patterns;
     String* arg;
 } ArgMatcher;
@@ -20,7 +19,6 @@ static ArgMatcher matcher_for(Arena* arena, Strings args, QuillcOption opt) {
             patterns.strings[1] = c_str("--main");
             return (ArgMatcher){
                 .is_path = true,
-                .patterns_len = patterns_len,
                 .patterns = patterns,
                 .arg = args.strings + opt,
             };
@@ -33,7 +31,6 @@ static ArgMatcher matcher_for(Arena* arena, Strings args, QuillcOption opt) {
             patterns.strings[1] = c_str("--output");
             return (ArgMatcher){
                 .is_path = true,
-                .patterns_len = patterns_len,
                 .patterns = patterns,
                 .arg = args.strings + opt,
             };
@@ -45,7 +42,6 @@ static ArgMatcher matcher_for(Arena* arena, Strings args, QuillcOption opt) {
             patterns.strings[0] = c_str("-lstd");
             return (ArgMatcher){
                 .is_path = true,
-                .patterns_len = patterns_len,
                 .patterns = patterns,
                 .arg = args.strings + opt,
             };
@@ -57,7 +53,6 @@ static ArgMatcher matcher_for(Arena* arena, Strings args, QuillcOption opt) {
             patterns.strings[0] = c_str("-llibc");
             return (ArgMatcher){
                 .is_path = true,
-                .patterns_len = patterns_len,
                 .patterns = patterns,
                 .arg = args.strings + opt,
             };
@@ -71,7 +66,7 @@ static bool match_arg(char* const argv[], uint8_t* pi, ArgMatcher* matcher) {
     uint8_t i = *pi;
     char* arg = argv[i];
 
-    for (size_t p = 0; p < matcher->patterns_len; ++p) {
+    for (size_t p = 0; p < matcher->patterns.length; ++p) {
         String pattern = matcher->patterns.strings[p];
 
         if (strncmp(arg, pattern.chars, pattern.length) == 0) {
@@ -101,7 +96,7 @@ static bool match_arg(char* const argv[], uint8_t* pi, ArgMatcher* matcher) {
 }
 
 void parse_args(Arena* arena, QuillcArgs* out, int const argc, char* const argv[]) {
-    assert(argc <= 255);
+    assert(argc <= ARGC_MAX);
 
     out->opt_args.strings = arena_calloc(arena, QO_COUNT, sizeof(String));
     out->paths_to_include.strings = arena_calloc(arena, argc, sizeof(String));
