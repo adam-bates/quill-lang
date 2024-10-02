@@ -21,6 +21,7 @@ typedef struct {
 
 typedef struct ResolvedType {
     ResolvedTypeKind kind;
+    ASTNode const* src;
     union {
         // TODO
         ASTNode const* package_ast;

@@ -4,6 +4,7 @@
 #include "./ast.h"
 #include "./type_resolver.h"
 #include "./resolved_type.h"
+#include "./package.h"
 
 #define RESOLVE_ITERS_MAX 1024
 
@@ -18,7 +19,7 @@ typedef bool Changed;
 
 typedef struct {
     String key;
-    ResolvedType value;
+    ResolvedType* value;
 } BucketItem;
 
 typedef struct {
@@ -95,7 +96,7 @@ static Scope scope_create(Arena* arena, Scope* parent) {
     };
 }
 
-static void scope_set(Scope* scope, String key, ResolvedType value) {
+static void scope_set(Scope* scope, String key, ResolvedType* value) {
     size_t idx = hash_str(key);
     Bucket* bucket = scope->lookup_buckets + idx;
 
@@ -126,11 +127,15 @@ static ResolvedType* scope_get(Scope* scope, String key) {
         BucketItem* item = bucket->array + i;
 
         if (str_eq(item->key, key)) {
-            return &item->value;
+            return item->value;
         }
     }
 
-    return NULL;
+    if (scope->parent) {
+        return scope_get(scope->parent, key);
+    } else {
+        return NULL;
+    }
 }
 
 TypeResolver type_resolver_create(Arena* arena, Packages packages) {
@@ -140,13 +145,13 @@ TypeResolver type_resolver_create(Arena* arena, Packages packages) {
     };
 }
 
-Changed resolve_type_node(TypeResolver* type_resolver, ASTNode const* node) {
+Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTNode const* node) {
     Changed changed = false;
     switch (node->type) {
         case ANT_FILE_ROOT: {
             LLNode_ASTNode* curr = node->node.file_root.nodes.head;
             while (curr) {
-                changed |= resolve_type_node(type_resolver, &curr->data);
+                changed |= resolve_type_node(type_resolver, scope, &curr->data);
                 curr = curr->next;
             }
             break;
@@ -169,8 +174,11 @@ Changed resolve_type_node(TypeResolver* type_resolver, ASTNode const* node) {
             ti->type = arena_alloc(type_resolver->arena, sizeof *ti->type);
             *ti->type = (ResolvedType){
                 .kind = RTK_NAMESPACE,
+                .src = node,
                 .type.package_ast = package->ast,
             };
+
+            scope_set(scope, node->node.import.static_path->name, ti->type);
 
             break;
         };
@@ -181,45 +189,71 @@ Changed resolve_type_node(TypeResolver* type_resolver, ASTNode const* node) {
         }
 
         case ANT_UNARY_OP: {
-            changed |= resolve_type_node(type_resolver, node->node.unary_op.right);
+            changed |= resolve_type_node(type_resolver, scope, node->node.unary_op.right);
             break;
         }
 
         case ANT_BINARY_OP: {
-            changed |= resolve_type_node(type_resolver, node->node.binary_op.lhs);
-            changed |= resolve_type_node(type_resolver, node->node.binary_op.rhs);
+            changed |= resolve_type_node(type_resolver, scope, node->node.binary_op.lhs);
+            changed |= resolve_type_node(type_resolver, scope, node->node.binary_op.rhs);
             break;
         }
 
         case ANT_VAR_DECL: {
-            if (!node->node.var_decl.type_or_let.is_let) {
-                // resolve_type_node(type_resolver, node->node.var_decl.type_or_let.maybe_type);
+            bool is_let = node->node.var_decl.type_or_let.is_let;
+            bool has_init = !!node->node.var_decl.initializer;
+
+            if (is_let) {
+                if (has_init) {
+                    changed |= resolve_type_node(type_resolver, scope, node->node.var_decl.initializer);
+                    type_resolver->packages.types[node->id] = type_resolver->packages.types[node->node.var_decl.initializer->id];
+                } else {
+                    type_resolver->packages.types[node->id] = (TypeInfo){
+                        .status = TIS_UNKNOWN,
+                        .type = NULL,
+                    };
+                }
+            } else {
+                // changed |= resolve_type_type(type_resolver, scope, node->node.var_decl.type_or_let.maybe_type);
+
+                if (has_init) {
+                    changed |= resolve_type_node(type_resolver, scope, node->node.var_decl.initializer);
+                    // assert(type.resolved_type == node.resolved_type); // TODO
+
+                    type_resolver->packages.types[node->id] = type_resolver->packages.types[node->node.var_decl.initializer->id];
+                }
             }
 
-            if (node->node.var_decl.initializer) {
-                changed |= resolve_type_node(type_resolver, node->node.var_decl.initializer);
-            }
+            assert(node->node.var_decl.lhs.type == VDLT_NAME); // TODO
+            scope_set(scope, node->node.var_decl.lhs.lhs.name, type_resolver->packages.types[node->id].type);
 
             break;
         }
 
         case ANT_GET_FIELD: {
-            changed |= resolve_type_node(type_resolver, node->node.get_field.root);
+            changed |= resolve_type_node(type_resolver, scope, node->node.get_field.root);
+
+            // TODO: get struct field type
+            type_resolver->packages.types[node->id] = (TypeInfo){
+                .status = TIS_UNKNOWN,
+                .type = NULL,
+            };
+
             break;
         }
 
         case ANT_ASSIGNMENT: {
-            changed |= resolve_type_node(type_resolver, node->node.assignment.lhs);
-            changed |= resolve_type_node(type_resolver, node->node.assignment.rhs);
+            changed |= resolve_type_node(type_resolver, scope, node->node.assignment.lhs);
+            changed |= resolve_type_node(type_resolver, scope, node->node.assignment.rhs);
             break;
         }
 
         case ANT_FUNCTION_CALL: {
-            changed |= resolve_type_node(type_resolver, node->node.function_call.function);
+            changed |= resolve_type_node(type_resolver, scope, node->node.function_call.function);
 
             LLNode_ASTNode* curr = node->node.function_call.args.head;
             while (curr) {
-                changed |= resolve_type_node(type_resolver, &curr->data);
+                changed |= resolve_type_node(type_resolver, scope, &curr->data);
                 curr = curr->next;
             }
 
@@ -227,9 +261,10 @@ Changed resolve_type_node(TypeResolver* type_resolver, ASTNode const* node) {
         }
 
         case ANT_STATEMENT_BLOCK: {
+            Scope block_scope = scope_create(type_resolver->arena, scope);
             LLNode_ASTNode* curr = node->node.statement_block.stmts.head;
             while (curr) {
-                changed |= resolve_type_node(type_resolver, &curr->data);
+                changed |= resolve_type_node(type_resolver, &block_scope, &curr->data);
                 curr = curr->next;
             }
 
@@ -237,11 +272,12 @@ Changed resolve_type_node(TypeResolver* type_resolver, ASTNode const* node) {
         }
 
         case ANT_IF: {
-            changed |= resolve_type_node(type_resolver, node->node.if_.cond);
+            changed |= resolve_type_node(type_resolver, scope, node->node.if_.cond);
 
+            Scope block_scope = scope_create(type_resolver->arena, scope);
             LLNode_ASTNode* curr = node->node.if_.block->stmts.head;
             while (curr) {
-                changed |= resolve_type_node(type_resolver, &curr->data);
+                changed |= resolve_type_node(type_resolver, &block_scope, &curr->data);
                 curr = curr->next;
             }
 
@@ -249,8 +285,8 @@ Changed resolve_type_node(TypeResolver* type_resolver, ASTNode const* node) {
         }
 
         case ANT_ELSE: {
-            changed |= resolve_type_node(type_resolver, node->node.else_.target);
-            changed |= resolve_type_node(type_resolver, node->node.else_.then);
+            changed |= resolve_type_node(type_resolver, scope, node->node.else_.target);
+            changed |= resolve_type_node(type_resolver, scope, node->node.else_.then);
             break;
         }
 
@@ -263,7 +299,7 @@ Changed resolve_type_node(TypeResolver* type_resolver, ASTNode const* node) {
 
         case ANT_RETURN: {
             if (node->node.return_.maybe_expr) {
-                changed |= resolve_type_node(type_resolver, node->node.return_.maybe_expr);
+                changed |= resolve_type_node(type_resolver, scope, node->node.return_.maybe_expr);
             }
             break;
         }
@@ -300,9 +336,10 @@ Changed resolve_type_node(TypeResolver* type_resolver, ASTNode const* node) {
         case ANT_FUNCTION_DECL: {
             // changed |= resolve_type_node(type_resolver, &node->node.function_decl.header.return_type);
 
+            Scope block_scope = scope_create(type_resolver->arena, scope);
             LLNode_ASTNode* curr = node->node.function_decl.stmts.head;
             while (curr) {
-                changed |= resolve_type_node(type_resolver, &curr->data);
+                changed |= resolve_type_node(type_resolver, &block_scope, &curr->data);
                 curr = curr->next;
             }
 
@@ -336,7 +373,8 @@ void resolve_types(TypeResolver* type_resolver) {
 
             for (size_t j = 0; j < bucket->length; ++j) {
                 Package* package = bucket->array + j;
-                changed |= resolve_type_node(type_resolver, package->ast);
+                Scope scope = scope_create(type_resolver->arena, NULL);
+                changed |= resolve_type_node(type_resolver, &scope, package->ast);
             }
         }
     }
