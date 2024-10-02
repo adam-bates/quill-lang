@@ -115,27 +115,28 @@ static void scope_set(Scope* scope, String key, ResolvedType* value) {
     bucket_push(bucket, (BucketItem){ key, value });
 }
 
-static ResolvedType* scope_get(Scope* scope, String key) {
-    size_t idx = hash_str(key);
+static ResolvedType* _scope_get(Scope* scope, String key, size_t idx) {
     Bucket* bucket = scope->lookup_buckets + idx;
 
-    if (!bucket) {
-        return NULL;
-    }
+    if (bucket) {
+        for (size_t i = 0; i < bucket->length; ++i) {
+            BucketItem* item = bucket->array + i;
 
-    for (size_t i = 0; i < bucket->length; ++i) {
-        BucketItem* item = bucket->array + i;
-
-        if (str_eq(item->key, key)) {
-            return item->value;
+            if (str_eq(item->key, key)) {
+                return item->value;
+            }
         }
     }
 
     if (scope->parent) {
-        return scope_get(scope->parent, key);
+        return _scope_get(scope->parent, key, idx);
     } else {
         return NULL;
     }
+}
+
+static ResolvedType* scope_get(Scope* scope, String key) {
+    return _scope_get(scope, key, hash_str(key));
 }
 
 TypeResolver type_resolver_create(Arena* arena, Packages packages) {
