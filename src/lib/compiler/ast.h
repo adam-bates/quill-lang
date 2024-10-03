@@ -598,6 +598,9 @@ void ll_ast_push(Arena* const arena, LL_ASTNode* const ll, ASTNode const node);
 void ll_directive_push(Arena* const arena, LL_Directive* const ll, Directive const directive);
 void ll_param_push(Arena* const arena, LL_FnParam* const ll, FnParam const param);
 
+String static_path_to_str(Arena* arena, StaticPath* path);
+StringBuffer static_path_to_strbuf(Arena* arena, StaticPath* path);
+
 void print_astnode(ASTNode const node);
 
 #endif

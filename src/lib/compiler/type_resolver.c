@@ -9,6 +9,27 @@
 static void resolve_types_across_files(TypeResolver* type_resolver) {
     // TODO
     assert(false);
+
+    // for (size_t i = 0; i < type_resolver->packages.lookup_length; ++i) {
+    //     ArrayList_Package bucket = type_resolver->packages.lookup_buckets[i];
+
+    //     for (size_t j = 0; j < bucket.length; ++j) {
+    //         Package pkg = bucket.array[j];
+
+    //         assert(pkg.ast);
+    //         assert(pkg.ast->type == ANT_FILE_ROOT);
+
+    //         LLNode_ASTNode* decl = pkg.ast->node.file_root.nodes.head;
+    //         while (decl) {
+    //             if (decl->data.type == ANT_IMPORT) {
+    //                 StaticPath* path = decl->data.node.import.static_path;
+    //                 // TODO
+    //             }
+
+    //             decl = decl->next;
+    //         }
+    //     }
+    // }
 }
 
 static void resolve_types_within_files(TypeResolver* type_resolver) {

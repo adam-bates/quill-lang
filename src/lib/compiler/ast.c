@@ -53,6 +53,26 @@ void ll_param_push(Arena* const arena, LL_FnParam* const ll, FnParam const param
     ll->length += 1;
 }
 
+static void append_static_path(StringBuffer* sb, StaticPath* path) {
+    if (path->root) {
+        append_static_path(sb, path->root);
+        strbuf_append_chars(sb, "::");
+    }
+
+    strbuf_append_str(sb, path->name);
+}
+
+StringBuffer static_path_to_strbuf(Arena* arena, StaticPath* path) {
+    StringBuffer sb = strbuf_create_with_capacity(arena, path->name.length);
+    append_static_path(&sb, path);
+    return sb;
+}
+
+String static_path_to_str(Arena* arena, StaticPath* path) {
+    StringBuffer sb = static_path_to_strbuf(arena, path);
+    return strbuf_to_str(sb);
+}
+
 static Arena ast_print_arena = {0};
 static Arena* arena = &ast_print_arena;
 
