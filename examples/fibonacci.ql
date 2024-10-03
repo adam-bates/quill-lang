@@ -1,9 +1,11 @@
-import std::*;
+import std;
+import std/conv;
+import std/io;
 
-ExitCode main(Array<String> args) {
+std::ExitCode main(std::Array<std::String> args) {
     if args.length != 3 {
         io::eprintln("Usage: fibonacci [slow|fast] [integer]");
-        return ExitCode::FAILURE;
+        return std::ExitCode::FAILURE;
     }
 
     let speed = switch str_to_lower(args.data[1]) {
@@ -12,11 +14,11 @@ ExitCode main(Array<String> args) {
 
         else {
             io::eprintln("Usage: fibonacci [slow|fast] [integer]");
-            return ExitCode::FAILURE;
+            return std::ExitCode::FAILURE;
         }
     };
 
-    uint8 n = parse_uint8(args.data[2]) catch err {
+    uint8 n = conv::parse_uint8(args.data[2]) catch err {
         CRASH `Error parsing integer: {err}`;
     };
 
@@ -29,7 +31,7 @@ ExitCode main(Array<String> args) {
         io::printf("fib(%d) = %d\n", i, nth_fib_fnptr(i));
     }
 
-    return ExitCode::SUCCESS;
+    return std::ExitCode::SUCCESS;
 }
 
 enum Speed {

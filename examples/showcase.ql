@@ -10,6 +10,8 @@
 
 // import statements
 import std;
+import std/ds;
+import std/io;
 
 /*
     entry-point to the program
@@ -94,9 +96,9 @@ void main() {
     std::Maybe<int> v0 = std::arr_get(&v, 0);
 
     // list
-    std::ds::ArrayBuffer<int> mut v = std::arrbuf_create();
-    std::ds::arrbuf_push(&v, 42);
-    std::Array<int> vv = std::ds::arrbuf_to_arr(v);
+    ds::ArrayBuffer<int> mut v = ds::arrbuf_create();
+    ds::arrbuf_push(&v, 42);
+    std::Array<int> vv = ds::arrbuf_to_arr(v);
 
     // strings
     std::String v = "hello";
@@ -114,11 +116,11 @@ void main() {
     char* v = @c_str "hello";
 
     // template strings
-    std::ds::StringBuffer v = `{v}, world`;
+    ds::StringBuffer v = `{v}, world`;
 
-    std::ds::StringBuffer mut v = std::ds::strbuf_create();
-    std::ds::strbuf_append_char(&v, '!');
-    std::String vv = std::ds::strbuf_to_str(v);
+    ds::StringBuffer mut v = ds::strbuf_create();
+    ds::strbuf_append_char(&v, '!');
+    std::String vv = ds::strbuf_to_str(v);
 
     // optionals (ie. "nullables")
     std::Maybe<int> m = std::some(0);
@@ -213,18 +215,18 @@ void main() {
     }
 
     // IO
-    std::io::println("Hello, world!");
+    io::println("Hello, world!");
 
     // defer
     // the following codeblock prints: "1,2,3"
     {
-        defer std::io::print("2");
+        defer io::print("2");
 
         defer {
-            std::io::print("1,");
+            io::print("1,");
         }
 
-        std::io::print(",3");
+        io::print(",3");
     }
 
 
@@ -253,7 +255,7 @@ std::Result<int> fetch_double(bool should_succeed) {
 
 std::Result<int> fetch_int(bool should_succeed) {
     if !should_succeed {
-        return std::res_err_create(ErrorType::UNSPECIFIED, "failed!");
+        return std::res_err_create(std::ErrorType::UNSPECIFIED, "failed!");
     }
 
     return std::res_ok(42);
