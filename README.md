@@ -3,10 +3,10 @@
 Iteration on c. Aiming for quality-of-life improvements, keeping a lean language, and removing c weirdness.
 
 Some notable differences from c:
-- Data is constant & immutable by default. Mutable data must be marked as `mut`.
-- Namespacing: `std::io::printf("Hello, world!");`
+- Data is immutable by default. Mutable data is marked as `mut`.
+- Namespacing: `io::println("hello")`
 - Generics: `HashTable<String, int>`
-- Type-inferencing: `let x = true; // x is a bool`
+- Type-inferencing: `let x = true;`
 - for-each loops: `for n in 0..10 { }`
 - break-data turns blocks into expressions: `int x = { break 1; };`
 - Standard library supplies fat strings, fat arrays, optionals, result types, and much more.
@@ -16,7 +16,7 @@ Some notable differences from c:
 
 ### Hello world
 ```c
-import std::io;
+import std/io;
 
 void main() {
     io::println("Hello, world!");
@@ -26,6 +26,9 @@ void main() {
 ### Fizzbuzz
 ```c
 import std::*;
+import std/conv;
+import std/ds;
+import std/io;
 
 int main(Array<String> args) {
     if args.length != 2 {
