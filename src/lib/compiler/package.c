@@ -56,30 +56,6 @@ static size_t hash_name(PackagePath* name) {
     return 1 + hash;
 }
 
-static bool name_eq(PackagePath* name1, PackagePath* name2) {
-    if (!name1 || !name2) {
-        return !name1 && !name2;
-    }
-
-    if ((!name1->child) != (!name2->child)) {
-        return false;
-    }
-
-    if (name1->name.length != name2->name.length) {
-        return false;
-    }
-
-    if (strncmp(name1->name.chars, name2->name.chars, name1->name.length) != 0) {
-        return false;
-    }
-
-    if (name1->child) {
-        return name_eq(name1->child, name2->child);
-    } else {
-        return true;
-    }
-}
-
 Package* packages_resolve_or_create(Packages* packages, PackagePath* name) {
     size_t idx = hash_name(name);
     ArrayList_Package* bucket = packages->lookup_buckets + idx;
@@ -88,7 +64,7 @@ Package* packages_resolve_or_create(Packages* packages, PackagePath* name) {
     }
 
     for (size_t i = 0; i < bucket->length; ++i) {
-        if (name_eq(bucket->array[i].full_name, name)) {
+        if (package_path_eq(bucket->array[i].full_name, name)) {
             return bucket->array + i;
         }
     }
@@ -108,7 +84,7 @@ Package* packages_resolve(Packages* packages, PackagePath* name) {
     }
 
     for (size_t i = 0; i < bucket->length; ++i) {
-        if (name_eq(bucket->array[i].full_name, name)) {
+        if (package_path_eq(bucket->array[i].full_name, name)) {
             return bucket->array + i;
         }
     }

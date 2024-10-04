@@ -656,6 +656,8 @@ StringBuffer import_path_to_strbuf(Arena* arena, ImportPath* path);
 PackagePath* import_path_to_package_path(Arena* arena, ImportPath* import_path);
 ImportPath* package_path_to_import_path(Arena* arena, PackagePath* package_path);
 
+bool package_path_eq(PackagePath* p1, PackagePath* p2);
+
 void print_astnode(ASTNode const node);
 
 #endif

@@ -189,6 +189,30 @@ ImportPath* package_to_import_path(Arena* arena, PackagePath* package_path) {
     return import_path;
 }
 
+bool package_path_eq(PackagePath* p1, PackagePath* p2) {
+    if (!p1 || !p2) {
+        return !p1 && !p2;
+    }
+
+    if ((!p1->child) != (!p2->child)) {
+        return false;
+    }
+
+    if (p1->name.length != p2->name.length) {
+        return false;
+    }
+
+    if (strncmp(p1->name.chars, p2->name.chars, p1->name.length) != 0) {
+        return false;
+    }
+
+    if (p1->child) {
+        return package_path_eq(p1->child, p2->child);
+    } else {
+        return true;
+    }
+}
+
 static Arena ast_print_arena = {0};
 static Arena* arena = &ast_print_arena;
 

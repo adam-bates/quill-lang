@@ -254,6 +254,14 @@ static void verify_node(Analyzer* analyzer, ASTNode const* const ast, size_t dep
 }
 
 void verify_syntax(Analyzer* analyzer, ASTNode const* const ast) {
+    /*
+        TODO:
+        - verify main function
+        - only allow missing package if file has main function
+        - prevent duplicate imports
+        - prevent importing self
+    */
+
     assert(ast->type == ANT_FILE_ROOT);
 
     size_t iter = 0;

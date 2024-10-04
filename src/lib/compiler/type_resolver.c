@@ -40,6 +40,46 @@ static void add_package_dependency(AdjacencyList* list, PackagePath dependent, P
     list->length += 1;
 }
 
+typedef enum {
+    VS_UNVISITED,
+    VS_VISITING,
+    VS_VISITED,
+} VisitState;
+
+static bool _has_cycle_dfs(AdjacencyList* list, VisitState* states, size_t n) {
+    states[n] = VS_VISITING;
+
+    // ??
+    for (size_t i = 0; i < list->length; ++i) {
+        if (!package_path_eq(list->dependees + i, list->dependents + n)) {
+            continue;
+        }
+
+        if (states[i] == VS_VISITING) {
+            return true;
+        }
+
+        if (states[i] == VS_UNVISITED && _has_cycle_dfs(list, states, i)) {
+            return true;
+        }
+    }
+
+    states[n] = VS_VISITED;
+    return false;
+}
+
+static bool has_cycle(AdjacencyList* list) {
+    VisitState* states = arena_calloc(list->arena, list->length, sizeof *states);
+
+    for (size_t i = 0; i < list->length; ++i) {
+        if (states[i] == VS_UNVISITED && _has_cycle_dfs(list, states, i)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static void resolve_types_across_files(TypeResolver* type_resolver) {
     // TODO
     AdjacencyList dependencies = adjacency_list_create(type_resolver->arena, 1);
@@ -87,6 +127,12 @@ static void resolve_types_across_files(TypeResolver* type_resolver) {
         char const* str2 = arena_strcpy(type_resolver->arena, package_path_to_str(type_resolver->arena, &p2)).chars;
 
         printf("- [%s] depends on [%s]\n", str1, str2);
+    }
+
+    if (has_cycle(&dependencies)) {
+        printf("ERROR! Cycle detected!\n");
+    } else {
+        printf("No cycles detected!\n");
     }
 
     assert(false);
