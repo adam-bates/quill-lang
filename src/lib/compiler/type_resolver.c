@@ -54,11 +54,10 @@ static bool _has_cycle_dfs(AdjacencyList* list, VisitState* states, size_t n) {
             continue;
         }
 
-        if (states[i] == VS_VISITING) {
-            return true;
-        }
-
-        if (states[i] == VS_UNVISITED && _has_cycle_dfs(list, states, i)) {
+        if (
+            states[i] == VS_VISITING
+            || (states[i] == VS_UNVISITED && _has_cycle_dfs(list, states, i))
+        ) {
             return true;
         }
     }
