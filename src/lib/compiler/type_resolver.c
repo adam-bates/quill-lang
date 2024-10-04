@@ -49,7 +49,6 @@ typedef enum {
 static bool _has_cycle_dfs(AdjacencyList* list, VisitState* states, size_t n) {
     states[n] = VS_VISITING;
 
-    // ??
     for (size_t i = 0; i < list->length; ++i) {
         if (!package_path_eq(list->dependees + i, list->dependents + n)) {
             continue;
