@@ -35,19 +35,19 @@ static void arraylist_package_push(Arena* arena, ArrayList_Package* const list, 
     list->length += 1;
 }
 
-static size_t hash_name(StaticPath* name) {
+static size_t hash_name(PackagePath* name) {
     if (!name) { return 0; }
 
     // FNV-1a
     size_t hash = FNV_OFFSET_BASIS;
-    StaticPath* curr = name;
+    PackagePath* curr = name;
     while (curr) {
         for (size_t i = 0; i < curr->name.length; ++i) {
             char c = curr->name.chars[i];
             hash ^= c;
             hash *= FNV_PRIME;
         }
-        curr = curr->root;
+        curr = curr->child;
     }
 
     // map to bucket index
@@ -56,12 +56,12 @@ static size_t hash_name(StaticPath* name) {
     return 1 + hash;
 }
 
-static bool name_eq(StaticPath* name1, StaticPath* name2) {
+static bool name_eq(PackagePath* name1, PackagePath* name2) {
     if (!name1 || !name2) {
         return !name1 && !name2;
     }
 
-    if ((!name1->root) != (!name2->root)) {
+    if ((!name1->child) != (!name2->child)) {
         return false;
     }
 
@@ -73,14 +73,14 @@ static bool name_eq(StaticPath* name1, StaticPath* name2) {
         return false;
     }
 
-    if (name1->root) {
-        return name_eq(name1->root, name2->root);
+    if (name1->child) {
+        return name_eq(name1->child, name2->child);
     } else {
         return true;
     }
 }
 
-Package* packages_resolve_or_create(Packages* packages, StaticPath* name) {
+Package* packages_resolve_or_create(Packages* packages, PackagePath* name) {
     size_t idx = hash_name(name);
     ArrayList_Package* bucket = packages->lookup_buckets + idx;
     if (bucket->array == NULL) {
@@ -100,7 +100,7 @@ Package* packages_resolve_or_create(Packages* packages, StaticPath* name) {
     return bucket->array + (bucket->length - 1);
 }
 
-Package* packages_resolve(Packages* packages, StaticPath* name) {
+Package* packages_resolve(Packages* packages, PackagePath* name) {
     size_t idx = hash_name(name);
     ArrayList_Package* bucket = packages->lookup_buckets + idx;
     if (bucket->array == NULL) {

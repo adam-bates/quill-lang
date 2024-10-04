@@ -5,20 +5,59 @@
 #include "./codegen_c.h"
 
 static void append_static_path(StringBuffer* strbuf, StaticPath* path) {
-    if (path->root != NULL) {
-        // if (
-        //     strncmp(path->name.chars, "io", 2) == 0
-        //     && strncmp(path->root->name.chars, "std", 3) == 0
-        // ) {
-        //     strbuf_append_chars(strbuf, "printf"); // TODO
-        //     return;
-        // }
-
-        append_static_path(strbuf, path->root);
-        strbuf_append_chars(strbuf, "__");
-    }
-
     strbuf_append_str(strbuf, path->name);
+
+    if (path->child != NULL) {
+        strbuf_append_chars(strbuf, "__");
+        append_static_path(strbuf, path->child);
+    }
+}
+
+static void append_package_path(StringBuffer* strbuf, PackagePath* path) {
+    strbuf_append_str(strbuf, path->name);
+
+    if (path->child != NULL) {
+        strbuf_append_chars(strbuf, "__");
+        append_package_path(strbuf, path->child);
+    }
+}
+
+static void _append_import_static_path(StringBuffer* strbuf, ImportStaticPath* path) {
+    switch (path->type) {
+        case ISPT_WILDCARD: {
+            strbuf_append_char(strbuf, '*');
+            break;
+        }
+        case ISPT_IDENT: {
+            strbuf_append_str(strbuf, path->import.ident.name);
+            if (path->import.ident.child) {
+                strbuf_append_chars(strbuf, "__");
+                _append_import_static_path(strbuf, path->import.ident.child);
+            }
+            break;
+        }
+    }
+}
+
+static void append_import_path(StringBuffer* strbuf, ImportPath* path) {
+    switch (path->type) {
+        case IPT_DIR: {
+            strbuf_append_str(strbuf, path->import.dir.name);
+            if (path->import.dir.child) {
+                strbuf_append_chars(strbuf, "__");
+                append_import_path(strbuf, path->import.dir.child);
+            }
+            break;
+        }
+        case IPT_FILE: {
+            strbuf_append_str(strbuf, path->import.file.name);
+            if (path->import.file.child) {
+                strbuf_append_chars(strbuf, "_$_");
+                _append_import_static_path(strbuf, path->import.file.child);
+            }
+            break;
+        }
+    }
 }
 
 static void append_type(StringBuffer* strbuf, Type type) {
@@ -117,14 +156,14 @@ static void append_ast_node(CodegenC* c, StringBuffer* strbuf, ASTNode const* no
 
         case ANT_IMPORT: {
             strbuf_append_chars(strbuf, "#include \"");
-            append_static_path(strbuf, node->node.import.static_path);
+            append_import_path(strbuf, node->node.import.import_path);
             strbuf_append_chars(strbuf, "\"\n");
             break;
         }
 
         case ANT_PACKAGE: {
             strbuf_append_chars(strbuf, "/* package ");
-            append_static_path(strbuf, node->node.package.static_path);
+            append_package_path(strbuf, node->node.package.package_path);
             strbuf_append_chars(strbuf, " */\n");
             break;
         }

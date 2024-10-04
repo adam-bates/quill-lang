@@ -28,8 +28,8 @@ typedef struct {
 } LL_FnParam;
 
 typedef struct StaticPath_s {
-    struct StaticPath_s* root;
     String name;
+    struct StaticPath_s* child;
 } StaticPath;
 
 typedef enum {
@@ -372,6 +372,47 @@ typedef struct {
 //
 
 typedef enum {
+    IPT_DIR,
+    IPT_FILE,
+} ImportPathType;
+
+typedef struct {
+    String name;
+    struct ImportPath_s* child;
+} ImportDirPath;
+
+typedef enum {
+    ISPT_WILDCARD,
+    ISPT_IDENT,
+} ImportStaticPathType;
+
+typedef struct {
+    String name;
+    struct ImportStaticPath_s* child;
+} ImportStaticPathIdent;
+
+typedef struct ImportStaticPath_s {
+    ImportStaticPathType type;
+    union {
+        void* wildcard;
+        ImportStaticPathIdent ident;
+    } import;
+} ImportStaticPath;
+
+typedef struct {
+    String name;
+    ImportStaticPath* child;
+} ImportFilePath;
+
+typedef struct ImportPath_s {
+    ImportPathType type;
+    union {
+        ImportDirPath dir;
+        ImportFilePath file;
+    } import;
+} ImportPath;
+
+typedef enum {
     IT_DEFAULT,
     IT_LOCAL,
     IT_ROOT,
@@ -380,13 +421,18 @@ typedef enum {
 typedef struct {
     ImportType type;
     // note: could end in wildcard `*`
-    StaticPath* static_path;
+    ImportPath* import_path;
 } ASTNodeImport;
 
 //
 
+typedef struct PackagePath_s {
+    String name;
+    struct PackagePath_s* child;
+} PackagePath;
+
 typedef struct {
-    StaticPath* static_path;
+    PackagePath* package_path;
 } ASTNodePackage;
 
 //

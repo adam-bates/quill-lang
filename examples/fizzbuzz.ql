@@ -1,5 +1,16 @@
 import std::*;
-import std/{conv, ds, io};
+import std/conv;
+import std/ds;
+import std/io;
+
+import std::{
+    *,
+    /conv, /ds, /io,
+
+    ErrorType::{
+        UNSPECIFIED,
+    }
+};
 
 int main(Array<String> args) {
     if args.length != 2 {

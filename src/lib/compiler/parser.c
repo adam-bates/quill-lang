@@ -264,13 +264,10 @@ static bool parser_consume(Parser* const parser, TokenType const type, char cons
     return true;
 }
 
-static StaticPath* _parser_parse_static_path(Parser* const parser, bool const allow_star) {
+static StaticPath* parser_parse_static_path(Parser* const parser) {
     Token const ident = parser_peek(parser);
 
-    if (
-        (allow_star && (ident.type != TT_STAR && ident.type != TT_IDENTIFIER))
-        || (!allow_star && (ident.type != TT_IDENTIFIER))
-    ) {
+    if (ident.type != TT_IDENTIFIER) {
         return NULL;
     }
     parser_advance(parser);
@@ -280,34 +277,139 @@ static StaticPath* _parser_parse_static_path(Parser* const parser, bool const al
         .length = ident.length,
     };
 
-    StaticPath* path = arena_alloc(parser->arena, sizeof(StaticPath));
+    StaticPath* path = arena_alloc(parser->arena, sizeof *path);
     path->name = name;
-    path->root = NULL;
+    path->child = NULL;
 
-    if (parser_peek(parser).type != TT_COLON_COLON || ident.type == TT_STAR) {
+    if (parser_peek(parser).type != TT_COLON_COLON) {
         return path;
     }
     parser_advance(parser);
 
-    StaticPath* root = arena_alloc(parser->arena, sizeof(StaticPath));        
-    root = path;
-
-    path = _parser_parse_static_path(parser, allow_star);
-    if (path == NULL) {
-        return NULL;
-    }
-
-    path->root = root;
-
+    path->child = parser_parse_static_path(parser);
     return path;
 }
 
-static StaticPath* parser_parse_import_path(Parser* const parser) {
-    return _parser_parse_static_path(parser, true);
+static PackagePath* parser_parse_package_path(Parser* const parser) {
+    Token const ident = parser_peek(parser);
+
+    if (ident.type != TT_IDENTIFIER) {
+        return NULL;
+    }
+    parser_advance(parser);
+
+    String const name = {
+        .chars = ident.start,
+        .length = ident.length,
+    };
+
+    PackagePath* path = arena_alloc(parser->arena, sizeof *path);
+    path->name = name;
+    path->child = NULL;
+
+    if (parser_peek(parser).type != TT_SLASH) {
+        return path;
+    }
+    parser_advance(parser);
+
+    path->child = parser_parse_package_path(parser);
+    return path;
 }
 
-static StaticPath* parser_parse_ident_path(Parser* const parser) {
-    return _parser_parse_static_path(parser, false);
+static ImportStaticPath* _parser_parse_import_static_path(Parser* const parser) {
+    Token const ident = parser_peek(parser);
+
+    if (ident.type == TT_STAR) {
+        ImportStaticPath* path = arena_alloc(parser->arena, sizeof *path);
+        path->type = ISPT_WILDCARD;
+        path->import.wildcard = NULL;
+
+        return path;
+    }
+
+    if (ident.type != TT_IDENTIFIER) {
+        return NULL;
+    }
+    parser_advance(parser);
+
+    String const name = {
+        .chars = ident.start,
+        .length = ident.length,
+    };
+
+    ImportStaticPath* path = arena_alloc(parser->arena, sizeof *path);
+    path->type = ISPT_IDENT;
+    path->import.ident.name = name;
+    path->import.ident.child = NULL;
+
+    if (parser_peek(parser).type != TT_COLON_COLON) {
+        return path;
+    }
+    parser_advance(parser);
+
+    path->import.ident.child = _parser_parse_import_static_path(parser);
+    return path;
+}
+
+static ImportPath* parser_parse_import_path(Parser* const parser) {
+    Token const ident = parser_peek(parser);
+
+    if (ident.type != TT_IDENTIFIER) {
+        return NULL;
+    }
+    parser_advance(parser);
+
+    String const name = {
+        .chars = ident.start,
+        .length = ident.length,
+    };
+
+    ImportPath* path = arena_alloc(parser->arena, sizeof *path);
+
+    Token const delim = parser_peek(parser);
+    if (delim.type == TT_COLON_COLON) {
+        parser_advance(parser);
+
+        if (parser_peek(parser).type != TT_IDENTIFIER && parser_peek(parser).type != TT_STAR) {
+            assert(parser_consume(parser, TT_IDENTIFIER, "Exptected ident after '::' in import."));
+        }
+
+        path->type = IPT_FILE;
+        path->import.file = (ImportFilePath){
+            .name = name,
+            .child = _parser_parse_import_static_path(parser),
+        };
+
+        return path;
+    }
+
+    if (delim.type != TT_SLASH) {
+        path->type = IPT_FILE;
+        path->import.file = (ImportFilePath){
+            .name = name,
+            .child = NULL,
+        };
+        return path;
+    }
+    parser_advance(parser);
+
+    if (!parser_consume(parser, TT_IDENTIFIER, "Expected ident after '/' in import.")) {
+        path->type = IPT_FILE;
+        path->import.file = (ImportFilePath){
+            .name = name,
+            .child = NULL,
+        };
+        return path;
+    }
+    parser->cursor_current -= 1;
+
+    path->type = IPT_DIR;
+    path->import.dir = (ImportDirPath){
+        .name = name,
+        .child = parser_parse_import_path(parser),
+    };
+
+    return path;
 }
 
 static Maybe_DirectiveType parser_parse_directive_type(Parser* const parser, Token token) {
@@ -461,7 +563,7 @@ static Type* parser_parse_type(Parser* const parser) {
     switch (t.type) {
         case TT_IDENTIFIER: {
             if (parser_peek_next(parser).type == TT_COLON_COLON) {
-                StaticPath* path = parser_parse_ident_path(parser);
+                StaticPath* path = parser_parse_static_path(parser);
                 assert(path);
 
                 type->kind = TK_STATIC_PATH;
@@ -515,7 +617,7 @@ static ParseResult parser_parse_package(Parser* const parser, LL_Directive const
         return parseres_none();
     }
 
-    StaticPath* const path = parser_parse_ident_path(parser);
+    PackagePath* const path = parser_parse_package_path(parser);
     if (path == NULL) {
         error_at_current(parser, "Expected package namespace.");
         return parseres_none();
@@ -524,7 +626,7 @@ static ParseResult parser_parse_package(Parser* const parser, LL_Directive const
     ASTNode const node = {
         .id = parser->next_id++,
         .type = ANT_PACKAGE,
-        .node.package.static_path = path,
+        .node.package.package_path = path,
         .directives = directives,
     };
 
@@ -560,7 +662,7 @@ static ParseResult parser_parse_import(Parser* const parser, LL_Directive const 
         type = IT_ROOT;
     }
 
-    StaticPath* const path = parser_parse_import_path(parser);
+    ImportPath* const path = parser_parse_import_path(parser);
     if (path == NULL) {
         error_at_current(parser, "Expected import target.");
         return parseres_none();
@@ -571,7 +673,7 @@ static ParseResult parser_parse_import(Parser* const parser, LL_Directive const 
         .type = ANT_IMPORT,
         .node.import = {
             .type = type,
-            .static_path = path,
+            .import_path = path,
         },
         .directives = directives,
     };
@@ -796,7 +898,7 @@ static ParseResult parser_parse_lit(Parser* const parser, LL_Directive const dir
 }
 
 static ParseResult parser_parse_var_ref(Parser* const parser, LL_Directive const directives) {
-    StaticPath* const path = parser_parse_ident_path(parser);
+    StaticPath* const path = parser_parse_static_path(parser);
 
     if (path == NULL) {
         return parseres_none();

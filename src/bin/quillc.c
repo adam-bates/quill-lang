@@ -46,9 +46,9 @@ int main(int const argc, char* const argv[]) {
         print_astnode(*ast);
         printf("\n");
 
-        StaticPath* package_name = NULL;
+        PackagePath* package_name = NULL;
         if (parser.package) {
-            package_name = parser.package->node.package.static_path;
+            package_name = parser.package->node.package.package_path;
         }
 
         Package* pkg = packages_resolve_or_create(&packages, package_name);

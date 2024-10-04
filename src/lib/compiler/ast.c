@@ -54,12 +54,12 @@ void ll_param_push(Arena* const arena, LL_FnParam* const ll, FnParam const param
 }
 
 static void append_static_path(StringBuffer* sb, StaticPath* path) {
-    if (path->root) {
-        append_static_path(sb, path->root);
-        strbuf_append_chars(sb, "::");
-    }
-
     strbuf_append_str(sb, path->name);
+
+    if (path->child) {
+        strbuf_append_chars(sb, "::");
+        append_static_path(sb, path->child);
+    }
 }
 
 StringBuffer static_path_to_strbuf(Arena* arena, StaticPath* path) {
@@ -94,12 +94,59 @@ static void print_static_path(StaticPath const* path) {
         return;
     }
 
-    if (path->root != NULL) {
-        print_static_path(path->root);
-        printf("::");
-    }
-
     print_string(path->name);
+
+    if (path->child != NULL) {
+        printf("::");
+        print_static_path(path->child);
+    }
+}
+
+static void print_package_path(PackagePath* path) {
+    print_string(path->name);
+
+    if (path->child != NULL) {
+        printf("__");
+        print_package_path(path->child);
+    }
+}
+
+static void _print_import_static_path(ImportStaticPath* path) {
+    switch (path->type) {
+        case ISPT_WILDCARD: {
+            printf("*");
+            break;
+        }
+        case ISPT_IDENT: {
+            print_string(path->import.ident.name);
+            if (path->import.ident.child) {
+                printf("__");
+                _print_import_static_path(path->import.ident.child);
+            }
+            break;
+        }
+    }
+}
+
+static void print_import_path(ImportPath* path) {
+    switch (path->type) {
+        case IPT_DIR: {
+            print_string(path->import.dir.name);
+            if (path->import.dir.child) {
+                printf("__");
+                print_import_path(path->import.dir.child);
+            }
+            break;
+        }
+        case IPT_FILE: {
+            print_string(path->import.file.name);
+            if (path->import.file.child) {
+                printf("_$_");
+                _print_import_static_path(path->import.file.child);
+            }
+            break;
+        }
+    }
 }
 
 static void print_directives(LL_Directive directives) {
@@ -264,14 +311,14 @@ void print_astnode(ASTNode const node) {
                 case IT_ROOT: printf("~/"); break;
             }
 
-            print_static_path(node.node.import.static_path);
+            print_import_path(node.node.import.import_path);
             printf(";\n");
             break;
         }
 
         case ANT_PACKAGE: {
             printf("package ");
-            print_static_path(node.node.package.static_path);
+            print_package_path(node.node.package.package_path);
             printf(";\n");
             break;
         }

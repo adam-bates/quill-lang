@@ -6,7 +6,7 @@
 #include "../utils/utils.h"
 
 typedef struct {
-    StaticPath* full_name;
+    PackagePath* full_name;
     ASTNode const* ast;
 } Package;
 
@@ -41,7 +41,7 @@ typedef struct {
 } Packages;
 
 Packages packages_create(Arena* arena);
-Package* packages_resolve(Packages* packages, StaticPath* name);
-Package* packages_resolve_or_create(Packages* packages, StaticPath* name);
+Package* packages_resolve(Packages* packages, PackagePath* name);
+Package* packages_resolve_or_create(Packages* packages, PackagePath* name);
 
 #endif
