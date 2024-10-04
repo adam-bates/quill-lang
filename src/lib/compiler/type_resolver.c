@@ -10,26 +10,26 @@ static void resolve_types_across_files(TypeResolver* type_resolver) {
     // TODO
     assert(false);
 
-    // for (size_t i = 0; i < type_resolver->packages.lookup_length; ++i) {
-    //     ArrayList_Package bucket = type_resolver->packages.lookup_buckets[i];
+    for (size_t i = 0; i < type_resolver->packages.lookup_length; ++i) {
+        ArrayList_Package bucket = type_resolver->packages.lookup_buckets[i];
 
-    //     for (size_t j = 0; j < bucket.length; ++j) {
-    //         Package pkg = bucket.array[j];
+        for (size_t j = 0; j < bucket.length; ++j) {
+            Package pkg = bucket.array[j];
 
-    //         assert(pkg.ast);
-    //         assert(pkg.ast->type == ANT_FILE_ROOT);
+            assert(pkg.ast);
+            assert(pkg.ast->type == ANT_FILE_ROOT);
 
-    //         LLNode_ASTNode* decl = pkg.ast->node.file_root.nodes.head;
-    //         while (decl) {
-    //             if (decl->data.type == ANT_IMPORT) {
-    //                 StaticPath* path = decl->data.node.import.static_path;
-    //                 // TODO
-    //             }
+            LLNode_ASTNode* decl = pkg.ast->node.file_root.nodes.head;
+            while (decl) {
+                if (decl->data.type == ANT_IMPORT) {
+                    ImportPath* path = decl->data.node.import.import_path;
+                    // TODO
+                }
 
-    //             decl = decl->next;
-    //         }
-    //     }
-    // }
+                decl = decl->next;
+            }
+        }
+    }
 }
 
 static void resolve_types_within_files(TypeResolver* type_resolver) {
@@ -46,11 +46,11 @@ TypeResolver type_resolver_create(Arena* arena, Packages packages) {
 
 void resolve_types(TypeResolver* type_resolver) {
     /*
-        2-pass algorithm:
-            - First pass resolves public types across files. Imports cannot be
+        2-stage algorithm:
+            - First stage resolves public types across files. Imports cannot be
               cyclical, meaning we can resolve public declarations by walking the
               tree of imports.
-            - Second pass resolves types within each file. It starts by creating a
+            - Second stage resolves types within each file. It starts by creating a
               Scope at the file level, and putting imported public declarations from
               pass 1 within the file's scope.
     */
