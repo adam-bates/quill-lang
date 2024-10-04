@@ -6,9 +6,43 @@
 #include "./resolved_type.h"
 #include "./package.h"
 
+typedef struct {
+    Arena* arena;
+    size_t capacity;
+    size_t length;
+    PackagePath* dependents;
+    PackagePath* dependees;
+} AdjacencyList;
+
+static AdjacencyList adjacency_list_create(Arena* arena, size_t capacity) {
+    PackagePath* dependents = arena_alloc(arena, sizeof(PackagePath) * capacity);
+    PackagePath* dependees = arena_alloc(arena, sizeof(PackagePath) * capacity);
+
+    return (AdjacencyList){
+        .arena = arena,
+        .capacity = capacity,
+        .length = 0,
+        .dependents = dependents,
+        .dependees = dependees,
+    };
+}
+
+static void add_package_dependency(AdjacencyList* list, PackagePath dependent, PackagePath dependee) {
+    if (list->length >= list->capacity) {
+        size_t prev_cap = list->capacity;
+        list->capacity = list->length * 2;
+        list->dependents = arena_realloc(list->arena, list->dependents, sizeof(PackagePath) * prev_cap, sizeof(PackagePath) * list->capacity);
+        list->dependees = arena_realloc(list->arena, list->dependees, sizeof(PackagePath) * prev_cap, sizeof(PackagePath) * list->capacity);
+    }
+
+    list->dependents[list->length] = dependent;
+    list->dependees[list->length] = dependee;
+    list->length += 1;
+}
+
 static void resolve_types_across_files(TypeResolver* type_resolver) {
     // TODO
-    assert(false);
+    AdjacencyList dependencies = adjacency_list_create(type_resolver->arena, 1);
 
     for (size_t i = 0; i < type_resolver->packages.lookup_length; ++i) {
         ArrayList_Package bucket = type_resolver->packages.lookup_buckets[i];
@@ -19,17 +53,43 @@ static void resolve_types_across_files(TypeResolver* type_resolver) {
             assert(pkg.ast);
             assert(pkg.ast->type == ANT_FILE_ROOT);
 
+            PackagePath dependent = {0};
+            if (pkg.full_name) {
+                dependent = *pkg.full_name;
+            }
+
             LLNode_ASTNode* decl = pkg.ast->node.file_root.nodes.head;
             while (decl) {
                 if (decl->data.type == ANT_IMPORT) {
                     ImportPath* path = decl->data.node.import.import_path;
-                    // TODO
+                    PackagePath* dependee = import_path_to_package_path(type_resolver->arena, path);
+                    assert(dependee);
+
+                    add_package_dependency(&dependencies, dependent, *dependee);
                 }
 
                 decl = decl->next;
             }
         }
     }
+
+    printf("DEPENDENCIES:\n");
+    for (size_t i = 0; i < dependencies.length; ++i) {
+        PackagePath p1 = dependencies.dependents[i];
+        char const* str1;
+        if (p1.name.length > 0) {
+            str1 = arena_strcpy(type_resolver->arena, package_path_to_str(type_resolver->arena, &p1)).chars;
+        } else {
+            str1 = "<main>";
+        }
+
+        PackagePath p2 = dependencies.dependees[i];
+        char const* str2 = arena_strcpy(type_resolver->arena, package_path_to_str(type_resolver->arena, &p2)).chars;
+
+        printf("- [%s] depends on [%s]\n", str1, str2);
+    }
+
+    assert(false);
 }
 
 static void resolve_types_within_files(TypeResolver* type_resolver) {

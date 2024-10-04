@@ -93,6 +93,9 @@ void* arena_realloc(Arena* arena, void* const old_ptr, size_t const old_size, si
     for (size_t i = 0; i < old_size; ++i) {
         new_ptr_c[i] = old_ptr_c[i];
     }
+    for (size_t i = old_size; i < new_size; ++i) {
+        new_ptr_c[i] = 0;
+    }
 
     return new_ptr;
 }

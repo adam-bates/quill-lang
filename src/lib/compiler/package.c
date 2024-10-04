@@ -28,7 +28,7 @@ static void arraylist_package_push(Arena* arena, ArrayList_Package* const list, 
     if (list->length >= list->capacity) {
         size_t prev_cap = list->capacity;
         list->capacity = list->length * 2;
-        list->array = arena_realloc(arena, list->array, prev_cap, sizeof(Token) * list->capacity);
+        list->array = arena_realloc(arena, list->array, sizeof(Package) * prev_cap, sizeof(Package) * list->capacity);
     }
 
     list->array[list->length] = package;

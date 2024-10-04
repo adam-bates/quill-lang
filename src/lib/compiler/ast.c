@@ -62,6 +62,52 @@ static void append_static_path(StringBuffer* sb, StaticPath* path) {
     }
 }
 
+static void append_package_path(StringBuffer* sb, PackagePath* path) {
+    strbuf_append_str(sb, path->name);
+
+    if (path->child) {
+        strbuf_append_char(sb, '/');
+        append_package_path(sb, path->child);
+    }
+}
+
+static void _append_import_static_path(StringBuffer* sb, ImportStaticPath* path) {
+    switch (path->type) {
+        case ISPT_WILDCARD: {
+            strbuf_append_char(sb, '*');
+            break;
+        }
+        case ISPT_IDENT: {
+            strbuf_append_str(sb, path->import.ident.name);
+            if (path->import.ident.child) {
+                strbuf_append_chars(sb, "::");
+                _append_import_static_path(sb, path->import.ident.child);
+            }
+            break;
+        }
+    }
+}
+
+static void append_import_path(StringBuffer* sb, ImportPath* path) {
+    switch (path->type) {
+        case IPT_DIR: {
+            strbuf_append_str(sb, path->import.dir.name);
+            if (path->import.dir.child) {
+                strbuf_append_char(sb, '/');
+                append_import_path(sb, path->import.dir.child);
+            }
+            break;
+        }
+        case IPT_FILE: {
+            strbuf_append_str(sb, path->import.file.name);
+            if (path->import.file.child) {
+                strbuf_append_char(sb, '/');
+                _append_import_static_path(sb, path->import.file.child);
+            }
+        }
+    }
+}
+
 StringBuffer static_path_to_strbuf(Arena* arena, StaticPath* path) {
     StringBuffer sb = strbuf_create_with_capacity(arena, path->name.length);
     append_static_path(&sb, path);
@@ -70,7 +116,77 @@ StringBuffer static_path_to_strbuf(Arena* arena, StaticPath* path) {
 
 String static_path_to_str(Arena* arena, StaticPath* path) {
     StringBuffer sb = static_path_to_strbuf(arena, path);
-    return strbuf_to_str(sb);
+    return strbuf_to_strcpy(sb);
+}
+
+StringBuffer package_path_to_strbuf(Arena* arena, PackagePath* path) {
+    StringBuffer sb = strbuf_create_with_capacity(arena, path->name.length);
+    append_package_path(&sb, path);
+    return sb;
+}
+
+String package_path_to_str(Arena* arena, PackagePath* path) {
+    StringBuffer sb = package_path_to_strbuf(arena, path);
+    return strbuf_to_strcpy(sb);
+}
+
+StringBuffer import_path_to_strbuf(Arena* arena, ImportPath* path) {
+    StringBuffer sb = strbuf_create(arena);
+    append_import_path(&sb, path);
+    return sb;
+}
+
+String import_path_to_str(Arena* arena, ImportPath* path) {
+    StringBuffer sb = import_path_to_strbuf(arena, path);
+    return strbuf_to_strcpy(sb);
+}
+
+PackagePath* import_path_to_package_path(Arena* arena, ImportPath* import_path) {
+    if (!import_path) { return NULL; }
+    
+    PackagePath* package_path = arena_alloc(arena, sizeof *package_path);
+    
+    switch (import_path->type) {
+        case IPT_DIR: {
+            *package_path = (PackagePath){
+                .name = import_path->import.dir.name,
+                .child = import_path_to_package_path(arena, import_path->import.dir.child),
+            };
+            break;
+        }
+
+        case IPT_FILE: {
+            *package_path = (PackagePath){
+                .name = import_path->import.file.name,
+                .child = NULL,
+            };
+            break;
+        }
+    }
+
+    return package_path;
+}
+
+ImportPath* package_to_import_path(Arena* arena, PackagePath* package_path) {
+    if (!package_path) { return NULL; }
+
+    ImportPath* import_path = arena_alloc(arena, sizeof *import_path);
+
+    if (package_path->child) {
+        *import_path = (ImportPath){
+            .type = IPT_DIR,
+            .import.dir.name = package_path->name,
+            .import.dir.child = package_to_import_path(arena, package_path->child),
+        };
+    } else {
+        *import_path = (ImportPath){
+            .type = IPT_FILE,
+            .import.file.name = package_path->name,
+            .import.file.child = NULL,
+        };
+    }
+
+    return import_path;
 }
 
 static Arena ast_print_arena = {0};

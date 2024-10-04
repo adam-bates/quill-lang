@@ -647,6 +647,15 @@ void ll_param_push(Arena* const arena, LL_FnParam* const ll, FnParam const param
 String static_path_to_str(Arena* arena, StaticPath* path);
 StringBuffer static_path_to_strbuf(Arena* arena, StaticPath* path);
 
+String package_path_to_str(Arena* arena, PackagePath* path);
+StringBuffer package_path_to_strbuf(Arena* arena, PackagePath* path);
+
+String import_path_to_str(Arena* arena, ImportPath* path);
+StringBuffer import_path_to_strbuf(Arena* arena, ImportPath* path);
+
+PackagePath* import_path_to_package_path(Arena* arena, ImportPath* import_path);
+ImportPath* package_path_to_import_path(Arena* arena, PackagePath* package_path);
+
 void print_astnode(ASTNode const node);
 
 #endif
