@@ -79,7 +79,6 @@ static bool has_cycle(AdjacencyList* list) {
 }
 
 static void resolve_types_across_files(TypeResolver* type_resolver) {
-    // TODO
     AdjacencyList dependencies = adjacency_list_create(type_resolver->arena, 1);
 
     for (size_t i = 0; i < type_resolver->packages.lookup_length; ++i) {
