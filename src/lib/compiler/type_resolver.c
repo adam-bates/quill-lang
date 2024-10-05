@@ -255,7 +255,7 @@ static void resolve_file(TypeResolver* type_resolver, Scope* scope, ASTNodeFileR
 
 void resolve_types(TypeResolver* type_resolver) {
     AdjacencyList dependencies = adjacency_list_create(type_resolver->arena, 1);
-    ArrayList_PackagePath to_resolve = arraylist_packagepath_create(type_resolver->arena, 1);
+    ArrayList_PackagePath to_resolve = arraylist_packagepath_create(type_resolver->arena, type_resolver->packages.count);
 
     // Understand which files depend on which other files
     for (size_t i = 0; i < type_resolver->packages.lookup_length; ++i) {
