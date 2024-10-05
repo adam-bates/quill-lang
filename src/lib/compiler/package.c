@@ -72,6 +72,7 @@ Package* packages_resolve_or_create(Packages* packages, PackagePath* name) {
         .full_name = name,
         .ast = NULL,
     });
+    packages->count += 1;
 
     return bucket->array + (bucket->length - 1);
 }
@@ -88,12 +89,8 @@ Package* packages_resolve(Packages* packages, PackagePath* name) {
             return bucket->array + i;
         }
     }
-    arraylist_package_push(packages->arena, bucket, (Package){
-        .full_name = name,
-        .ast = NULL,
-    });
 
-    return bucket->array + (bucket->length - 1);
+    return NULL;
 }
 
 Packages packages_create(Arena* arena) {

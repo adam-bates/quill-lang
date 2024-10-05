@@ -11,32 +11,61 @@ typedef struct {
     size_t capacity;
     size_t length;
     PackagePath* dependents;
-    PackagePath* dependees;
+    PackagePath* dependencies;
 } AdjacencyList;
 
 static AdjacencyList adjacency_list_create(Arena* arena, size_t capacity) {
     PackagePath* dependents = arena_alloc(arena, sizeof(PackagePath) * capacity);
-    PackagePath* dependees = arena_alloc(arena, sizeof(PackagePath) * capacity);
+    PackagePath* dependencies = arena_alloc(arena, sizeof(PackagePath) * capacity);
 
     return (AdjacencyList){
         .arena = arena,
         .capacity = capacity,
         .length = 0,
         .dependents = dependents,
-        .dependees = dependees,
+        .dependencies = dependencies,
     };
 }
 
-static void add_package_dependency(AdjacencyList* list, PackagePath dependent, PackagePath dependee) {
+static void add_package_dependency(AdjacencyList* list, PackagePath dependent, PackagePath dependency) {
     if (list->length >= list->capacity) {
         size_t prev_cap = list->capacity;
         list->capacity = list->length * 2;
         list->dependents = arena_realloc(list->arena, list->dependents, sizeof(PackagePath) * prev_cap, sizeof(PackagePath) * list->capacity);
-        list->dependees = arena_realloc(list->arena, list->dependees, sizeof(PackagePath) * prev_cap, sizeof(PackagePath) * list->capacity);
+        list->dependencies = arena_realloc(list->arena, list->dependencies, sizeof(PackagePath) * prev_cap, sizeof(PackagePath) * list->capacity);
     }
 
     list->dependents[list->length] = dependent;
-    list->dependees[list->length] = dependee;
+    list->dependencies[list->length] = dependency;
+    list->length += 1;
+}
+
+typedef struct {
+    Arena* arena;
+    size_t capacity;
+    size_t length;
+    PackagePath* array;
+} ArrayList_PackagePath;
+
+static ArrayList_PackagePath arraylist_packagepath_create(Arena* arena, size_t capacity) {
+    PackagePath* array = arena_alloc(arena, sizeof(PackagePath) * capacity);
+
+    return (ArrayList_PackagePath){
+        .arena = arena,
+        .capacity = capacity,
+        .length = 0,
+        .array = array,
+    };
+}
+
+static void arraylist_packagepath_push(ArrayList_PackagePath* list, PackagePath path) {
+    if (list->length >= list->capacity) {
+        size_t prev_cap = list->capacity;
+        list->capacity = list->length * 2;
+        list->array = arena_realloc(list->arena, list->array, sizeof(PackagePath) * prev_cap, sizeof(PackagePath) * list->capacity);
+    }
+
+    list->array[list->length] = path;
     list->length += 1;
 }
 
@@ -50,7 +79,7 @@ static bool _topo_sort_dfs(AdjacencyList* list, VisitState* states, size_t n, si
     states[n] = VS_VISITING;
 
     for (size_t i = 0; i < list->length; ++i) {
-        if (!package_path_eq(list->dependees + i, list->dependents + n)) {
+        if (!package_path_eq(list->dependencies + i, list->dependents + n)) {
             continue;
         }
 
@@ -64,14 +93,14 @@ static bool _topo_sort_dfs(AdjacencyList* list, VisitState* states, size_t n, si
 
     states[n] = VS_VISITED;
     sorted[*sort_index] = n;
-    *sort_index += 1;
+    *sort_index -= 1;
 
     return true;
 }
 
 static bool topological_sort(AdjacencyList* list, size_t* sorted) {
     VisitState* states = arena_calloc(list->arena, list->length, sizeof *states);
-    size_t sort_index = 0;
+    size_t sort_index = list->length - 1;
 
     for (size_t i = 0; i < list->length; ++i) {
         if (states[i] == VS_UNVISITED && !_topo_sort_dfs(list, states, i, sorted, &sort_index)) {
@@ -85,7 +114,9 @@ static bool topological_sort(AdjacencyList* list, size_t* sorted) {
 
 static void resolve_types_across_files(TypeResolver* type_resolver) {
     AdjacencyList dependencies = adjacency_list_create(type_resolver->arena, 1);
+    ArrayList_PackagePath to_resolve = arraylist_packagepath_create(type_resolver->arena, 1);
 
+    // Understand which files depend on which other files
     for (size_t i = 0; i < type_resolver->packages.lookup_length; ++i) {
         ArrayList_Package bucket = type_resolver->packages.lookup_buckets[i];
 
@@ -101,62 +132,87 @@ static void resolve_types_across_files(TypeResolver* type_resolver) {
             }
 
             LLNode_ASTNode* decl = pkg.ast->node.file_root.nodes.head;
+            bool has_imports = false;
             while (decl) {
                 if (decl->data.type == ANT_IMPORT) {
-                    ImportPath* path = decl->data.node.import.import_path;
-                    PackagePath* dependee = import_path_to_package_path(type_resolver->arena, path);
-                    assert(dependee);
+                    has_imports = true;
 
-                    Package* found = packages_resolve(&type_resolver->packages, dependee);
+                    ImportPath* path = decl->data.node.import.import_path;
+                    PackagePath* dependency = import_path_to_package_path(type_resolver->arena, path);
+                    assert(dependency);
+
+                    Package* found = packages_resolve(&type_resolver->packages, dependency);
                     if (!found) {
-                        printf("Cannot find package [%s]\n", package_path_to_str(type_resolver->arena, dependee).chars);
+                        printf("Cannot find package [%s]\n", package_path_to_str(type_resolver->arena, dependency).chars);
                         assert(false);
                     }
 
-                    add_package_dependency(&dependencies, dependent, *dependee);
+                    add_package_dependency(&dependencies, dependent, *dependency);
                 }
 
                 decl = decl->next;
             }
+
+            // will resolve files w/ no dependencies first
+            if (!has_imports) {
+                arraylist_packagepath_push(&to_resolve, dependent);
+            }
         }
     }
 
-    printf("DEPENDENCIES:\n");
-    for (size_t i = 0; i < dependencies.length; ++i) {
-        PackagePath p1 = dependencies.dependents[i];
-        char const* str1;
-        if (p1.name.length > 0) {
-            str1 = arena_strcpy(type_resolver->arena, package_path_to_str(type_resolver->arena, &p1)).chars;
-        } else {
-            str1 = "<main>";
+    // sort topologically so packages are only resolved after all of their dependencies
+    {
+        size_t* sorted_deps = arena_calloc(dependencies.arena, dependencies.length, sizeof *sorted_deps);
+        assert(sorted_deps);
+        assert(topological_sort(&dependencies, sorted_deps));
+
+        PackagePath* prev = NULL;
+        for (size_t si = 0; si < dependencies.length; ++si) {
+            size_t i = sorted_deps[si];
+
+            PackagePath* path = dependencies.dependents + i;
+            assert(path);
+
+            if (prev && package_path_eq(prev, path)) {
+                continue;
+            }
+            prev = path;
+
+            arraylist_packagepath_push(&to_resolve, *path);
         }
 
-        PackagePath p2 = dependencies.dependees[i];
-        char const* str2 = arena_strcpy(type_resolver->arena, package_path_to_str(type_resolver->arena, &p2)).chars;
+        // debug print
+        printf(" DEPENDENCIES:\n");
+        for (size_t si = 0; si < dependencies.length; ++si) {
+            size_t i = sorted_deps[si];
 
-        printf("- [%s] depends on [%s]\n", str1, str2);
+            PackagePath p1 = dependencies.dependents[i];
+            char const* str1;
+            if (p1.name.length > 0) {
+                str1 = package_path_to_str(type_resolver->arena, &p1).chars;
+            } else {
+                str1 = "<main>";
+            }
+
+            PackagePath p2 = dependencies.dependencies[i];
+            char const* str2 = package_path_to_str(type_resolver->arena, &p2).chars;
+
+            printf("- [%s] depends on [%s]\n", str1, str2);
+        }
     }
 
-    size_t* sorted = arena_calloc(dependencies.arena, dependencies.length, sizeof *sorted);
-    assert(sorted);
-    assert(topological_sort(&dependencies, sorted));
+    for (size_t i = 0; i < to_resolve.length; ++i) {
+        PackagePath* path = to_resolve.array + i;
+        assert(path);
 
-    printf("SORTED DEPENDENCIES:\n");
-    for (size_t si = 0; si < dependencies.length; ++si) {
-        size_t i = sorted[si];
-
-        PackagePath p1 = dependencies.dependents[i];
-        char const* str1;
-        if (p1.name.length > 0) {
-            str1 = arena_strcpy(type_resolver->arena, package_path_to_str(type_resolver->arena, &p1)).chars;
-        } else {
-            str1 = "<main>";
+        char const* name = "<main>";
+        if (path->name.length > 0) {
+            name = package_path_to_str(type_resolver->arena, path).chars;
         }
 
-        PackagePath p2 = dependencies.dependees[i];
-        char const* str2 = arena_strcpy(type_resolver->arena, package_path_to_str(type_resolver->arena, &p2)).chars;
+        printf("TODO: resolve [%s]\n", name);
 
-        printf("- [%s] depends on [%s]\n", str1, str2);
+        // TODO: resolve declarations
     }
 
     //

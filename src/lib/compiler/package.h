@@ -31,6 +31,8 @@ typedef struct {
 typedef struct {
     Arena* arena;
 
+    size_t count;
+
     // HashTable<String, Package>
     size_t lookup_length;
     ArrayList_Package* lookup_buckets;
