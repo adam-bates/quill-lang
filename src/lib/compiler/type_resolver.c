@@ -112,7 +112,14 @@ static bool topological_sort(AdjacencyList* list, size_t* sorted) {
     return true;
 }
 
-static void resolve_types_across_files(TypeResolver* type_resolver) {
+TypeResolver type_resolver_create(Arena* arena, Packages packages) {
+    return (TypeResolver){
+        .arena = arena,
+        .packages = packages,
+    };
+}
+
+void resolve_types(TypeResolver* type_resolver) {
     AdjacencyList dependencies = adjacency_list_create(type_resolver->arena, 1);
     ArrayList_PackagePath to_resolve = arraylist_packagepath_create(type_resolver->arena, 1);
 
@@ -182,7 +189,7 @@ static void resolve_types_across_files(TypeResolver* type_resolver) {
         }
 
         // debug print
-        printf(" DEPENDENCIES:\n");
+        printf("DEPENDENCIES:\n");
         for (size_t si = 0; si < dependencies.length; ++si) {
             size_t i = sorted_deps[si];
 
@@ -199,6 +206,7 @@ static void resolve_types_across_files(TypeResolver* type_resolver) {
 
             printf("- [%s] depends on [%s]\n", str1, str2);
         }
+        printf("\n");
     }
 
     for (size_t i = 0; i < to_resolve.length; ++i) {
@@ -209,42 +217,18 @@ static void resolve_types_across_files(TypeResolver* type_resolver) {
         if (path->name.length > 0) {
             name = package_path_to_str(type_resolver->arena, path).chars;
         }
-
         printf("TODO: resolve [%s]\n", name);
+
+        Package* pkg = packages_resolve(&type_resolver->packages, path->name.length > 0 ? path : NULL);
+        assert(pkg);
 
         // TODO: resolve declarations
     }
+    printf("\n");
 
     //
 
     assert(false);
-}
-
-static void resolve_types_within_files(TypeResolver* type_resolver) {
-    // TODO
-    assert(false);
-}
-
-TypeResolver type_resolver_create(Arena* arena, Packages packages) {
-    return (TypeResolver){
-        .arena = arena,
-        .packages = packages,
-    };
-}
-
-void resolve_types(TypeResolver* type_resolver) {
-    /*
-        2-stage algorithm:
-            - First stage resolves public types across files. Imports cannot be
-              cyclical, meaning we can resolve public declarations by walking the
-              tree of imports.
-            - Second stage resolves types within each file. It starts by creating a
-              Scope at the file level, and putting imported public declarations from
-              pass 1 within the file's scope.
-    */
-
-    resolve_types_across_files(type_resolver);
-    resolve_types_within_files(type_resolver);
 }
 
 // #define RESOLVE_ITERS_MAX 1024
