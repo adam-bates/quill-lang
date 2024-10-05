@@ -215,7 +215,16 @@ static void verify_node(Analyzer* analyzer, ASTNode const* const ast, size_t dep
 
         case ANT_SWITCH: assert(false); // TODO
         case ANT_CAST: assert(false); // TODO
-        case ANT_STRUCT_DECL: assert(false); // TODO
+
+        case ANT_STRUCT_DECL: {
+            LLNode_StructField* curr = ast->node.struct_decl.fields.head;
+            while (curr) {
+                verify_type(analyzer, curr->data.type, depth + 1, iter);
+                curr = curr->next;
+            }
+            break;
+        }
+
         case ANT_UNION_DECL: assert(false); // TODO
         case ANT_ENUM_DECL: assert(false); // TODO
 

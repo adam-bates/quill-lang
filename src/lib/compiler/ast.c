@@ -117,7 +117,7 @@ ASTNode* find_decl_by_name(ASTNodeFileRoot root, String name) {
 }
 
 void ll_ast_push(Arena* const arena, LL_ASTNode* const ll, ASTNode const node) {
-    LLNode_ASTNode* const llnode = arena_alloc(arena, sizeof(LLNode_ASTNode));
+    LLNode_ASTNode* const llnode = arena_alloc(arena, sizeof *llnode);
     llnode->data = node;
     llnode->next = NULL;
     
@@ -133,7 +133,7 @@ void ll_ast_push(Arena* const arena, LL_ASTNode* const ll, ASTNode const node) {
 }
 
 void ll_directive_push(Arena* const arena, LL_Directive* const ll, Directive const directive) {
-    LLNode_Directive* const llnode = arena_alloc(arena, sizeof(LLNode_Directive));
+    LLNode_Directive* const llnode = arena_alloc(arena, sizeof *llnode);
     llnode->data = directive;
     llnode->next = NULL;
 
@@ -149,8 +149,24 @@ void ll_directive_push(Arena* const arena, LL_Directive* const ll, Directive con
 }
 
 void ll_param_push(Arena* const arena, LL_FnParam* const ll, FnParam const param) {
-    LLNode_FnParam* const llnode = arena_alloc(arena, sizeof(LLNode_FnParam));
+    LLNode_FnParam* const llnode = arena_alloc(arena, sizeof *llnode);
     llnode->data = param;
+    llnode->next = NULL;
+
+    if (ll->head == NULL) {
+        ll->head = llnode;
+        ll->tail = ll->head;
+    } else {
+        ll->tail->next = llnode;
+        ll->tail = llnode;
+    }
+
+    ll->length += 1;
+}
+
+void ll_field_push(Arena* const arena, LL_StructField* const ll, StructField const field) {
+    LLNode_StructField* const llnode = arena_alloc(arena, sizeof *llnode);
+    llnode->data = field;
     llnode->next = NULL;
 
     if (ll->head == NULL) {
@@ -595,8 +611,17 @@ void print_astnode(ASTNode const node) {
             printf("{\n");
             indent += 1;
 
-            print_tabs();
-            printf("/* TODO */\n");
+            LLNode_StructField* curr = node.node.struct_decl.fields.head;
+            while (curr) {
+                print_tabs();
+
+                print_type(curr->data.type);
+                printf(" ");
+                print_string(curr->data.name);
+                printf(",\n");
+
+                curr = curr->next;
+            }
 
             indent -= 1;
             printf("}\n");

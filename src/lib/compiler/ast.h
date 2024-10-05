@@ -30,6 +30,12 @@ typedef struct {
     struct LLNode_FnParam* tail;
 } LL_FnParam;
 
+typedef struct {
+    size_t length;
+    struct LLNode_StructField* head;
+    struct LLNode_StructField* tail;
+} LL_StructField;
+
 typedef struct StaticPath_s {
     String name;
     struct StaticPath_s* child;
@@ -496,8 +502,13 @@ typedef struct {
 //
 
 typedef struct {
+    Type* type;
+    String name;
+} StructField;
+
+typedef struct {
     String* maybe_name;
-    // TODO
+    LL_StructField fields;
 } ASTNodeStructDecl;
 
 //
@@ -636,6 +647,11 @@ typedef struct LLNode_FnParam {
     FnParam data;
 } LLNode_FnParam;
 
+typedef struct LLNode_StructField {
+    struct LLNode_StructField* next;
+    StructField data;
+} LLNode_StructField;
+
 typedef struct {
     bool const ok;
     union {
@@ -649,6 +665,7 @@ typedef struct {
 void ll_ast_push(Arena* const arena, LL_ASTNode* const ll, ASTNode const node);
 void ll_directive_push(Arena* const arena, LL_Directive* const ll, Directive const directive);
 void ll_param_push(Arena* const arena, LL_FnParam* const ll, FnParam const param);
+void ll_field_push(Arena* const arena, LL_StructField* const ll, StructField const field);
 
 ASTNode* find_decl_by_id(ASTNodeFileRoot, NodeId id);
 ASTNode* find_decl_by_name(ASTNodeFileRoot root, String name);

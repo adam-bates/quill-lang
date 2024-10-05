@@ -731,12 +731,31 @@ static ParseResult parser_parse_struct_decl(Parser* const parser, LL_Directive c
 
     assert(parser_consume(parser, TT_LEFT_BRACE, "Expected '{'."));
 
+    LL_StructField fields = {0};
+
     Token t = parser_peek(parser);
     while (t.type != TT_RIGHT_BRACE && t.type != TT_EOF) {
-        // TODO
+        Type* type = parser_parse_type(parser);
+        assert(type);
+
+        t = parser_peek(parser);
+        String name = (String){
+            .length = t.length,
+            .chars = t.start,
+        };
+
+        ll_field_push(parser->arena, &fields, (StructField){
+            .type = type,
+            .name = name,
+        });
 
         parser_advance(parser);
         t = parser_peek(parser);
+
+        if (t.type != TT_RIGHT_BRACE && t.type != TT_EOF || t.type == TT_COMMA) {
+            assert(parser_consume(parser, TT_COMMA, "Expected comma between struct fields"));
+            t = parser_peek(parser);
+        }
     }
 
     assert(parser_consume(parser, TT_RIGHT_BRACE, "Expected '}'."));
@@ -746,6 +765,7 @@ static ParseResult parser_parse_struct_decl(Parser* const parser, LL_Directive c
         .type = ANT_STRUCT_DECL,
         .node.struct_decl = {
             .maybe_name = m_name,
+            .fields = fields,
         },
         .directives = directives,
     });

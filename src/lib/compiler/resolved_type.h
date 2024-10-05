@@ -7,9 +7,12 @@
 typedef enum {
     RTK_NAMESPACE,
     RTK_VOID,
+    RTK_UINT,
+    RTK_CHAR,
     RTK_POINTER,
     RTK_MUT_POINTER,
     RTK_FUNCTION,
+    RTK_STRUCT,
 
     RTK_COUNT
 } ResolvedTypeKind;
@@ -28,10 +31,25 @@ typedef struct {
 } ResolvedTypePointer;
 
 typedef struct {
-    size_t param_types_length;
-    struct ResolvedType* param_types;
+    struct ResolvedType* type;
+    String name;
+} ResolvedFunctionParam;
+
+typedef struct {
+    size_t params_length;
+    ResolvedFunctionParam* params;
     struct ResolvedType* return_type;
 } ResolvedFunction;
+
+typedef struct {
+    struct ResolvedType* type;
+    String name;
+} ResolvedStructField;
+
+typedef struct {
+    size_t fields_length;
+    ResolvedStructField* fields;
+} ResolvedStruct;
 
 typedef struct ResolvedType {
     ResolvedTypeKind kind;
@@ -39,9 +57,12 @@ typedef struct ResolvedType {
     union {
         ASTNode const* namespace_;
         void* void_;
+        void* uint_;
+        void* char_;
         ResolvedTypePointer ptr;
         ResolvedTypePointer mut_ptr;
         ResolvedFunction function;
+        ResolvedStruct struct_;
     } type;
 } ResolvedType;
 
