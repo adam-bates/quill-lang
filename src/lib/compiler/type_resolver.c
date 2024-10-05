@@ -249,6 +249,8 @@ TypeResolver type_resolver_create(Arena* arena, Packages packages) {
         .arena = arena,
         .packages = packages,
 
+        .string_literal_type = NULL,
+
         .current_package = NULL,
         .current_function = NULL,
         .seen_separator = false,
@@ -888,6 +890,25 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             scope_set(scope, *node->node.struct_decl.maybe_name, resolved_type);
             changed = true;
 
+            if (node->directives.length > 0) {
+                LLNode_Directive* curr = node->directives.head;
+                while (curr) {
+                    if (curr->data.type == DT_STRING_LITERAL) {
+                        // assert(i == 2);
+
+                        assert(fields[0].type->kind == RTK_UINT);
+                        // assert(str_eq(fields[0].name, c_str("length")));
+
+                        assert(fields[1].type->kind == RTK_POINTER);
+                        assert(fields[1].type->type.ptr.of->kind == RTK_CHAR);
+                        // assert(str_eq(fields[1].name, c_str("bytes")));
+
+                        type_resolver->string_literal_type = resolved_type;
+                    }
+                    curr = curr->next;
+                }
+            }
+
             break;
         }
 
@@ -1053,42 +1074,11 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
             switch (node->node.literal.kind) {
                 case LK_STR: {
-                    ResolvedType* uint_type = arena_alloc(type_resolver->arena, sizeof *uint_type);
-                    uint_type->src = NULL;
-                    uint_type->kind = RTK_UINT;
-                    uint_type->type.uint_ = NULL;
-
-                    ResolvedType* char_type = arena_alloc(type_resolver->arena, sizeof *char_type);
-                    uint_type->src = NULL;
-                    uint_type->kind = RTK_CHAR;
-                    uint_type->type.char_ = NULL;
-
-                    ResolvedType* char_ptr_type = arena_alloc(type_resolver->arena, sizeof *char_ptr_type);
-                    uint_type->src = NULL;
-                    uint_type->kind = RTK_POINTER;
-                    uint_type->type.ptr.of = char_type;
-
-                    ResolvedStructField* fields = arena_calloc(type_resolver->arena, node->node.struct_decl.fields.length, sizeof *fields);
-                    fields[0] = (ResolvedStructField){
-                        .name = c_str("length"),
-                        .type = uint_type,
-                    };
-                    fields[1] = (ResolvedStructField){
-                        .name = c_str("bytes"),
-                        .type = char_ptr_type,
-                    };
-
-                    ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
-                    resolved_type->src = node;
-                    resolved_type->kind = RTK_STRUCT;
-                    resolved_type->type.struct_ = (ResolvedStruct){
-                        .fields_length = 2,
-                        .fields = fields,
-                    };
+                    assert(type_resolver->string_literal_type);
 
                     type_resolver->packages.types[node->id.val] = (TypeInfo){
                         .status = TIS_CONFIDENT,
-                        .type = resolved_type,
+                        .type = type_resolver->string_literal_type,
                     };
                     break;
                 }

@@ -1,6 +1,6 @@
 package std;
 
-struct String {
+@string_literal struct String {
 	uint  length,
 	char* bytes,
 }

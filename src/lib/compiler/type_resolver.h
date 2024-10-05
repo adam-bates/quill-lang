@@ -9,6 +9,8 @@ typedef struct {
     Arena* arena;
     Packages packages;
 
+    ResolvedType* string_literal_type;
+
     Package* current_package;
     ResolvedFunction* current_function;
     bool seen_separator;

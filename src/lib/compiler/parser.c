@@ -33,13 +33,14 @@ typedef struct {
     } maybe;
 } Maybe_DirectiveType;
 
-static const size_t DIRECTIVE_MATCHES_LEN = 5;
+static const size_t DIRECTIVE_MATCHES_LEN = 6;
 static const DirectiveMatch DIRECTIVE_MATCHES[DIRECTIVE_MATCHES_LEN] = {
     { "@c_header", DT_C_HEADER },
     { "@c_restrict", DT_C_RESTRICT },
     { "@c_FILE", DT_C_FILE },
     { "@ignore_unused", DT_IGNORE_UNUSED },
     { "@impl", DT_IMPL },
+    { "@string_literal", DT_STRING_LITERAL },
     // TODO
 };
 
@@ -505,6 +506,15 @@ static LL_Directive parser_parse_directives(Parser* const parser) {
             case DT_IMPL: {
                 Directive directive = {
                     .type = DT_IMPL,
+                    .dir.impl = NULL,
+                };
+                ll_directive_push(parser->arena, &directives, directive);
+                break;
+            }
+
+            case DT_STRING_LITERAL: {
+                Directive directive = {
+                    .type = DT_STRING_LITERAL,
                     .dir.impl = NULL,
                 };
                 ll_directive_push(parser->arena, &directives, directive);
