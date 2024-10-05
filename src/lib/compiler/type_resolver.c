@@ -251,7 +251,7 @@ TypeResolver type_resolver_create(Arena* arena, Packages packages) {
     };
 }
 
-void resolve_file(TypeResolver* type_resolver, Scope* scope, ASTNodeFileRoot file);
+static void resolve_file(TypeResolver* type_resolver, Scope* scope, ASTNodeFileRoot file);
 
 void resolve_types(TypeResolver* type_resolver) {
     AdjacencyList dependencies = adjacency_list_create(type_resolver->arena, 1);
@@ -370,7 +370,7 @@ void resolve_types(TypeResolver* type_resolver) {
     }
 }
 
-Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTNode const* node) {
+static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTNode const* node) {
     Changed changed = false;
     switch (node->type) {
         case ANT_FILE_ROOT: assert(false);
@@ -587,7 +587,7 @@ Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTNode con
     return changed;
 }
 
-void resolve_file(TypeResolver* type_resolver, Scope* scope, ASTNodeFileRoot file) {
+static void resolve_file(TypeResolver* type_resolver, Scope* scope, ASTNodeFileRoot file) {
     Changed changed;
     do {
         LLNode_ASTNode* curr = file.nodes.head;
