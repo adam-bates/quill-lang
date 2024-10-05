@@ -3,7 +3,7 @@
 
 #include "../lib/quill.h"
 
-int main(int const argc, char* const argv[]) {
+int main(int const argc, char* const argv[]) {    
     // TODO: optimize memory usage; use smaller-scoped arenas within an area, result stored in this arena.
     Arena arena = {0};
 
@@ -13,6 +13,7 @@ int main(int const argc, char* const argv[]) {
 
     Packages packages = packages_create(&arena);
     size_t next_node_id = 0;
+    size_t next_type_id = 0;
 
     for (size_t i = 0; i < args.paths_to_include.length; ++i) {
         String const source_path = args.paths_to_include.strings[i];
@@ -26,10 +27,12 @@ int main(int const argc, char* const argv[]) {
         ArrayList_Token const tokens = scan_res.res.tokens;
 
         Parser parser = parser_create(&arena, tokens);
-        parser.next_id = next_node_id;
+        parser.next_node_id = next_node_id;
+        parser.next_type_id = next_type_id;
 
         ASTNodeResult const ast_res = parser_parse(&parser);
-        next_node_id = parser.next_id;
+        next_node_id = parser.next_node_id;
+        next_type_id = parser.next_type_id;
 
         astres_assert(ast_res);
         ASTNode const* ast = ast_res.res.ast;

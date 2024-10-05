@@ -260,6 +260,8 @@ void verify_syntax(Analyzer* analyzer, ASTNode const* const ast) {
         - only allow missing package if file has main function
         - prevent duplicate imports
         - prevent importing self
+        - ensure c-headers don't have statements or expressions
+        - ensure function header decls match function impl decls
     */
 
     assert(ast->type == ANT_FILE_ROOT);

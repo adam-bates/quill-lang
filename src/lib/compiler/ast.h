@@ -4,6 +4,9 @@
 #include "../utils/utils.h"
 #include "./token.h"
 
+typedef struct { size_t val; } NodeId;
+typedef struct { size_t val; } TypeId;
+
 typedef struct {
     Token const* const start;
     size_t length;
@@ -67,6 +70,7 @@ typedef struct {
 } TypePointer;
 
 typedef struct Type {
+    TypeId id;
     TypeKind kind;
     union {
         TypeBuiltIn built_in;
@@ -546,7 +550,7 @@ typedef struct {
 //
 
 typedef struct ASTNode {
-    size_t id;
+    NodeId id;
     ASTNodeType type;
     union {
         ASTNodeFileRoot file_root;
@@ -640,9 +644,14 @@ typedef struct {
     } const res;
 } ASTNodeResult;
 
+
+
 void ll_ast_push(Arena* const arena, LL_ASTNode* const ll, ASTNode const node);
 void ll_directive_push(Arena* const arena, LL_Directive* const ll, Directive const directive);
 void ll_param_push(Arena* const arena, LL_FnParam* const ll, FnParam const param);
+
+ASTNode* find_decl_by_id(ASTNodeFileRoot, NodeId id);
+ASTNode* find_decl_by_name(ASTNodeFileRoot root, String name);
 
 String static_path_to_str(Arena* arena, StaticPath* path);
 StringBuffer static_path_to_strbuf(Arena* arena, StaticPath* path);

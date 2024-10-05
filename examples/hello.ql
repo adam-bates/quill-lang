@@ -1,5 +1,5 @@
-import std/io;
+import example/tmp;
 
 void main() {
-    io::println("Hello, world!");
+    tmp::f();
 }

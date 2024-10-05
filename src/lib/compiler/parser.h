@@ -16,7 +16,8 @@ typedef struct {
     bool had_error;
     bool panic_mode;
 
-    size_t next_id;
+    size_t next_node_id;
+    size_t next_type_id;
 } Parser;
 
 #define astres_assert(astres) \

@@ -526,6 +526,7 @@ static Type* parser_parse_type_wrap(Parser* const parser, Type* type) {
             parser_advance(parser);
             Type* wrapped = arena_alloc(parser->arena, sizeof *wrapped);
             *wrapped = (Type){
+                .id = { parser->next_type_id++ },
                 .kind = TK_POINTER,
                 .type.ptr.of = type,
             };
@@ -541,6 +542,7 @@ static Type* parser_parse_type_wrap(Parser* const parser, Type* type) {
 
             Type* wrapped = arena_alloc(parser->arena, sizeof *wrapped);
             *wrapped = (Type){
+                .id = { parser->next_type_id++ },
                 .kind = TK_MUT_POINTER,
                 .type.mut_ptr.of = type,
             };
@@ -557,6 +559,7 @@ static Type* parser_parse_type(Parser* const parser) {
     LL_Directive const directives = parser_parse_directives(parser);
 
     Type* type = arena_alloc(parser->arena, sizeof *type);
+    type->id.val = parser->next_type_id++;
     type->directives = directives;
 
     Token t = parser_peek(parser);
@@ -624,7 +627,7 @@ static ParseResult parser_parse_package(Parser* const parser, LL_Directive const
     }
 
     ASTNode const node = {
-        .id = parser->next_id++,
+        .id = { parser->next_node_id++ },
         .type = ANT_PACKAGE,
         .node.package.package_path = path,
         .directives = directives,
@@ -669,7 +672,7 @@ static ParseResult parser_parse_import(Parser* const parser, LL_Directive const 
     }
 
     ASTNode const node = {
-        .id = parser->next_id++,
+        .id = { parser->next_node_id++ },
         .type = ANT_IMPORT,
         .node.import = {
             .type = type,
@@ -701,7 +704,7 @@ static ParseResult parser_parse_typedef(Parser* const parser, LL_Directive const
     assert(parser_consume(parser, TT_SEMICOLON, "Expected ';' after typedef."));
 
     return parseres_ok((ASTNode){
-        .id = parser->next_id++,
+        .id = { parser->next_node_id++ },
         .type = ANT_TYPEDEF_DECL,
         .node.typedef_decl = {
             .name = {
@@ -739,7 +742,7 @@ static ParseResult parser_parse_struct_decl(Parser* const parser, LL_Directive c
     assert(parser_consume(parser, TT_RIGHT_BRACE, "Expected '}'."));
 
     return parseres_ok((ASTNode){
-        .id = parser->next_id++,
+        .id = { parser->next_node_id++ },
         .type = ANT_STRUCT_DECL,
         .node.struct_decl = {
             .maybe_name = m_name,
@@ -758,7 +761,7 @@ static ParseResult parser_parse_lit_str(Parser* const parser, LL_Directive const
     if (litstr.length <= 1) {
         error(parser, "Missing string boundaries.");
         return parseres_err((ASTNode){
-            .id = parser->next_id++,
+            .id = { parser->next_node_id++ },
             .type = ANT_LITERAL,
             .node.literal = {
                 .kind = LK_STR,
@@ -772,7 +775,7 @@ static ParseResult parser_parse_lit_str(Parser* const parser, LL_Directive const
     }
 
     return parseres_ok((ASTNode){
-        .id = parser->next_id++,
+        .id = { parser->next_node_id++ },
         .type = ANT_LITERAL,
         .node.literal = {
             .kind = LK_STR,
@@ -797,7 +800,7 @@ static ParseResult parser_parse_lit_char_s(Parser* const parser, LL_Directive co
         error(parser, "Empty character not allowed.");
         static char NULL_CHAR = '\0';
         return parseres_err((ASTNode){
-            .id = parser->next_id++,
+            .id = { parser->next_node_id++ },
             .type = ANT_LITERAL,
             .node.literal.kind = LK_CHAR,
             .node.literal.value.lit_char = {
@@ -811,7 +814,7 @@ static ParseResult parser_parse_lit_char_s(Parser* const parser, LL_Directive co
     // typical character
     if (litchar_s.length == 3) {
         return parseres_ok((ASTNode){
-            .id = parser->next_id++,
+            .id = { parser->next_node_id++ },
             .type = ANT_LITERAL,
             .node.literal.kind = LK_CHAR,
             .node.literal.value.lit_char = {
@@ -825,7 +828,7 @@ static ParseResult parser_parse_lit_char_s(Parser* const parser, LL_Directive co
     // escaped character
     if (litchar_s.start[1] == '\\' && litchar_s.length == 4) {
         return parseres_ok((ASTNode){
-            .id = parser->next_id++,
+            .id = { parser->next_node_id++ },
             .type = ANT_LITERAL,
             .node.literal.kind = LK_CHAR,
             .node.literal.value.lit_char = {
@@ -838,7 +841,7 @@ static ParseResult parser_parse_lit_char_s(Parser* const parser, LL_Directive co
 
     // many characters
     return parseres_ok((ASTNode){
-        .id = parser->next_id++,
+        .id = { parser->next_node_id++ },
         .type = ANT_LITERAL,
         .node.literal.kind = LK_CHARS,
         .node.literal.value.lit_chars = {
@@ -868,7 +871,7 @@ static ParseResult parser_parse_lit_number(Parser* const parser, LL_Directive co
 
     if (has_decimal) {
         return parseres_ok((ASTNode){
-            .id = parser->next_id++,
+            .id = { parser->next_node_id++ },
             .type = ANT_LITERAL,
             .node.literal.kind = LK_FLOAT,
             .node.literal.value.lit_float = atof(str.chars),
@@ -877,7 +880,7 @@ static ParseResult parser_parse_lit_number(Parser* const parser, LL_Directive co
     }
 
     return parseres_ok((ASTNode){
-        .id = parser->next_id++,
+        .id = { parser->next_node_id++ },
         .type = ANT_LITERAL,
         .node.literal.kind = LK_INT,
         .node.literal.value.lit_int = atoll(str.chars),
@@ -905,7 +908,7 @@ static ParseResult parser_parse_var_ref(Parser* const parser, LL_Directive const
     }
 
     return parseres_ok((ASTNode){
-        .id = parser->next_id++,
+        .id = { parser->next_node_id++ },
         .type = ANT_VAR_REF,
         .node.var_ref.path = path,
         .directives = directives,
@@ -925,7 +928,7 @@ static ParseResult parser_parse_get_field(Parser* const parser, ASTNode expr) {
     *root = expr;
 
     return parseres_ok((ASTNode){
-        .id = parser->next_id++,
+        .id = { parser->next_node_id++ },
         .type = ANT_GET_FIELD,
         .node.get_field = {
             .root = root,
@@ -949,7 +952,7 @@ static ParseResult parser_parse_fn_call(Parser* const parser, ASTNode expr) {
     *target = expr;
 
     ASTNode fn_call = {
-        .id = parser->next_id++,
+        .id = { parser->next_node_id++ },
         .type = ANT_FUNCTION_CALL,
         .node.function_call = {
             .function = target,
@@ -997,7 +1000,7 @@ static ParseResult parser_parse_sizeof(Parser* const parser, LL_Directive const 
     assert(parser_consume(parser, TT_RIGHT_PAREN, "Exptected ')'"));
 
     return parseres_ok((ASTNode){
-        .id = parser->next_id++,
+        .id = { parser->next_node_id++ },
         .type = ANT_SIZEOF,
         .node.sizeof_ = {
             .kind = SOK_TYPE,
@@ -1053,7 +1056,7 @@ static ParseResult parser_parse_unary(Parser* const parser, LL_Directive const d
     *rhs = rhs_res.node;
 
     ASTNode unary = {
-        .id = parser->next_id++,
+        .id = { parser->next_node_id++ },
         .type = ANT_UNARY_OP,
         .node.unary_op = {
             .op = op,
@@ -1172,7 +1175,7 @@ static ParseResult parser_parse_var_decl(Parser* const parser, LL_Directive cons
     assert(parser_consume(parser, TT_SEMICOLON, "Expected ';'."));
 
     return parseres_ok((ASTNode){
-        .id = parser->next_id++,
+        .id = { parser->next_node_id++ },
         .type = ANT_VAR_DECL,
         .node.var_decl = {
             .is_static = is_static,
@@ -1201,7 +1204,7 @@ static ParseResult parser_parse_return(Parser* const parser, LL_Directive const 
     }
 
     return parseres_ok((ASTNode){
-        .id = parser->next_id++,
+        .id = { parser->next_node_id++ },
         .type = ANT_RETURN,
         .node.return_.maybe_expr = m_expr,
         .directives = directives,
@@ -1234,7 +1237,7 @@ static ParseResult parser_parse_assignment(Parser* const parser, ASTNode expr) {
     *rhs = rhs_res.node;
 
     ASTNode assignment = {
-        .id = parser->next_id++,
+        .id = { parser->next_node_id++ },
         .type = ANT_ASSIGNMENT,
         .node.assignment = {
             .lhs = lhs,
@@ -1377,7 +1380,7 @@ static ParseResult parser_parse_fn_decl(Parser* const parser, LL_Directive const
     if (parser_peek(parser).type == TT_SEMICOLON) {
         parser_advance(parser);
         return parseres_ok((ASTNode){
-            .id = parser->next_id++,
+            .id = { parser->next_node_id++ },
             .type = ANT_FUNCTION_HEADER_DECL,
             .node.function_header_decl = {
                 .return_type = *type,
@@ -1389,7 +1392,7 @@ static ParseResult parser_parse_fn_decl(Parser* const parser, LL_Directive const
     }
 
     ASTNode node = {
-        .id = parser->next_id++,
+        .id = { parser->next_node_id++ },
         .type = ANT_FUNCTION_DECL,
         .node.function_decl = {
             .header = {
@@ -1446,7 +1449,7 @@ static ParseResult parser_parse_file_separator(Parser* const parser, LL_Directiv
     assert(directives.length == 0);
 
     return parseres_ok((ASTNode){
-        .id = parser->next_id++,
+        .id = { parser->next_node_id++ },
         .type = ANT_FILE_SEPARATOR,
         .node.file_separator = NULL,
         .directives = directives,
@@ -1506,7 +1509,8 @@ Parser parser_create(Arena* const arena, ArrayList_Token const tokens) {
         .had_error = false,
         .panic_mode = false,
 
-        .next_id = 0,
+        .next_node_id = 0,
+        .next_type_id = 0,
     };
 }
 
@@ -1531,7 +1535,7 @@ ASTNodeResult parser_parse(Parser* const parser) {
     }
 
     ASTNode* const file_root = arena_alloc(parser->arena, sizeof(ASTNode));
-    file_root->id = parser->next_id++;
+    file_root->id.val = parser->next_node_id++;
     file_root->type = ANT_FILE_ROOT;
     file_root->node.file_root = (ASTNodeFileRoot){ .nodes = nodes };
 

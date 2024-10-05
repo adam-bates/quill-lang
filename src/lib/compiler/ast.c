@@ -5,6 +5,117 @@
 #include "./ast.h"
 #include "../utils/utils.h"
 
+ASTNode* find_decl_by_id(ASTNodeFileRoot root, NodeId id) {
+    LLNode_ASTNode* curr = root.nodes.head;
+    while (curr) {
+        if (curr->data.id.val == id.val) {
+            return &curr->data;
+        }
+        curr = curr->next;
+    }
+
+    return NULL;
+}
+
+ASTNode* find_decl_by_name(ASTNodeFileRoot root, String name) {
+    LLNode_ASTNode* curr = root.nodes.head;
+    while (curr) {
+        ASTNode node = curr->data;
+        switch (node.type) {
+            case ANT_VAR_DECL: {
+                if (node.node.var_decl.lhs.type == VDLT_NAME && str_eq(node.node.var_decl.lhs.lhs.name, name)) {
+                    return &curr->data;
+                }
+                break;
+            }
+
+            case ANT_STRUCT_DECL: {
+                if (node.node.struct_decl.maybe_name && str_eq(*node.node.struct_decl.maybe_name, name)) {
+                    return &curr->data;
+                }
+                break;
+            }
+
+            case ANT_UNION_DECL: {
+                if (node.node.union_decl.maybe_name && str_eq(*node.node.union_decl.maybe_name, name)) {
+                    return &curr->data;
+                }
+                break;
+            }
+
+            case ANT_ENUM_DECL: {
+                if (str_eq(node.node.enum_decl.name, name)) {
+                    return &curr->data;
+                }
+                break;
+            }
+
+            case ANT_TYPEDEF_DECL: {
+                if (str_eq(node.node.typedef_decl.name, name)) {
+                    return &curr->data;
+                }
+                break;
+            }
+
+            case ANT_GLOBALTAG_DECL: {
+                if (node.node.globaltag_decl.maybe_name && str_eq(*node.node.globaltag_decl.maybe_name, name)) {
+                    return &curr->data;
+                }
+                break;
+            }
+
+            case ANT_FUNCTION_HEADER_DECL: {
+                if (str_eq(node.node.function_header_decl.name, name)) {
+                    return &curr->data;
+                }
+                break;
+            }
+
+            case ANT_FUNCTION_DECL: {
+                if (str_eq(node.node.function_decl.header.name, name)) {
+                    return &curr->data;
+                }
+                break;
+            }
+
+            case ANT_NONE: break;
+            case ANT_FILE_SEPARATOR: break;
+            case ANT_UNARY_OP: break;
+            case ANT_BINARY_OP: break;
+            case ANT_LITERAL: break;
+            case ANT_VAR_REF: break;
+            case ANT_GET_FIELD: break;
+            case ANT_ASSIGNMENT: break;
+            case ANT_FUNCTION_CALL: break;
+            case ANT_STATEMENT_BLOCK: break;
+            case ANT_IF: break;
+            case ANT_ELSE: break;
+            case ANT_TRY: break;
+            case ANT_CATCH: break;
+            case ANT_BREAK: break;
+            case ANT_WHILE: break;
+            case ANT_DO_WHILE: break;
+            case ANT_FOR: break;
+            case ANT_RETURN: break;
+            case ANT_STRUCT_INIT: break;
+            case ANT_ARRAY_INIT: break;
+            case ANT_IMPORT: break;
+            case ANT_PACKAGE: break;
+            case ANT_TEMPLATE_STRING: break;
+            case ANT_CRASH: break;
+            case ANT_SIZEOF: break;
+            case ANT_SWITCH: break;
+            case ANT_CAST: break;
+
+            case ANT_FILE_ROOT:
+            case ANT_COUNT: assert(false);
+        }
+        curr = curr->next;
+    }
+
+    return NULL;
+}
+
 void ll_ast_push(Arena* const arena, LL_ASTNode* const ll, ASTNode const node) {
     LLNode_ASTNode* const llnode = arena_alloc(arena, sizeof(LLNode_ASTNode));
     llnode->data = node;
