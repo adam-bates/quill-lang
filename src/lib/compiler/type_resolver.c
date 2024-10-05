@@ -204,7 +204,7 @@ static void scope_set(Scope* scope, String key, ResolvedType* value) {
     size_t idx = hash_str(key);
     Bucket* bucket = scope->lookup_buckets + idx;
 
-    if (!bucket || bucket->array == NULL) {
+    if (!bucket || !bucket->array) {
         *bucket = bucket_create(scope->arena);
     }
 
