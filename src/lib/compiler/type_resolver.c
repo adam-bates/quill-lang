@@ -46,7 +46,7 @@ typedef enum {
     VS_VISITED,
 } VisitState;
 
-static bool _has_cycle_dfs(AdjacencyList* list, VisitState* states, size_t n) {
+static bool _topo_sort_dfs(AdjacencyList* list, VisitState* states, size_t n, size_t* sorted, size_t* sort_index) {
     states[n] = VS_VISITING;
 
     for (size_t i = 0; i < list->length; ++i) {
@@ -56,26 +56,31 @@ static bool _has_cycle_dfs(AdjacencyList* list, VisitState* states, size_t n) {
 
         if (
             states[i] == VS_VISITING
-            || (states[i] == VS_UNVISITED && _has_cycle_dfs(list, states, i))
+            || (states[i] == VS_UNVISITED && _topo_sort_dfs(list, states, i, sorted, sort_index))
         ) {
-            return true;
+            return false;
         }
     }
 
     states[n] = VS_VISITED;
-    return false;
+    sorted[*sort_index] = n;
+    *sort_index += 1;
+
+    return true;
 }
 
-static bool has_cycle(AdjacencyList* list) {
+static bool topological_sort(AdjacencyList* list, size_t* sorted) {
     VisitState* states = arena_calloc(list->arena, list->length, sizeof *states);
+    size_t sort_index = 0;
 
     for (size_t i = 0; i < list->length; ++i) {
-        if (states[i] == VS_UNVISITED && _has_cycle_dfs(list, states, i)) {
-            return true;
+        if (states[i] == VS_UNVISITED && !_topo_sort_dfs(list, states, i, sorted, &sort_index)) {
+            // cycle detected, can't sort
+            return false;
         }
     }
 
-    return false;
+    return true;
 }
 
 static void resolve_types_across_files(TypeResolver* type_resolver) {
@@ -102,6 +107,12 @@ static void resolve_types_across_files(TypeResolver* type_resolver) {
                     PackagePath* dependee = import_path_to_package_path(type_resolver->arena, path);
                     assert(dependee);
 
+                    Package* found = packages_resolve(&type_resolver->packages, dependee);
+                    if (!found) {
+                        printf("Cannot find package [%s]\n", package_path_to_str(type_resolver->arena, dependee).chars);
+                        assert(false);
+                    }
+
                     add_package_dependency(&dependencies, dependent, *dependee);
                 }
 
@@ -126,11 +137,29 @@ static void resolve_types_across_files(TypeResolver* type_resolver) {
         printf("- [%s] depends on [%s]\n", str1, str2);
     }
 
-    if (has_cycle(&dependencies)) {
-        printf("ERROR! Cycle detected!\n");
-    } else {
-        printf("No cycles detected!\n");
+    size_t* sorted = arena_calloc(dependencies.arena, dependencies.length, sizeof *sorted);
+    assert(sorted);
+    assert(topological_sort(&dependencies, sorted));
+
+    printf("SORTED DEPENDENCIES:\n");
+    for (size_t si = 0; si < dependencies.length; ++si) {
+        size_t i = sorted[si];
+
+        PackagePath p1 = dependencies.dependents[i];
+        char const* str1;
+        if (p1.name.length > 0) {
+            str1 = arena_strcpy(type_resolver->arena, package_path_to_str(type_resolver->arena, &p1)).chars;
+        } else {
+            str1 = "<main>";
+        }
+
+        PackagePath p2 = dependencies.dependees[i];
+        char const* str2 = arena_strcpy(type_resolver->arena, package_path_to_str(type_resolver->arena, &p2)).chars;
+
+        printf("- [%s] depends on [%s]\n", str1, str2);
     }
+
+    //
 
     assert(false);
 }
