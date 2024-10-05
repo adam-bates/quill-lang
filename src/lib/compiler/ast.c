@@ -278,7 +278,7 @@ PackagePath* import_path_to_package_path(Arena* arena, ImportPath* import_path) 
     return package_path;
 }
 
-ImportPath* package_to_import_path(Arena* arena, PackagePath* package_path) {
+ImportPath* package_path_to_import_path(Arena* arena, PackagePath* package_path) {
     if (!package_path) { return NULL; }
 
     ImportPath* import_path = arena_alloc(arena, sizeof *import_path);
@@ -287,7 +287,7 @@ ImportPath* package_to_import_path(Arena* arena, PackagePath* package_path) {
         *import_path = (ImportPath){
             .type = IPT_DIR,
             .import.dir.name = package_path->name,
-            .import.dir.child = package_to_import_path(arena, package_path->child),
+            .import.dir.child = package_path_to_import_path(arena, package_path->child),
         };
     } else {
         *import_path = (ImportPath){

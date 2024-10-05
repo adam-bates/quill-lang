@@ -251,6 +251,35 @@ TypeResolver type_resolver_create(Arena* arena, Packages packages) {
     };
 }
 
+static ImportPath* expand_import_path(TypeResolver* type_resolver, ASTNodeImport* import) {
+    if (!import) {
+        return NULL;
+    }
+
+    switch (import->type) {
+        case IT_DEFAULT: return import->import_path;
+
+        case IT_LOCAL: {
+            ImportPath* local = package_path_to_import_path(type_resolver->arena, type_resolver->current_package);
+            ImportPath* curr = local;
+            while (curr->type == IPT_DIR && curr->import.dir.child->type == IPT_DIR) {
+                curr = curr->import.dir.child;
+                assert(curr);
+            }
+            curr->import.dir.child = import->import_path;
+            return local;
+        }
+
+        case IT_ROOT: {
+            ImportPath* root = arena_alloc(type_resolver->arena, sizeof *root);
+            root->type = IPT_DIR;
+            root->import.dir.name = type_resolver->current_package->name;
+            root->import.dir.child = import->import_path;
+            return root;
+        }
+    }
+}
+
 static void resolve_file(TypeResolver* type_resolver, Scope* scope, ASTNodeFileRoot file);
 
 void resolve_types(TypeResolver* type_resolver) {
@@ -278,7 +307,10 @@ void resolve_types(TypeResolver* type_resolver) {
                 if (decl->data.type == ANT_IMPORT) {
                     has_imports = true;
 
-                    ImportPath* path = decl->data.node.import.import_path;
+                    type_resolver->current_package = &dependent;
+                    ImportPath* path = expand_import_path(type_resolver, &decl->data.node.import);
+                    type_resolver->current_package = NULL;
+
                     PackagePath* dependency = import_path_to_package_path(type_resolver->arena, path);
                     assert(dependency);
 
@@ -366,8 +398,10 @@ void resolve_types(TypeResolver* type_resolver) {
         assert(pkg);
         assert(pkg->ast->type == ANT_FILE_ROOT);
 
+        type_resolver->current_package = path;
         Scope scope = scope_create(type_resolver->arena, NULL);
         resolve_file(type_resolver, &scope, pkg->ast->node.file_root);
+        type_resolver->current_package = NULL;
     }
 }
 
@@ -460,10 +494,12 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 break;
             }
             
-            assert(node->node.import.type == IT_DEFAULT); // TODO
-
-            PackagePath* to_import_path = import_path_to_package_path(type_resolver->arena, node->node.import.import_path);
+            ImportPath* import_path = expand_import_path(type_resolver, (ASTNodeImport*)&node->node.import);
+            PackagePath* to_import_path = import_path_to_package_path(type_resolver->arena, import_path);
             Package* package = packages_resolve(&type_resolver->packages, to_import_path);
+            if (!package) {
+                printf("ERROR! Could not resolve: \"%s\"\n", package_path_to_str(type_resolver->arena, to_import_path).chars);
+            }
             assert(package);
 
             ImportPath* ip_curr = node->node.import.import_path;

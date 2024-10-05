@@ -1,5 +1,7 @@
 package example/tmp;
 
+import ./tmp2;
+
 void f() {
-	// TODO
+	tmp2::g();
 }

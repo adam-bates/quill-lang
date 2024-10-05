@@ -7,6 +7,8 @@
 typedef struct {
     Arena* arena;
     Packages packages;
+
+    PackagePath* current_package;
 } TypeResolver;
 
 TypeResolver type_resolver_create(Arena* arena, Packages packages);

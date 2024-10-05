@@ -154,6 +154,10 @@ void parse_args(Arena* arena, QuillcArgs* out, int const argc, char* const argv[
         }
     }
 
+    for (size_t i = 0; i < out->paths_to_include.length; ++i) {
+        out->paths_to_include.strings[i] = arena_strcpy(arena, out->paths_to_include.strings[i]);
+    }
+
     // debug print args
     {
         printf("\n");
@@ -169,7 +173,7 @@ void parse_args(Arena* arena, QuillcArgs* out, int const argc, char* const argv[
         if (out->paths_to_include.length > 0) {
             printf("- source paths:\n");
             for (uint8_t i = 0; i < out->paths_to_include.length; ++i) {
-                printf("  - %s\n", out->paths_to_include.strings[i].chars);
+                printf("  - \"%s\"\n", out->paths_to_include.strings[i].chars);
             }
         }
 
