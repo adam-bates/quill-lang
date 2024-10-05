@@ -207,28 +207,31 @@ void resolve_types(TypeResolver* type_resolver) {
             printf("- [%s] depends on [%s]\n", str1, str2);
         }
         printf("\n");
+
+        for (size_t i = 0; i < to_resolve.length; ++i) {
+            PackagePath* path = to_resolve.array + i;
+            assert(path);
+
+            char const* name = "<main>";
+            if (path->name.length > 0) {
+                name = package_path_to_str(type_resolver->arena, path).chars;
+            }
+            printf("TODO: resolve [%s]\n", name);
+        }
+        printf("\n");
     }
 
     for (size_t i = 0; i < to_resolve.length; ++i) {
         PackagePath* path = to_resolve.array + i;
-        assert(path);
-
-        char const* name = "<main>";
-        if (path->name.length > 0) {
-            name = package_path_to_str(type_resolver->arena, path).chars;
+        if (path->name.length == 0) {
+            path = NULL;
         }
-        printf("TODO: resolve [%s]\n", name);
 
-        Package* pkg = packages_resolve(&type_resolver->packages, path->name.length > 0 ? path : NULL);
+        Package* pkg = packages_resolve(&type_resolver->packages, path);
         assert(pkg);
 
         // TODO: resolve declarations
     }
-    printf("\n");
-
-    //
-
-    assert(false);
 }
 
 // #define RESOLVE_ITERS_MAX 1024
