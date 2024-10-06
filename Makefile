@@ -20,9 +20,6 @@ example-hello: clean build
 	&& ./main \
 	&& cd .. \
 
-run-libc: build
-	.bin/quillc ./brainstorm/libc/stdio.ql
-
 setup:
 	mkdir -p ./.bin
 
