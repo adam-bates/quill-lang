@@ -67,7 +67,7 @@ It will probably never be ready for you or others to use, and that's ok. If you 
 
 ## Using the language
 
-For now, there is only a compiler which handles single files. I'll improve the tooling later.
+For now, there is only a barebones compiler which outputs c-files. I'll improve the tooling later.
 
 Download this repo, then build the compiler using:
 ```
