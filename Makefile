@@ -11,14 +11,14 @@ test-lexer: setup
 
 test: test-lexer
 
-run: build
+run: clean build
 	mkdir -p ./.bin/tmp \
-	&& .bin/quillc ./examples/hello.ql > ./.bin/tmp/main.c \
-	&& cd ./.bin/tmp \
-	&& gcc -std=c99 -o main ./main.c \
+	&& .bin/quillc ./examples/hello.ql -D=./.bin/tmp -lstd=./brainstorm/std/std.ql ./brainstorm/std/io.ql -llibc=./brainstorm/libc/stdio.ql \
+	&& cd ./.bin \
+	&& gcc -std=c99 -o main -I./tmp ./tmp/*.c  \
 	&& clear \
 	&& ./main \
-	&& cd ../.. \
+	&& cd .. \
 
 run-libc: build
 	.bin/quillc ./brainstorm/libc/stdio.ql

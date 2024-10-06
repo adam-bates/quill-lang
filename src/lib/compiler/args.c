@@ -58,6 +58,18 @@ static ArgMatcher matcher_for(Arena* arena, Strings args, QuillcOption opt) {
             };
         }
 
+        case QO_BUILD_DIR: {
+            static size_t const patterns_len = 2;
+            Strings patterns = { patterns_len, arena_calloc(arena, patterns_len, sizeof(Strings)) };
+            patterns.strings[0] = c_str("-D");
+            patterns.strings[1] = c_str("--build-dir");
+            return (ArgMatcher){
+                .is_path = true,
+                .patterns = patterns,
+                .arg = args.strings + opt,
+            };
+        }
+
         default: assert(false);
     }
 }

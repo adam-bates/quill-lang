@@ -10,6 +10,7 @@ typedef enum {
     QO_OUTPUT,
     QO_LSTD,
     QO_LLIBC,
+    QO_BUILD_DIR,
 
     QO_COUNT
 } QuillcOption;

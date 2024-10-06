@@ -5,6 +5,7 @@
 #include "./base.h"
 #include "./string.h"
 
-String file_read(Arena* const arena, String path_s);
+String file_read(Arena* arena, String path_s);
+void write_file(Arena* arena, String dir, String file, String content);
 
 #endif

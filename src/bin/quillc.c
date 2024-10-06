@@ -82,12 +82,13 @@ int main(int const argc, char* const argv[]) {
     CodegenC codegen = codegen_c_create(&arena, &packages);
     GeneratedFiles const c_code = generate_c_code(&codegen);
 
+    String build_dir = args.opt_args.strings[QO_BUILD_DIR];
+    assert(build_dir.length);
+
     printf("C Code:\n");
     for (size_t i = 0; i < c_code.length; ++i) {
         GeneratedFile* file = c_code.files + i;
-
-        printf("// \"%s\"\n", arena_strcpy(&arena, file->filepath).chars);
-        printf("%s\n", arena_strcpy(&arena, file->content).chars);
+        write_file(&arena, build_dir, file->filepath, file->content);
     }
 
     // cleanup
