@@ -43,4 +43,7 @@ Packages packages_create(Arena* arena);
 Package* packages_resolve(Packages* packages, PackagePath* name);
 Package* packages_resolve_or_create(Packages* packages, PackagePath* name);
 
+TypeInfo* packages_type_by_node(Packages* packages, NodeId node_id);
+TypeInfo* packages_type_by_type(Packages* packages, TypeId type_id);
+
 #endif

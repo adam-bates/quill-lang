@@ -108,3 +108,11 @@ Packages packages_create(Arena* arena) {
         .string_literal_type = NULL,
     };
 }
+
+TypeInfo* packages_type_by_node(Packages* packages, NodeId node_id) {
+    return packages->types + node_id.val;
+}
+
+TypeInfo* packages_type_by_type(Packages* packages, TypeId type_id) {
+    return packages->types + (packages->types_length - 1 - type_id.val);
+}

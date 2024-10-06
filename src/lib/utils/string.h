@@ -5,7 +5,7 @@
 
 typedef struct {
     size_t      length;
-    char const* chars;
+    char* chars;
 } String;
 
 typedef struct {

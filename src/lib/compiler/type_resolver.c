@@ -448,7 +448,7 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
                 ASTNode* node = find_decl_by_name(rt->type.namespace_->ast->node.file_root, static_path->name);
                 assert(node);
 
-                ResolvedType* tmp = type_resolver->packages->types[node->id.val].type;
+                ResolvedType* tmp = packages_type_by_node(type_resolver->packages, node->id)->type;
                 if (!tmp) {
                     printf("failed lookup for: \"%s\"\n", arena_strcpy(type_resolver->arena, static_path->name).chars);
                     assert(rt->type.namespace_->ast->node.file_root.nodes.head);
@@ -476,7 +476,12 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
     // printf("TK-%d\n", type->kind);
     switch (type->kind) {
         case TK_TYPE_REF: {
-            return scope_get(scope, type->type.type_ref.name);
+            ResolvedType* resolved_type = scope_get(scope, type->type.type_ref.name);
+            *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+                .status = TIS_CONFIDENT,
+                .type = resolved_type,
+            };
+            return resolved_type;
         }
 
         case TK_STATIC_PATH: {
@@ -488,25 +493,37 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
             switch (type->type.built_in) {
                 case TBI_VOID: {
                     ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
-                    resolved_type->from_pkg = type_resolver->current_package->full_name;
+                    resolved_type->from_pkg = type_resolver->current_package;
                     resolved_type->kind = RTK_VOID;
                     resolved_type->type.void_ = NULL;
+                    *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = resolved_type,
+                    };
                     return resolved_type;
                 }
 
                 case TBI_UINT: {
                     ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
-                    resolved_type->from_pkg = type_resolver->current_package->full_name;
+                    resolved_type->from_pkg = type_resolver->current_package;
                     resolved_type->kind = RTK_UINT;
                     resolved_type->type.uint_ = NULL;
+                    *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = resolved_type,
+                    };
                     return resolved_type;
                 }
 
                 case TBI_CHAR: {
                     ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
-                    resolved_type->from_pkg = type_resolver->current_package->full_name;
+                    resolved_type->from_pkg = type_resolver->current_package;
                     resolved_type->kind = RTK_CHAR;
                     resolved_type->type.char_ = NULL;
+                    *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = resolved_type,
+                    };
                     return resolved_type;
                 }
 
@@ -518,17 +535,25 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
 
         case TK_POINTER: {
             ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
-            resolved_type->from_pkg = type_resolver->current_package->full_name;
+            resolved_type->from_pkg = type_resolver->current_package;
             resolved_type->kind = RTK_POINTER;
             resolved_type->type.ptr.of = calc_resolved_type(type_resolver, scope, type->type.ptr.of);
+            *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+                .status = TIS_CONFIDENT,
+                .type = resolved_type,
+            };
             return resolved_type;
         }
 
         case TK_MUT_POINTER: {
             ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
-            resolved_type->from_pkg = type_resolver->current_package->full_name;
+            resolved_type->from_pkg = type_resolver->current_package;
             resolved_type->kind = RTK_MUT_POINTER;
             resolved_type->type.mut_ptr.of = calc_resolved_type(type_resolver, scope, type->type.mut_ptr.of);
+            *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+                .status = TIS_CONFIDENT,
+                .type = resolved_type,
+            };
             return resolved_type;
         }
 
@@ -547,7 +572,7 @@ static Changed resolve_type_type(TypeResolver* type_resolver, Scope* scope, ASTN
     if (!resolved_type) {
         return false;
     }
-    resolved_type->from_pkg = type_resolver->current_package->full_name;
+    resolved_type->from_pkg = type_resolver->current_package;
     resolved_type->src = node;
 
     type_resolver->packages->types[node->id.val] = (TypeInfo){
@@ -570,7 +595,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
             *resolved_type = (ResolvedType){
                 .src = node,
-                .from_pkg = type_resolver->current_package->full_name,
+                .from_pkg = type_resolver->current_package,
                 .kind = RTK_NAMESPACE,
                 .type.namespace_ = type_resolver->current_package,
             };
@@ -608,7 +633,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 // Importing a package namespace, no specific decl
                 ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
                 *resolved_type = (ResolvedType){
-                    .from_pkg = type_resolver->current_package->full_name,
+                    .from_pkg = type_resolver->current_package,
                     .src = node,
                     .kind = RTK_NAMESPACE,
                     .type.namespace_ = package,
@@ -829,7 +854,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 }
             } else {
                 ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
-                resolved_type->from_pkg = type_resolver->current_package->full_name;
+                resolved_type->from_pkg = type_resolver->current_package;
                 resolved_type->src = node;
                 resolved_type->kind = RTK_VOID;
                 resolved_type->type.void_ = NULL;
@@ -850,12 +875,27 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         case ANT_CRASH: assert(false); // TODO
 
         case ANT_SIZEOF: {
+            if (node->node.sizeof_.kind == SOK_EXPR) {
+                if (!packages_type_by_node(type_resolver->packages, node->node.sizeof_.sizeof_.expr->id)) {
+                    changed |= resolve_type_node(type_resolver, scope, node->node.sizeof_.sizeof_.expr);
+                }
+            } else if (!packages_type_by_type(type_resolver->packages, node->node.sizeof_.sizeof_.type->id)) {
+                ResolvedType* resolved_type = calc_resolved_type(type_resolver, scope, node->node.sizeof_.sizeof_.type);
+                assert(resolved_type);
+                resolved_type->from_pkg = type_resolver->current_package;
+                resolved_type->src = node;
+                *packages_type_by_type(type_resolver->packages, node->node.sizeof_.sizeof_.type->id) = (TypeInfo){
+                    .status = TIS_CONFIDENT,
+                    .type = resolved_type,
+                };
+                changed = true;
+            }
+
             if (type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
                 break;
             }
-
             ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
-            resolved_type->from_pkg = type_resolver->current_package->full_name;
+            resolved_type->from_pkg = type_resolver->current_package;
             resolved_type->src = node;
             resolved_type->kind = RTK_UINT;
             resolved_type->type.uint_ = NULL;
@@ -901,7 +941,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             }
 
             ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
-            resolved_type->from_pkg = type_resolver->current_package->full_name;
+            resolved_type->from_pkg = type_resolver->current_package;
             resolved_type->src = node;
             resolved_type->kind = RTK_STRUCT;
             resolved_type->type.struct_ = (ResolvedStruct){
@@ -997,7 +1037,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
                 ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
                 *resolved_type = (ResolvedType){
-                    .from_pkg = type_resolver->current_package->full_name,
+                    .from_pkg = type_resolver->current_package,
                     .src = node,
                     .kind = RTK_FUNCTION,
                     .type.function = {
@@ -1049,7 +1089,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
                 ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
                 *resolved_type = (ResolvedType){
-                    .from_pkg = type_resolver->current_package->full_name,
+                    .from_pkg = type_resolver->current_package,
                     .src = node,
                     .kind = RTK_FUNCTION,
                     .type.function = {

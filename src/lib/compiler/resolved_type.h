@@ -7,6 +7,7 @@
 typedef struct {
     PackagePath* full_name;
     ASTNode const* ast;
+    bool is_entry;
 } Package;
 
 typedef enum {
@@ -59,7 +60,7 @@ typedef struct {
 
 typedef struct ResolvedType {
     ResolvedTypeKind kind;
-    PackagePath* from_pkg;
+    Package* from_pkg;
     ASTNode const* src;
     union {
         Package* namespace_;

@@ -57,9 +57,23 @@ int main(int const argc, char* const argv[]) {
         Package* pkg = packages_resolve_or_create(&packages, package_name);
         assert(!pkg->ast);
         pkg->ast = ast;
+
+        // look for main
+        {
+            LLNode_ASTNode* curr = ast->node.file_root.nodes.head;
+            while (curr) {
+                if (curr->data.type == ANT_FUNCTION_DECL) {
+                    if (curr->data.node.function_decl.header.is_main) {
+                        pkg->is_entry = true;
+                    }
+                }
+
+                curr = curr->next;
+            }
+        }
     }
 
-    packages.types_length = next_node_id;
+    packages.types_length = next_node_id + next_type_id;
     packages.types = arena_calloc(&arena, packages.types_length, sizeof *packages.types);
 
     TypeResolver type_resolver = type_resolver_create(&arena, &packages);
