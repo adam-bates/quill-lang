@@ -336,9 +336,9 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
                 case LK_CHAR: {
                     StringBuffer sb = strbuf_create(codegen->arena);
-                    strbuf_append_char(&sb, '\'');
+                    strbuf_append_chars(&sb, "(((char_){'");
                     strbuf_append_str(&sb, node->node.literal.value.lit_char);
-                    strbuf_append_char(&sb, '\'');
+                    strbuf_append_chars(&sb, "'})._)");
                     String value = strbuf_to_str(sb);
 
                     ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
@@ -752,7 +752,7 @@ static LL_IR_C_Node transform_to_nodes(CodegenC* codegen, Package* package, File
             .type = ICNT_MACRO_INCLUDE,
             .node.include = {
                 .is_local = false,
-                .file = c_str("<stdlib.h>"),
+                .file = c_str("\"_.h\""),
             },
         });
     }
@@ -1054,6 +1054,40 @@ GeneratedFiles generate_c_code(CodegenC* codegen) {
                 file->nodes = transform_to_nodes(codegen, package, FT_HEADER);
             }
         }
+    }
+
+    {
+        LL_IR_C_Node common = {0};
+        {
+            ll_node_push(codegen->arena, &common, (IR_C_Node){
+                .type = ICNT_MACRO_IFNDEF,
+                .node.ifndef.condition = c_str("_h"),
+            });
+            ll_node_push(codegen->arena, &common, (IR_C_Node){
+                .type = ICNT_MACRO_DEFINE,
+                .node.define.name = c_str("_h"),
+            });
+
+            ll_node_push(codegen->arena, &common, (IR_C_Node){
+                .type = ICNT_MACRO_INCLUDE,
+                .node.include = {
+                    .is_local = false,
+                    .file = c_str("<stdlib.h>"),
+                },
+            });
+            ll_node_push(codegen->arena, &common, (IR_C_Node){
+                .type = ICNT_VAR_REF,
+                .node.var_ref.name = c_str("typedef struct { char _; } char_;\n"),
+            });
+            ll_node_push(codegen->arena, &common, (IR_C_Node){
+                .type = ICNT_MACRO_ENDIF,
+                .node.endif._ = NULL,
+            });
+        }
+        codegen->ir.files[codegen->ir.files_length++] = (IR_C_File){
+            .name = c_str("_.h"),
+            .nodes = common,
+        };
     }
 
     GeneratedFiles files = {
