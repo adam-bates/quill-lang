@@ -74,7 +74,7 @@ static String gen_c_file_path(Arena* arena, PackagePath* package_path) {
     if (!package_path) {
         return c_str("main.c");
     }
-    
+
     StringBuffer sb = strbuf_create(arena);
     _append_file_path(&sb, package_path);
     strbuf_append_chars(&sb, ".c");
@@ -85,7 +85,7 @@ static String gen_header_file_path(Arena* arena, PackagePath* package_path) {
     if (!package_path) {
         return c_str("main.h");
     }
-    
+
     StringBuffer sb = strbuf_create(arena);
     _append_file_path(&sb, package_path);
     strbuf_append_chars(&sb, ".h");
@@ -93,15 +93,16 @@ static String gen_header_file_path(Arena* arena, PackagePath* package_path) {
 }
 
 static String gen_name(CodegenC* codegen, PackagePath* pkg, String name) {
-    StringBuffer sb = strbuf_create(codegen->arena);
-    while (pkg) {
-        strbuf_append_str(&sb, pkg->name);
-        strbuf_append_char(&sb, '_');
-        pkg = pkg->child;
-    }
-    strbuf_append_char(&sb, '_');
-    strbuf_append_str(&sb, name);
-    return strbuf_to_str(sb);
+    return name;
+    // StringBuffer sb = strbuf_create(codegen->arena);
+    // while (pkg) {
+    //     strbuf_append_str(&sb, pkg->name);
+    //     strbuf_append_char(&sb, '_');
+    //     pkg = pkg->child;
+    // }
+    // strbuf_append_char(&sb, '_');
+    // strbuf_append_str(&sb, name);
+    // return strbuf_to_str(sb);
 }
 
 static void _append_return_type(CodegenC* codegen, StringBuffer* sb, Type type) {
@@ -271,10 +272,16 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 break; // c-files only import their header
             }
             ResolvedType* type = codegen->packages->types[node->id.val].type;
-            assert(type->kind == RTK_NAMESPACE);
-            assert(type->type.namespace_->ast->type == ANT_FILE_ROOT);
 
-            DirectiveCHeader* c_header = get_c_header(type->type.namespace_);
+            Package* pkg;
+            if (type->kind == RTK_NAMESPACE) {
+                pkg = type->type.namespace_;
+            } else {
+                pkg = type->from_pkg;
+            }
+            assert(pkg->ast->type == ANT_FILE_ROOT);
+
+            DirectiveCHeader* c_header = get_c_header(pkg);
             if (c_header) {
                 ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
                     .type = ICNT_MACRO_INCLUDE,
@@ -285,7 +292,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 });
                 break;
             } else {
-                String include_path = gen_header_file_path(codegen->arena, type->type.namespace_->full_name);
+                String include_path = gen_header_file_path(codegen->arena, pkg->full_name);
 
                 ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
                     .type = ICNT_MACRO_INCLUDE,

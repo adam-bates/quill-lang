@@ -627,8 +627,20 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             ImportStaticPath* static_path = ip_curr->import.file.child;
 
             if (static_path) {
-                // TODO: support importing decls (ie. `import std::String`)
-                assert(false);
+                assert(static_path->type == ISPT_IDENT);
+                assert(static_path->import.ident.child == NULL);
+
+                ASTNode* found = find_decl_by_name(package->ast->node.file_root, static_path->import.ident.name);
+                TypeInfo* ti = packages_type_by_node(type_resolver->packages, found->id);
+                assert(ti);
+                assert(ti->status == TIS_CONFIDENT);
+                assert(ti->type);
+
+                type_resolver->packages->types[node->id.val] = (TypeInfo){
+                    .status = TIS_CONFIDENT,
+                    .type = ti->type,
+                };
+                scope_set(scope, static_path->import.ident.name, ti->type);
             } else {
                 // Importing a package namespace, no specific decl
                 ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
@@ -1005,11 +1017,6 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 while (param) {
                     ResolvedType* param_type = calc_resolved_type(type_resolver, scope, &param->data.type);
                     if (!param_type) {
-                        // TODO
-                        if (str_eq(node->node.function_header_decl.name, c_str("println"))) {
-                            printf("%lu vs %lu\n", i, node->node.function_header_decl.params.length);
-                            assert(false);
-                        }
                         break;
                     }
                     params[i] = (ResolvedFunctionParam){
@@ -1021,12 +1028,6 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                     i += 1;
                 }
                 if (i < node->node.function_header_decl.params.length) {
-                    // TODO
-                    if (str_eq(node->node.function_header_decl.name, c_str("println"))) {
-                        printf("%lu vs %lu\n", i, node->node.function_header_decl.params.length);
-                        assert(false);
-                    }
-
                     break;
                 }
 

@@ -387,7 +387,7 @@ static void _print_import_static_path(ImportStaticPath* path) {
         case ISPT_IDENT: {
             print_string(path->import.ident.name);
             if (path->import.ident.child) {
-                printf("__");
+                printf("::");
                 _print_import_static_path(path->import.ident.child);
             }
             break;
@@ -400,7 +400,7 @@ static void print_import_path(ImportPath* path) {
         case IPT_DIR: {
             print_string(path->import.dir.name);
             if (path->import.dir.child) {
-                printf("__");
+                printf("/");
                 print_import_path(path->import.dir.child);
             }
             break;
@@ -408,7 +408,7 @@ static void print_import_path(ImportPath* path) {
         case IPT_FILE: {
             print_string(path->import.file.name);
             if (path->import.file.child) {
-                printf("_$_");
+                printf("::");
                 _print_import_static_path(path->import.file.child);
             }
             break;
