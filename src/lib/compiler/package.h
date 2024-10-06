@@ -6,11 +6,6 @@
 #include "../utils/utils.h"
 
 typedef struct {
-    PackagePath* full_name;
-    ASTNode const* ast;
-} Package;
-
-typedef struct {
     size_t capacity;
     size_t length;
     Package* array;
@@ -40,6 +35,8 @@ typedef struct {
     // AST Node ID indexes into type info
     size_t types_length;
     TypeInfo* types;
+
+    ResolvedType* string_literal_type;
 } Packages;
 
 Packages packages_create(Arena* arena);

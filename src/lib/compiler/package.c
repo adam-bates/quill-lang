@@ -102,5 +102,9 @@ Packages packages_create(Arena* arena) {
 
         .types_length = 0,
         .types = NULL,
+
+        .count = 0,
+
+        .string_literal_type = NULL,
     };
 }

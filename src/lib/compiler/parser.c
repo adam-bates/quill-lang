@@ -1407,6 +1407,8 @@ static ParseResult parser_parse_fn_decl(Parser* const parser, LL_Directive const
         return parseres_none();
     }
 
+    bool is_main = strncmp(cname, "main", 4) == 0;
+
     if (parser_peek(parser).type == TT_SEMICOLON) {
         parser_advance(parser);
         return parseres_ok((ASTNode){
@@ -1416,6 +1418,7 @@ static ParseResult parser_parse_fn_decl(Parser* const parser, LL_Directive const
                 .return_type = *type,
                 .name = c_str(cname),
                 .params = params,
+                .is_main = is_main,
             },
             .directives = directives,
         });
@@ -1429,6 +1432,7 @@ static ParseResult parser_parse_fn_decl(Parser* const parser, LL_Directive const
                 .return_type = *type,
                 .name = c_str(cname),
                 .params = params,
+                .is_main = is_main,
             },
             .stmts = {0},
         },

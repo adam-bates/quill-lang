@@ -92,7 +92,7 @@ static bool _topo_sort_dfs(AdjacencyList* list, VisitState* states, size_t n, si
 
         if (
             states[i] == VS_VISITING
-            || (states[i] == VS_UNVISITED && _topo_sort_dfs(list, states, i, sorted, sort_index))
+            || (states[i] == VS_UNVISITED && !_topo_sort_dfs(list, states, i, sorted, sort_index))
         ) {
             return false;
         }
@@ -244,12 +244,10 @@ static ResolvedType* scope_get(Scope* scope, String key) {
     return _scope_get(scope, key, hash_str(key));
 }
 
-TypeResolver type_resolver_create(Arena* arena, Packages packages) {
+TypeResolver type_resolver_create(Arena* arena, Packages* packages) {
     return (TypeResolver){
         .arena = arena,
         .packages = packages,
-
-        .string_literal_type = NULL,
 
         .current_package = NULL,
         .current_function = NULL,
@@ -290,11 +288,11 @@ static void resolve_file(TypeResolver* type_resolver, Scope* scope, ASTNodeFileR
 
 void resolve_types(TypeResolver* type_resolver) {
     AdjacencyList dependencies = adjacency_list_create(type_resolver->arena, 1);
-    ArrayList_PackagePath to_resolve = arraylist_packagepath_create(type_resolver->arena, type_resolver->packages.count);
+    ArrayList_PackagePath to_resolve = arraylist_packagepath_create(type_resolver->arena, type_resolver->packages->count);
 
     // Understand which files depend on which other files
-    for (size_t i = 0; i < type_resolver->packages.lookup_length; ++i) {
-        ArrayList_Package bucket = type_resolver->packages.lookup_buckets[i];
+    for (size_t i = 0; i < type_resolver->packages->lookup_length; ++i) {
+        ArrayList_Package bucket = type_resolver->packages->lookup_buckets[i];
 
         for (size_t j = 0; j < bucket.length; ++j) {
             Package pkg = bucket.array[j];
@@ -320,7 +318,7 @@ void resolve_types(TypeResolver* type_resolver) {
                     PackagePath* dependency = import_path_to_package_path(type_resolver->arena, path);
                     assert(dependency);
 
-                    Package* found = packages_resolve(&type_resolver->packages, dependency);
+                    Package* found = packages_resolve(type_resolver->packages, dependency);
                     if (!found) {
                         printf("FROM FILE: \"%s\"\n", package_path_to_str(type_resolver->arena, &dependent).chars);
                         printf("Cannot find import [%s]\n", import_path_to_str(type_resolver->arena, path).chars);
@@ -343,6 +341,23 @@ void resolve_types(TypeResolver* type_resolver) {
 
     // sort topologically so packages are only resolved after all of their dependencies
     {
+        printf("DEPENDENCIES:\n");
+        for (size_t i = 0; i < dependencies.length; ++i) {
+            PackagePath p1 = dependencies.dependents[i];
+            char const* str1;
+            if (p1.name.length > 0) {
+                str1 = package_path_to_str(type_resolver->arena, &p1).chars;
+            } else {
+                str1 = "<main>";
+            }
+
+            PackagePath p2 = dependencies.dependencies[i];
+            char const* str2 = package_path_to_str(type_resolver->arena, &p2).chars;
+
+            printf("- [%s] depends on [%s]\n", str1, str2);
+        }
+        printf("\n");
+
         size_t* sorted_deps = arena_calloc(dependencies.arena, dependencies.length, sizeof *sorted_deps);
         assert(sorted_deps);
         assert(topological_sort(&dependencies, sorted_deps));
@@ -402,7 +417,7 @@ void resolve_types(TypeResolver* type_resolver) {
             path = NULL;
         }
 
-        Package* pkg = packages_resolve(&type_resolver->packages, path);
+        Package* pkg = packages_resolve(type_resolver->packages, path);
         assert(pkg);
         assert(pkg->ast->type == ANT_FILE_ROOT);
 
@@ -428,17 +443,17 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
         static_path = static_path->child;
         switch (rt->kind) {
             case RTK_NAMESPACE: {
-                assert(rt->type.namespace_->type == ANT_FILE_ROOT);
+                assert(rt->type.namespace_->ast->type == ANT_FILE_ROOT);
 
-                ASTNode* node = find_decl_by_name(rt->type.namespace_->node.file_root, static_path->name);
+                ASTNode* node = find_decl_by_name(rt->type.namespace_->ast->node.file_root, static_path->name);
                 assert(node);
 
-                ResolvedType* tmp = type_resolver->packages.types[node->id.val].type;
+                ResolvedType* tmp = type_resolver->packages->types[node->id.val].type;
                 if (!tmp) {
                     printf("failed lookup for: \"%s\"\n", arena_strcpy(type_resolver->arena, static_path->name).chars);
-                    assert(rt->type.namespace_->node.file_root.nodes.head);
-                    assert(rt->type.namespace_->node.file_root.nodes.head->data.type == ANT_PACKAGE);
-                    printf("Package: \"%s\"\n", package_path_to_str(type_resolver->arena, rt->type.namespace_->node.file_root.nodes.head->data.node.package.package_path).chars);
+                    assert(rt->type.namespace_->ast->node.file_root.nodes.head);
+                    assert(rt->type.namespace_->ast->node.file_root.nodes.head->data.type == ANT_PACKAGE);
+                    printf("Package: \"%s\"\n", package_path_to_str(type_resolver->arena, rt->type.namespace_->ast->node.file_root.nodes.head->data.node.package.package_path).chars);
                 }
                 assert(tmp);
                 rt = tmp;
@@ -473,6 +488,7 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
             switch (type->type.built_in) {
                 case TBI_VOID: {
                     ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+                    resolved_type->from_pkg = type_resolver->current_package->full_name;
                     resolved_type->kind = RTK_VOID;
                     resolved_type->type.void_ = NULL;
                     return resolved_type;
@@ -480,6 +496,7 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
 
                 case TBI_UINT: {
                     ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+                    resolved_type->from_pkg = type_resolver->current_package->full_name;
                     resolved_type->kind = RTK_UINT;
                     resolved_type->type.uint_ = NULL;
                     return resolved_type;
@@ -487,6 +504,7 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
 
                 case TBI_CHAR: {
                     ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+                    resolved_type->from_pkg = type_resolver->current_package->full_name;
                     resolved_type->kind = RTK_CHAR;
                     resolved_type->type.char_ = NULL;
                     return resolved_type;
@@ -500,6 +518,7 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
 
         case TK_POINTER: {
             ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+            resolved_type->from_pkg = type_resolver->current_package->full_name;
             resolved_type->kind = RTK_POINTER;
             resolved_type->type.ptr.of = calc_resolved_type(type_resolver, scope, type->type.ptr.of);
             return resolved_type;
@@ -507,6 +526,7 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
 
         case TK_MUT_POINTER: {
             ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+            resolved_type->from_pkg = type_resolver->current_package->full_name;
             resolved_type->kind = RTK_MUT_POINTER;
             resolved_type->type.mut_ptr.of = calc_resolved_type(type_resolver, scope, type->type.mut_ptr.of);
             return resolved_type;
@@ -519,7 +539,7 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
 }
 
 static Changed resolve_type_type(TypeResolver* type_resolver, Scope* scope, ASTNode const* node, Type* type) {
-    if (type_resolver->packages.types[node->id.val].status == TIS_CONFIDENT) {
+    if (type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
         return false;
     }
 
@@ -527,9 +547,10 @@ static Changed resolve_type_type(TypeResolver* type_resolver, Scope* scope, ASTN
     if (!resolved_type) {
         return false;
     }
+    resolved_type->from_pkg = type_resolver->current_package->full_name;
     resolved_type->src = node;
 
-    type_resolver->packages.types[node->id.val] = (TypeInfo){
+    type_resolver->packages->types[node->id.val] = (TypeInfo){
         .status = TIS_CONFIDENT,
         .type = resolved_type,
     };
@@ -542,17 +563,18 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
     switch (node->type) {
         case ANT_FILE_ROOT: assert(false);
         case ANT_PACKAGE: {
-            if (type_resolver->packages.types[node->id.val].status == TIS_CONFIDENT) {
+            if (type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
                 break;
             }
 
             ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
             *resolved_type = (ResolvedType){
                 .src = node,
+                .from_pkg = type_resolver->current_package->full_name,
                 .kind = RTK_NAMESPACE,
-                .type.namespace_ = node,
+                .type.namespace_ = type_resolver->current_package,
             };
-            type_resolver->packages.types[node->id.val] = (TypeInfo){
+            type_resolver->packages->types[node->id.val] = (TypeInfo){
                 .status = TIS_CONFIDENT,
                 .type = resolved_type,
             };
@@ -561,13 +583,13 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         };
 
         case ANT_IMPORT: {
-            if (type_resolver->packages.types[node->id.val].status == TIS_CONFIDENT) {
+            if (type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
                 break;
             }
             
             ImportPath* import_path = expand_import_path(type_resolver, (ASTNodeImport*)&node->node.import);
             PackagePath* to_import_path = import_path_to_package_path(type_resolver->arena, import_path);
-            Package* package = packages_resolve(&type_resolver->packages, to_import_path);
+            Package* package = packages_resolve(type_resolver->packages, to_import_path);
             if (!package) {
                 printf("ERROR! Could not resolve: \"%s\"\n", package_path_to_str(type_resolver->arena, to_import_path).chars);
             }
@@ -586,12 +608,13 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 // Importing a package namespace, no specific decl
                 ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
                 *resolved_type = (ResolvedType){
+                    .from_pkg = type_resolver->current_package->full_name,
                     .src = node,
                     .kind = RTK_NAMESPACE,
-                    .type.namespace_ = package->ast,
+                    .type.namespace_ = package,
                 };
 
-                type_resolver->packages.types[node->id.val] = (TypeInfo){
+                type_resolver->packages->types[node->id.val] = (TypeInfo){
                     .status = TIS_CONFIDENT,
                     .type = resolved_type,
                 };
@@ -609,10 +632,10 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         case ANT_UNARY_OP: {
             assert(false);
             changed |= resolve_type_node(type_resolver, scope, node->node.unary_op.right);
-            TypeInfo outer_ti = type_resolver->packages.types[node->id.val];
-            TypeInfo inner_ti = type_resolver->packages.types[node->node.unary_op.right->id.val];
+            TypeInfo outer_ti = type_resolver->packages->types[node->id.val];
+            TypeInfo inner_ti = type_resolver->packages->types[node->node.unary_op.right->id.val];
             if (inner_ti.status > outer_ti.status) {
-                type_resolver->packages.types[node->id.val] = inner_ti;
+                type_resolver->packages->types[node->id.val] = inner_ti;
             }
             break;
         }
@@ -625,7 +648,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         }
 
         case ANT_VAR_DECL: {
-            if (type_resolver->packages.types[node->id.val].status == TIS_CONFIDENT) {
+            if (type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
                 break;
             }
 
@@ -635,9 +658,9 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             if (is_let) {
                 if (has_init) {
                     changed |= resolve_type_node(type_resolver, scope, node->node.var_decl.initializer);
-                    type_resolver->packages.types[node->id.val] = type_resolver->packages.types[node->node.var_decl.initializer->id.val];
+                    type_resolver->packages->types[node->id.val] = type_resolver->packages->types[node->node.var_decl.initializer->id.val];
                 } else {
-                    type_resolver->packages.types[node->id.val] = (TypeInfo){
+                    type_resolver->packages->types[node->id.val] = (TypeInfo){
                         .status = TIS_UNKNOWN,
                         .type = NULL,
                     };
@@ -649,25 +672,25 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                     changed |= resolve_type_node(type_resolver, scope, node->node.var_decl.initializer);
                     // assert(type.resolved_type == node.resolved_type); // TODO
 
-                    type_resolver->packages.types[node->id.val] = type_resolver->packages.types[node->node.var_decl.initializer->id.val];
+                    type_resolver->packages->types[node->id.val] = type_resolver->packages->types[node->node.var_decl.initializer->id.val];
                 }
             }
 
-            if (type_resolver->packages.types[node->id.val].type) {
-                scope_set(scope, node->node.var_decl.lhs.lhs.name, type_resolver->packages.types[node->id.val].type);
+            if (type_resolver->packages->types[node->id.val].type) {
+                scope_set(scope, node->node.var_decl.lhs.lhs.name, type_resolver->packages->types[node->id.val].type);
             }
 
             break;
         }
 
         case ANT_GET_FIELD: {
-            if (type_resolver->packages.types[node->id.val].status == TIS_CONFIDENT) {
+            if (type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
                 break;
             }
 
             changed |= resolve_type_node(type_resolver, scope, node->node.get_field.root);
 
-            TypeInfo root = type_resolver->packages.types[node->node.get_field.root->id.val];
+            TypeInfo root = type_resolver->packages->types[node->node.get_field.root->id.val];
             if (!root.type) {
                 break;
             }
@@ -682,7 +705,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             }
             assert(found);
 
-            type_resolver->packages.types[node->id.val] = (TypeInfo){
+            type_resolver->packages->types[node->id.val] = (TypeInfo){
                 .status = root.status,
                 .type = found->type,
             };
@@ -699,33 +722,33 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         }
 
         case ANT_FUNCTION_CALL: {
-            if (type_resolver->packages.types[node->id.val].status == TIS_CONFIDENT) {
+            if (type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
                 break;
             }
 
             changed |= resolve_type_node(type_resolver, scope, node->node.function_call.function);
 
             if (
-                type_resolver->packages.types[node->id.val].status != TIS_CONFIDENT
-                && type_resolver->packages.types[node->node.function_call.function->id.val].status == TIS_CONFIDENT
+                type_resolver->packages->types[node->id.val].status != TIS_CONFIDENT
+                && type_resolver->packages->types[node->node.function_call.function->id.val].status == TIS_CONFIDENT
             ) {
-                ResolvedType* type = type_resolver->packages.types[node->node.function_call.function->id.val].type->type.function.return_type;
-                type_resolver->packages.types[node->id.val] = (TypeInfo){
+                ResolvedType* type = type_resolver->packages->types[node->node.function_call.function->id.val].type->type.function.return_type;
+                type_resolver->packages->types[node->id.val] = (TypeInfo){
                     .status = TIS_CONFIDENT,
                     .type = type,
                 };
                 changed = true;
             }
 
-            if (type_resolver->packages.types[node->id.val].status == TIS_CONFIDENT) {
-                assert(type_resolver->packages.types[node->node.function_call.function->id.val].type->kind == RTK_FUNCTION);
+            if (type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
+                assert(type_resolver->packages->types[node->node.function_call.function->id.val].type->kind == RTK_FUNCTION);
 
                 bool confident_args = true;
                 LLNode_ASTNode* curr = node->node.function_call.args.head;
                 while (curr) {
                     changed |= resolve_type_node(type_resolver, scope, &curr->data);
 
-                    if (type_resolver->packages.types[curr->data.id.val].status != TIS_CONFIDENT) {
+                    if (type_resolver->packages->types[curr->data.id.val].status != TIS_CONFIDENT) {
                         confident_args = false;
                     }
                     
@@ -735,8 +758,8 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                     break;
                 }
 
-                ResolvedType* type = type_resolver->packages.types[node->node.function_call.function->id.val].type->type.function.return_type;
-                type_resolver->packages.types[node->id.val] = (TypeInfo){
+                ResolvedType* type = type_resolver->packages->types[node->node.function_call.function->id.val].type->type.function.return_type;
+                type_resolver->packages->types[node->id.val] = (TypeInfo){
                     .status = TIS_CONFIDENT,
                     .type = type,
                 };
@@ -787,7 +810,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         case ANT_FOR: assert(false); // TODO
 
         case ANT_RETURN: {
-            if (type_resolver->packages.types[node->id.val].status == TIS_CONFIDENT) {
+            if (type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
                 break;
             }
             assert(type_resolver->current_function);
@@ -795,22 +818,23 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             if (node->node.return_.maybe_expr) {
                 changed |= resolve_type_node(type_resolver, scope, node->node.return_.maybe_expr);
 
-                if (type_resolver->packages.types[node->id.val].type) {
-                    assert(type_resolver->packages.types[node->id.val].type == type_resolver->current_function->return_type);
+                if (type_resolver->packages->types[node->id.val].type) {
+                    assert(type_resolver->packages->types[node->id.val].type == type_resolver->current_function->return_type);
 
-                    type_resolver->packages.types[node->id.val] = (TypeInfo){
+                    type_resolver->packages->types[node->id.val] = (TypeInfo){
                         .status = TIS_CONFIDENT,
-                        .type = type_resolver->packages.types[node->id.val].type,
+                        .type = type_resolver->packages->types[node->id.val].type,
                     };
                     changed = true;
                 }
             } else {
                 ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+                resolved_type->from_pkg = type_resolver->current_package->full_name;
                 resolved_type->src = node;
                 resolved_type->kind = RTK_VOID;
                 resolved_type->type.void_ = NULL;
 
-                type_resolver->packages.types[node->id.val] = (TypeInfo){
+                type_resolver->packages->types[node->id.val] = (TypeInfo){
                     .status = TIS_CONFIDENT,
                     .type = resolved_type,
                 };
@@ -826,16 +850,17 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         case ANT_CRASH: assert(false); // TODO
 
         case ANT_SIZEOF: {
-            if (type_resolver->packages.types[node->id.val].status == TIS_CONFIDENT) {
+            if (type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
                 break;
             }
 
             ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+            resolved_type->from_pkg = type_resolver->current_package->full_name;
             resolved_type->src = node;
             resolved_type->kind = RTK_UINT;
             resolved_type->type.uint_ = NULL;
 
-            type_resolver->packages.types[node->id.val] = (TypeInfo){
+            type_resolver->packages->types[node->id.val] = (TypeInfo){
                 .status = TIS_CONFIDENT,
                 .type = resolved_type,
             };
@@ -848,7 +873,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         case ANT_CAST: assert(false); // TODO
 
         case ANT_STRUCT_DECL: {
-            if (type_resolver->packages.types[node->id.val].status == TIS_CONFIDENT) {
+            if (type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
                 break;
             }
             assert(node->node.struct_decl.maybe_name); // TODO
@@ -876,14 +901,16 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             }
 
             ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+            resolved_type->from_pkg = type_resolver->current_package->full_name;
             resolved_type->src = node;
             resolved_type->kind = RTK_STRUCT;
             resolved_type->type.struct_ = (ResolvedStruct){
+                .name = *node->node.struct_decl.maybe_name,
                 .fields_length = node->node.struct_decl.fields.length,
                 .fields = fields,
             };
 
-            type_resolver->packages.types[node->id.val] = (TypeInfo){
+            type_resolver->packages->types[node->id.val] = (TypeInfo){
                 .status = TIS_CONFIDENT,
                 .type = resolved_type,
             };
@@ -903,7 +930,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                         assert(fields[1].type->type.ptr.of->kind == RTK_CHAR);
                         // assert(str_eq(fields[1].name, c_str("bytes")));
 
-                        type_resolver->string_literal_type = resolved_type;
+                        type_resolver->packages->string_literal_type = resolved_type;
                     }
                     curr = curr->next;
                 }
@@ -916,14 +943,14 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         case ANT_ENUM_DECL: assert(false); // TODO
 
         case ANT_TYPEDEF_DECL: {
-            if (type_resolver->packages.types[node->id.val].status == TIS_CONFIDENT) {
+            if (type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
                 break;
             }
 
             changed |= resolve_type_type(type_resolver, scope, node, node->node.typedef_decl.type);
 
-            if (type_resolver->packages.types[node->id.val].type) {
-                scope_set(scope, node->node.typedef_decl.name, type_resolver->packages.types[node->id.val].type);
+            if (type_resolver->packages->types[node->id.val].type) {
+                scope_set(scope, node->node.typedef_decl.name, type_resolver->packages->types[node->id.val].type);
             }
             break;
         }
@@ -931,7 +958,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         case ANT_GLOBALTAG_DECL: assert(false); // TODO
 
         case ANT_FUNCTION_HEADER_DECL: {
-            if (type_resolver->packages.types[node->id.val].status != TIS_CONFIDENT) {
+            if (type_resolver->packages->types[node->id.val].status != TIS_CONFIDENT) {
                 ResolvedFunctionParam* params = arena_calloc(type_resolver->arena, node->node.function_header_decl.params.length, sizeof *params);
                 LLNode_FnParam* param = node->node.function_header_decl.params.head;
                 size_t i = 0;
@@ -970,6 +997,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
                 ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
                 *resolved_type = (ResolvedType){
+                    .from_pkg = type_resolver->current_package->full_name,
                     .src = node,
                     .kind = RTK_FUNCTION,
                     .type.function = {
@@ -979,7 +1007,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                     },
                 };
 
-                type_resolver->packages.types[node->id.val] = (TypeInfo){
+                type_resolver->packages->types[node->id.val] = (TypeInfo){
                     .status = TIS_CONFIDENT,
                     .type = resolved_type,
                 };
@@ -993,7 +1021,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         }
 
         case ANT_FUNCTION_DECL: {
-            if (type_resolver->packages.types[node->id.val].status != TIS_CONFIDENT) {
+            if (type_resolver->packages->types[node->id.val].status != TIS_CONFIDENT) {
                 ResolvedFunctionParam* params = arena_calloc(type_resolver->arena, node->node.function_decl.header.params.length, sizeof *params);
                 LLNode_FnParam* param = node->node.function_decl.header.params.head;
                 size_t i = 0;
@@ -1021,6 +1049,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
                 ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
                 *resolved_type = (ResolvedType){
+                    .from_pkg = type_resolver->current_package->full_name,
                     .src = node,
                     .kind = RTK_FUNCTION,
                     .type.function = {
@@ -1030,7 +1059,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                     },
                 };
 
-                type_resolver->packages.types[node->id.val] = (TypeInfo){
+                type_resolver->packages->types[node->id.val] = (TypeInfo){
                     .status = TIS_CONFIDENT,
                     .type = resolved_type,
                 };
@@ -1040,7 +1069,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 scope_set(scope, node->node.function_header_decl.name, resolved_type);
             }
 
-            ResolvedType* fn_type = type_resolver->packages.types[node->id.val].type;
+            ResolvedType* fn_type = type_resolver->packages->types[node->id.val].type;
             assert(fn_type);
             assert(fn_type->kind = RTK_FUNCTION);
 
@@ -1056,7 +1085,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
             LLNode_ASTNode* curr = node->node.function_decl.stmts.head;
             while (curr) {
-                if (type_resolver->packages.types[curr->data.id.val].status != TIS_CONFIDENT) {
+                if (type_resolver->packages->types[curr->data.id.val].status != TIS_CONFIDENT) {
                     changed |= resolve_type_node(type_resolver, &block_scope, &curr->data);
                 }
                 curr = curr->next;
@@ -1068,17 +1097,17 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         }
 
         case ANT_LITERAL: {
-            if (type_resolver->packages.types[node->id.val].status == TIS_CONFIDENT) {
+            if (type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
                 break;
             }
 
             switch (node->node.literal.kind) {
                 case LK_STR: {
-                    assert(type_resolver->string_literal_type);
+                    assert(type_resolver->packages->string_literal_type);
 
-                    type_resolver->packages.types[node->id.val] = (TypeInfo){
+                    type_resolver->packages->types[node->id.val] = (TypeInfo){
                         .status = TIS_CONFIDENT,
-                        .type = type_resolver->string_literal_type,
+                        .type = type_resolver->packages->string_literal_type,
                     };
                     break;
                 }
@@ -1089,13 +1118,13 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         }
 
         case ANT_VAR_REF: {
-            if (type_resolver->packages.types[node->id.val].status == TIS_CONFIDENT) {
+            if (type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
                 break;
             }
 
             ResolvedType* resolved_type = calc_static_path_type(type_resolver, scope, node->node.var_ref.path);
             if (resolved_type) {
-                type_resolver->packages.types[node->id.val] = (TypeInfo){
+                type_resolver->packages->types[node->id.val] = (TypeInfo){
                     .status = TIS_CONFIDENT,
                     .type = resolved_type,
                 };
@@ -1143,10 +1172,10 @@ static void resolve_file(TypeResolver* type_resolver, Scope* scope, ASTNodeFileR
         }
 
         if (requires_type) {
-            if (!type_resolver->packages.types[curr->data.id.val].type) {
+            if (!type_resolver->packages->types[curr->data.id.val].type) {
                 print_astnode(curr->data);
             }
-            assert(type_resolver->packages.types[curr->data.id.val].type);
+            assert(type_resolver->packages->types[curr->data.id.val].type);
         }
 
         curr = curr->next;

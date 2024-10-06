@@ -17,6 +17,7 @@ StringBuffer strbuf_create_with_capacity(Arena* arena, size_t const capacity);
 void strbuf_append_char(StringBuffer* strbuf, char const c);
 void strbuf_append_chars(StringBuffer* strbuf, char const* const chars);
 void strbuf_append_str(StringBuffer* strbuf, String const str);
+void strbuf_append_uint(StringBuffer* strbuf, size_t n);
 
 void strbuf_reset(StringBuffer* strbuf);
 

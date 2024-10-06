@@ -62,14 +62,19 @@ int main(int const argc, char* const argv[]) {
     packages.types_length = next_node_id;
     packages.types = arena_calloc(&arena, packages.types_length, sizeof *packages.types);
 
-    TypeResolver type_resolver = type_resolver_create(&arena, packages);
+    TypeResolver type_resolver = type_resolver_create(&arena, &packages);
     resolve_types(&type_resolver);
 
-    CodegenC codegen = codegen_c_create(&arena, packages);
-    String const c_code = generate_c_code(&codegen);
+    CodegenC codegen = codegen_c_create(&arena, &packages);
+    GeneratedFiles const c_code = generate_c_code(&codegen);
 
     printf("C Code:\n");
-    printf("%s\n", arena_strcpy(&arena, c_code).chars);
+    for (size_t i = 0; i < c_code.length; ++i) {
+        GeneratedFile* file = c_code.files + i;
+
+        printf("// \"%s\"\n", arena_strcpy(&arena, file->filepath).chars);
+        printf("%s\n", arena_strcpy(&arena, file->content).chars);
+    }
 
     // cleanup
     arena_free(&arena);

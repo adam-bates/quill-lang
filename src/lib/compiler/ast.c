@@ -433,6 +433,8 @@ static void print_directives(LL_Directive directives) {
             case DT_IGNORE_UNUSED: printf("@ignore_unused "); break;
 
             case DT_IMPL: printf("@impl "); break;
+
+            case DT_STRING_LITERAL: printf("@string_literal "); break;
         }
 
         curr = curr->next;

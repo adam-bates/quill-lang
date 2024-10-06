@@ -50,8 +50,6 @@ typedef enum {
     TK_MUT_POINTER,
     TK_ARRAY,
     TK_SLICE,
-    TK_OPTIONAL,
-    TK_RESULT,
 
     TK_COUNT
 } TypeKind;
@@ -551,6 +549,7 @@ typedef struct {
     Type return_type;
     String name;
     LL_FnParam params;
+    bool is_main;
 } ASTNodeFunctionHeaderDecl;
 
 typedef struct {

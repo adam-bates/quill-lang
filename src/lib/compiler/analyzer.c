@@ -266,6 +266,7 @@ void verify_syntax(Analyzer* analyzer, ASTNode const* const ast) {
     /*
         TODO:
         - verify main function
+        - only allow 1 main function
         - only allow missing package if file has main function
         - prevent duplicate imports
         - prevent importing self

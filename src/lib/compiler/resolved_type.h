@@ -4,6 +4,11 @@
 #include "./ast.h"
 #include "../utils/utils.h"
 
+typedef struct {
+    PackagePath* full_name;
+    ASTNode const* ast;
+} Package;
+
 typedef enum {
     RTK_NAMESPACE,
     RTK_VOID,
@@ -47,15 +52,17 @@ typedef struct {
 } ResolvedStructField;
 
 typedef struct {
+    String name;
     size_t fields_length;
     ResolvedStructField* fields;
 } ResolvedStruct;
 
 typedef struct ResolvedType {
     ResolvedTypeKind kind;
+    PackagePath* from_pkg;
     ASTNode const* src;
     union {
-        ASTNode const* namespace_;
+        Package* namespace_;
         void* void_;
         void* uint_;
         void* char_;

@@ -1,3 +1,5 @@
+#include <assert.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "./arena_alloc.h"
@@ -50,6 +52,30 @@ void strbuf_append_chars(StringBuffer* strbuf, char const* const chars) {
     size_t const n = strlen(chars);
 
     strbuf_append_str(strbuf, (String){ .chars = chars, .length = n });
+}
+
+void strbuf_append_uint(StringBuffer* strbuf, size_t in) {
+    if (in == 0) {
+        strbuf_append_char(strbuf, '0');
+        return;
+    }
+
+    size_t n = in;
+    int cursor = 0;
+    char digits_stack[32] = {0};
+    while (n > 0) {
+        assert(cursor < 32);
+        char c = '0' + (n % 10);
+        n = (n - (n % 10)) / 10;
+        digits_stack[cursor++] = c;
+    }
+
+    while (cursor >= 0) {
+        char c = digits_stack[--cursor];
+        if (c) {
+            strbuf_append_char(strbuf, c);
+        }
+    }
 }
 
 void strbuf_reset(StringBuffer* strbuf) {
