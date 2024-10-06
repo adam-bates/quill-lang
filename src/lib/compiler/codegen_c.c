@@ -636,27 +636,28 @@ static LL_IR_C_Node transform_to_nodes(CodegenC* codegen, Package* package, File
                 .file = gen_header_file_path(codegen->arena, package->full_name),
             },
         });
-    } else if (ftype == FT_HEADER) {
-        String define = arena_strcpy(codegen->arena, gen_header_file_path(codegen->arena, package->full_name));
-        define.chars[define.length - 2] = '_';
+    } else {
+        if (ftype == FT_HEADER) {
+            String define = arena_strcpy(codegen->arena, gen_header_file_path(codegen->arena, package->full_name));
+            define.chars[define.length - 2] = '_';
 
+            ll_node_push(codegen->arena, &nodes, (IR_C_Node){
+                .type = ICNT_MACRO_IFNDEF,
+                .node.ifndef.condition = define,
+            });
+            ll_node_push(codegen->arena, &nodes, (IR_C_Node){
+                .type = ICNT_MACRO_DEFINE,
+                .node.define.name = define,
+            });
+        }
         ll_node_push(codegen->arena, &nodes, (IR_C_Node){
-            .type = ICNT_MACRO_IFNDEF,
-            .node.ifndef.condition = define,
-        });
-        ll_node_push(codegen->arena, &nodes, (IR_C_Node){
-            .type = ICNT_MACRO_DEFINE,
-            .node.define.name = define,
+            .type = ICNT_MACRO_INCLUDE,
+            .node.include = {
+                .is_local = false,
+                .file = c_str("<stdlib.h>"),
+            },
         });
     }
-
-    ll_node_push(codegen->arena, &nodes, (IR_C_Node){
-        .type = ICNT_MACRO_INCLUDE,
-        .node.include = {
-            .is_local = false,
-            .file = c_str("<stdlib.h>"),
-        },
-    });
 
     for (TransformStage stage = 0; stage < TS_COUNT; ++stage) {
         assert(package->ast->type == ANT_FILE_ROOT);
