@@ -53,7 +53,7 @@ static String gen_file_path(Arena* arena, PackagePath* package_path) {
         while (curr) {
             strbuf_append_str(&sb, curr->name);
             if (curr->child) {
-                strbuf_append_char(&sb, '/');
+                strbuf_append_char(&sb, '_');
             }
             curr = curr->child;
         }
@@ -62,31 +62,7 @@ static String gen_file_path(Arena* arena, PackagePath* package_path) {
     return strbuf_to_str(sb);
 }
 
-static String gen_name(CodegenC* codegen, PackagePath* pkg, String name) {
-    Package* package = packages_resolve(codegen->packages, pkg);
-    DirectiveCHeader* c_header = get_c_header(package);
-    if (c_header) {
-        // No name changes for c-imports
-        return name;
-    }
-
-    StringBuffer sb = strbuf_create(codegen->arena);
-    {
-        PackagePath* curr = pkg;
-        while (curr) {
-            strbuf_append_str(&sb, curr->name);
-            if (curr->child) {
-                strbuf_append_chars(&sb, "$_");
-            }
-            curr = curr->child;
-        }
-    }
-    strbuf_append_chars(&sb, "$_");
-    strbuf_append_str(&sb, name);
-    return strbuf_to_str(sb);
-}
-
-static void _append_return_type(CodegenC* codegen, StringBuffer* sb, PackagePath* pkg, Type type) {
+static void _append_return_type(CodegenC* codegen, StringBuffer* sb, Type type) {
     switch (type.kind) {
         case TK_BUILT_IN: {
             switch (type.type.built_in) {
@@ -120,7 +96,8 @@ static void _append_return_type(CodegenC* codegen, StringBuffer* sb, PackagePath
             while (curr->child) {
                 curr = curr->child;
             }
-            strbuf_append_str(sb, gen_name(codegen, pkg, curr->name));
+
+            strbuf_append_str(sb, curr->name);
             break;
         }
 
@@ -130,13 +107,13 @@ static void _append_return_type(CodegenC* codegen, StringBuffer* sb, PackagePath
         }
 
         case TK_POINTER: {
-            _append_return_type(codegen, sb, pkg, *type.type.mut_ptr.of);
+            _append_return_type(codegen, sb, *type.type.mut_ptr.of);
             strbuf_append_chars(sb, " const*"); // does this always work?
             break;
         }
 
         case TK_MUT_POINTER: {
-            _append_return_type(codegen, sb, pkg, *type.type.mut_ptr.of);
+            _append_return_type(codegen, sb, *type.type.mut_ptr.of);
             strbuf_append_char(sb, '*');
             break;
         }
@@ -181,7 +158,7 @@ static void _append_type_resolved(CodegenC* codegen, StringBuffer* sb, ResolvedT
         }
 
         case RTK_STRUCT: {
-            strbuf_append_str(sb, gen_name(codegen, type->from_pkg, type->type.struct_.name));
+            strbuf_append_str(sb, type->type.struct_.name);
             break;
         }
 
@@ -195,9 +172,9 @@ static String gen_type_resolved(CodegenC* codegen, ResolvedType* type) {
     return strbuf_to_str(sb);
 }
 
-static String gen_type(CodegenC* codegen, PackagePath* pkg, Type type) {
+static String gen_type(CodegenC* codegen, Type type) {
     StringBuffer sb = strbuf_create(codegen->arena);
-    _append_return_type(codegen, &sb, pkg, type);
+    _append_return_type(codegen, &sb, type);
     return strbuf_to_str(sb);
 }
 
@@ -249,7 +226,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node) 
                     StringBuffer sb = strbuf_create(codegen->arena);
                     strbuf_append_chars(&sb, "((");
                     {
-                        String str_struct_name = gen_name(codegen, str_type->from_pkg, *str_type->src->node.struct_decl.maybe_name);
+                        String str_struct_name = *str_type->src->node.struct_decl.maybe_name;
                         strbuf_append_str(&sb, str_struct_name);
                     }
                     strbuf_append_chars(&sb, "){");
@@ -284,7 +261,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node) 
 
             ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
                 .type = ICNT_VAR_REF,
-                .node.var_ref.name = gen_name(codegen, type->from_pkg, child->name),
+                .node.var_ref.name = child->name,
             });
             break;
         }
@@ -315,8 +292,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node) 
                     .node.sizeof_expr.expr = &expr_ll.head->data,
                 });
             } else {
-                PackagePath* pkg = codegen->packages->types[node->node.sizeof_.sizeof_.expr->id.val].type->from_pkg;
-                String type = gen_type(codegen, pkg, *node->node.sizeof_.sizeof_.type);
+                String type = gen_type(codegen, *node->node.sizeof_.sizeof_.type);
 
                 ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
                     .type = ICNT_SIZEOF_TYPE,
@@ -379,11 +355,11 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node) 
             if (node->node.var_decl.type_or_let.is_let) {
                 type = gen_type_resolved(codegen, rt);
             } else {
-                type = gen_type(codegen, rt->from_pkg, *node->node.var_decl.type_or_let.maybe_type);
+                type = gen_type(codegen, *node->node.var_decl.type_or_let.maybe_type);
             }
 
             assert(node->node.var_decl.lhs.type == VDLT_NAME);
-            String name = gen_name(codegen, rt->from_pkg, node->node.var_decl.lhs.lhs.name);
+            String name = node->node.var_decl.lhs.lhs.name;
 
             IR_C_Node* init = NULL;
             if (node->node.var_decl.initializer) {
@@ -417,9 +393,9 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node) 
 
                 LLNode_FnParam* curr = node->node.function_decl.header.params.head;
                 while (curr) {
-                    strbuf_append_str(&sb, gen_type(codegen, type->from_pkg, curr->data.type));
+                    strbuf_append_str(&sb, gen_type(codegen, curr->data.type));
                     strbuf_append_char(&sb, ' ');
-                    strbuf_append_str(&sb, gen_name(codegen, type->from_pkg, curr->data.name));
+                    strbuf_append_str(&sb, curr->data.name);
 
                     params.strings[params.length++] = strbuf_to_strcpy(sb);
                     strbuf_reset(&sb);
@@ -428,18 +404,13 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node) 
                 }
             }
 
-            String name;
-            if (node->node.function_header_decl.is_main) {
-                name = node->node.function_header_decl.name;
-            } else {
-                name = gen_name(codegen, type->from_pkg, node->node.function_decl.header.name);
-            }
+            String name = node->node.function_header_decl.name;
 
             ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
                 .type = ICNT_FUNCTION_HEADER_DECL,
                 .node.function_decl = {
-                    .return_type = gen_type(codegen, type->from_pkg, node->node.function_decl.header.return_type),
-                    .name = gen_name(codegen, type->from_pkg, node->node.function_decl.header.name),
+                    .return_type = gen_type(codegen, node->node.function_decl.header.return_type),
+                    .name = name,
                     .params = params,
                 },
             });
@@ -458,9 +429,9 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node) 
 
                 LLNode_FnParam* curr = node->node.function_decl.header.params.head;
                 while (curr) {
-                    strbuf_append_str(&sb, gen_type(codegen, type->from_pkg, curr->data.type));
+                    strbuf_append_str(&sb, gen_type(codegen, curr->data.type));
                     strbuf_append_char(&sb, ' ');
-                    strbuf_append_str(&sb, gen_name(codegen, type->from_pkg, curr->data.name));
+                    strbuf_append_str(&sb, curr->data.name);
 
                     params.strings[params.length++] = strbuf_to_strcpy(sb);
                     strbuf_reset(&sb);
@@ -478,17 +449,12 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node) 
                 }
             }
 
-            String name;
-            if (node->node.function_decl.header.is_main) {
-                name = node->node.function_decl.header.name;
-            } else {
-                name = gen_name(codegen, type->from_pkg, node->node.function_decl.header.name);
-            }
+            String name = node->node.function_decl.header.name;
 
             ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
                 .type = ICNT_FUNCTION_DECL,
                 .node.function_decl = {
-                    .return_type = gen_type(codegen, type->from_pkg, node->node.function_decl.header.return_type),
+                    .return_type = gen_type(codegen, node->node.function_decl.header.return_type),
                     .name = name,
                     .params = params,
                     .statements = statements,
@@ -511,7 +477,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node) 
 
                 LLNode_StructField* curr = node->node.struct_decl.fields.head;
                 while (curr) {
-                    strbuf_append_str(&sb, gen_type(codegen, type->from_pkg, *curr->data.type));
+                    strbuf_append_str(&sb, gen_type(codegen, *curr->data.type));
                     strbuf_append_char(&sb, ' ');
                     strbuf_append_str(&sb, curr->data.name);
 
@@ -525,7 +491,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node) 
             ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
                 .type = ICNT_STRUCT_DECL,
                 .node.struct_decl = {
-                    .name = gen_name(codegen, type->from_pkg, *node->node.struct_decl.maybe_name),
+                    .name = *node->node.struct_decl.maybe_name,
                     .fields = fields,
                 },
             });
