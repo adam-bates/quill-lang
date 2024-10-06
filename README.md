@@ -1,4 +1,5 @@
 # Quill Programming Langauge
+Note: the compiler is a work-in-progress. Not everything is implemented yet.
 
 Iteration on c. Aiming for quality-of-life improvements, keeping a lean language, and removing c weirdness.
 
@@ -78,7 +79,7 @@ You can run the repo's tests using:
 make test
 ```
 
-Now, assuming you have a file called `my_program.ql`, you can compile it using:
+The hello-world example can be run using:
 ```
-.bin/quillc my_program.ql
+make example-hello
 ```

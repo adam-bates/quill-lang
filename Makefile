@@ -11,7 +11,7 @@ test-lexer: setup
 
 test: test-lexer
 
-run: clean build
+example-hello: clean build
 	mkdir -p ./.bin/tmp \
 	&& .bin/quillc ./examples/hello.ql -D=./.bin/tmp -lstd=./brainstorm/std/std.ql ./brainstorm/std/io.ql -llibc=./brainstorm/libc/stdio.ql \
 	&& cd ./.bin \
