@@ -24,7 +24,8 @@ void eprintln(String str) {
 uint fwriteln(stdio::FILE mut* stream, String str) {
 	uint mut bytes = stdio::fwrite(str.bytes, sizeof(char), str.length, stream);
 
-	// bytes += stdio::fwrite(&'\n', sizeof(char), 1, stream);
+	static char nl = '\n';
+	bytes += stdio::fwrite(&nl, sizeof(char), 1, stream);
 
 	return bytes;
 }

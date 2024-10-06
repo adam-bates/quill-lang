@@ -667,12 +667,15 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         }
 
         case ANT_UNARY_OP: {
-            assert(false);
+            if (type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
+                break;
+            }
+
             changed |= resolve_type_node(type_resolver, scope, node->node.unary_op.right);
-            TypeInfo outer_ti = type_resolver->packages->types[node->id.val];
             TypeInfo inner_ti = type_resolver->packages->types[node->node.unary_op.right->id.val];
-            if (inner_ti.status > outer_ti.status) {
+            if (inner_ti.type) {
                 type_resolver->packages->types[node->id.val] = inner_ti;
+                changed = true;
             }
             break;
         }
@@ -752,9 +755,32 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         }
 
         case ANT_ASSIGNMENT: {
-            assert(false); // TODO
+            if (type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
+                break;
+            }
+
             changed |= resolve_type_node(type_resolver, scope, node->node.assignment.lhs);
             changed |= resolve_type_node(type_resolver, scope, node->node.assignment.rhs);
+
+            TypeInfo* lhs = packages_type_by_node(type_resolver->packages, node->node.assignment.lhs->id);
+            TypeInfo* rhs = packages_type_by_node(type_resolver->packages, node->node.assignment.rhs->id);
+
+            if (lhs->type && rhs->type) {
+                // TODO: assert can assign lhs to rhs
+                // TODO: assert assignment op makes sense for types
+
+                if (lhs->status < rhs->status) {
+                    type_resolver->packages->types[node->id.val] = (TypeInfo){
+                        .status = lhs->status,
+                        .type = lhs->type,
+                    };
+                } else {
+                    type_resolver->packages->types[node->id.val] = (TypeInfo){
+                        .status = rhs->status,
+                        .type = rhs->type,
+                    };
+                }
+            }
             break;
         }
 
@@ -1153,7 +1179,35 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                     break;
                 }
 
-                default: assert(false); // TODO
+                case LK_CHAR: {
+                    ResolvedType* type = arena_alloc(type_resolver->arena, sizeof *type);
+                    type->src = node;
+                    type->from_pkg = type_resolver->current_package;
+                    type->kind = RTK_CHAR;
+                    type->type.char_ = NULL;
+
+                    type_resolver->packages->types[node->id.val] = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = type,
+                    };
+                    break;
+                }
+
+                case LK_INT: {
+                    ResolvedType* type = arena_alloc(type_resolver->arena, sizeof *type);
+                    type->src = node;
+                    type->from_pkg = type_resolver->current_package;
+                    type->kind = RTK_INT;
+                    type->type.int_ = NULL;
+
+                    type_resolver->packages->types[node->id.val] = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = type,
+                    };
+                    break;
+                }
+
+                default: printf("TODO: ANT_LITERAL::LK_%d\n", node->node.literal.kind); assert(false); // TODO
             }
             break;
         }

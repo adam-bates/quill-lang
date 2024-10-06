@@ -334,6 +334,32 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                     break;
                 }
 
+                case LK_CHAR: {
+                    StringBuffer sb = strbuf_create(codegen->arena);
+                    strbuf_append_char(&sb, '\'');
+                    strbuf_append_str(&sb, node->node.literal.value.lit_char);
+                    strbuf_append_char(&sb, '\'');
+                    String value = strbuf_to_str(sb);
+
+                    ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                        .type = ICNT_VAR_REF,
+                        .node.var_ref.name = value,
+                    });
+                    break;
+                }
+
+                case LK_INT: {
+                    StringBuffer sb = strbuf_create(codegen->arena);
+                    strbuf_append_int(&sb, node->node.literal.value.lit_int);
+                    String value = strbuf_to_str(sb);
+
+                    ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                        .type = ICNT_VAR_REF,
+                        .node.var_ref.name = value,
+                    });
+                    break;
+                }
+
                 default: assert(false);
             }
 
@@ -353,6 +379,33 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
                 .type = ICNT_VAR_REF,
                 .node.var_ref.name = child->name,
+            });
+            break;
+        }
+
+        case ANT_UNARY_OP: {
+            LL_IR_C_Node expr_ll = {0};
+            fill_nodes(codegen, &expr_ll, node->node.unary_op.right, ftype, stage, false);
+            assert(expr_ll.length == 1);
+
+            IR_C_Node* expr = &expr_ll.head->data;
+
+            String op;
+            switch (node->node.unary_op.op) {
+                case UO_PTR_REF: {
+                    op = c_str("&");
+                    break;
+                }
+
+                default: printf("TODO: unary op [%d]\n", node->node.unary_op.op); assert(false);
+            }
+
+            ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                .type = ICNT_UNARY,
+                .node.unary = {
+                    .op = op,
+                    .expr = expr,
+                },
             });
             break;
         }
@@ -435,6 +488,44 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 .type = ICNT_RETURN,
                 .node.return_.expr = expr,
             });
+            break;
+        }
+
+        case ANT_ASSIGNMENT: {
+            LL_IR_C_Node lhs_expr_ll = {0};
+            fill_nodes(codegen, &lhs_expr_ll, node->node.assignment.lhs, ftype, stage, false);
+            assert(lhs_expr_ll.length == 1);
+            IR_C_Node* lhs_expr = &lhs_expr_ll.head->data;
+
+            LL_IR_C_Node rhs_expr_ll = {0};
+            fill_nodes(codegen, &rhs_expr_ll, node->node.assignment.rhs, ftype, stage, false);
+            assert(rhs_expr_ll.length == 1);
+            IR_C_Node* rhs_expr = &rhs_expr_ll.head->data;
+
+            String op;
+            switch (node->node.assignment.op) {
+                case AO_ASSIGN: {
+                    op = c_str("=");
+                    break;
+                }
+
+                case AO_PLUS_ASSIGN: {
+                    op = c_str("+=");
+                    break;
+                }
+
+                default: printf("TODO: assignment op [%d]\n", node->node.assignment.op); assert(false);
+            }
+
+            ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                .type = ICNT_ASSIGNMENT,
+                .node.assignment = {
+                    .lhs = lhs_expr,
+                    .op = op,
+                    .rhs = rhs_expr,
+                },
+            });
+
             break;
         }
 
@@ -624,7 +715,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
         }
 
         default: {
-            printf("TODO: transform [");
+            printf("TODO: transform (%d) [", node->type);
                 print_astnode(*node);
             printf("]\n");
             assert(false);
@@ -762,6 +853,12 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
             break;
         }
 
+        case ICNT_UNARY: {
+            strbuf_append_str(sb, node->node.unary.op);
+            append_ir_node(sb, node->node.unary.expr);
+            break;
+        }
+
         case ICNT_GET_FIELD: {
             append_ir_node(sb, node->node.get_field.root);
             strbuf_append_char(sb, '.');
@@ -807,6 +904,16 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
                 strbuf_append_char(sb, ' ');
                 append_ir_node(sb, node->node.return_.expr);
             }
+            strbuf_append_char(sb, ';');
+            break;
+        }
+
+        case ICNT_ASSIGNMENT: {
+            append_ir_node(sb, node->node.assignment.lhs);
+            strbuf_append_char(sb, ' ');
+            strbuf_append_str(sb, node->node.assignment.op);
+            strbuf_append_char(sb, ' ');
+            append_ir_node(sb, node->node.assignment.rhs);
             strbuf_append_char(sb, ';');
             break;
         }

@@ -13,6 +13,7 @@ typedef struct {
 typedef enum {
     RTK_NAMESPACE,
     RTK_VOID,
+    RTK_INT,
     RTK_UINT,
     RTK_CHAR,
     RTK_POINTER,
@@ -65,6 +66,7 @@ typedef struct ResolvedType {
     union {
         Package* namespace_;
         void* void_;
+        void* int_;
         void* uint_;
         void* char_;
         ResolvedTypePointer ptr;

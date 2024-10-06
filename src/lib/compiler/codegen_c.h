@@ -25,11 +25,13 @@ typedef enum {
     ICNT_MACRO_ENDIF,
 
     ICNT_VAR_REF,
+    ICNT_UNARY,
     ICNT_GET_FIELD,
     ICNT_SIZEOF_EXPR,
     ICNT_SIZEOF_TYPE,
     ICNT_FUNCTION_CALL,
     ICNT_RETURN,
+    ICNT_ASSIGNMENT,
 
     ICNT_VAR_DECL,
     ICNT_FUNCTION_HEADER_DECL,
@@ -62,6 +64,11 @@ typedef struct {
 } IR_C_VarRef;
 
 typedef struct {
+    String op;
+    struct IR_C_Node* expr;
+} IR_C_Unary;
+
+typedef struct {
     struct IR_C_Node* root;
     String name;
 } IR_C_GetField;
@@ -82,6 +89,12 @@ typedef struct {
 typedef struct {
     struct IR_C_Node* expr;
 } IR_C_Return;
+
+typedef struct {
+    struct IR_C_Node* lhs;
+    String op;
+    struct IR_C_Node* rhs;
+} IR_C_Assignment;
 
 typedef struct {
     String type;
@@ -115,11 +128,13 @@ typedef struct IR_C_Node {
         IR_C_MacroInclude include;
         IR_C_MacroEndif endif;
         IR_C_VarRef var_ref;
+        IR_C_Unary unary;
         IR_C_GetField get_field;
         IR_C_SizeofExpr sizeof_expr;
         IR_C_SizeofType sizeof_type;
         IR_C_FunctionCall function_call;
         IR_C_Return return_;
+        IR_C_Assignment assignment;
         IR_C_VarDecl var_decl;
         IR_C_FunctionHeaderDecl function_header_decl;
         IR_C_FunctionDecl function_decl;
