@@ -9,7 +9,6 @@ Some notable differences from c:
 - Generics: `HashTable<String, int>`
 - Type-inferencing: `let x = true;`
 - for-each loops: `for n in 0..10 { }`
-- break-data turns blocks into expressions: `int x = { break 1; };`
 - Standard library supplies fat strings, fat arrays, optionals, result types, and much more.
 - No macros, no metaprogramming. Sorry, not sorry!
 
