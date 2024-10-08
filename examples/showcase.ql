@@ -131,7 +131,7 @@ void main() {
     }
 
     int v2 = m else 42;
-    int v2 = m else { CRASH "uh oh!"; };
+    int v2 = m else do { CRASH "uh oh!"; };
 
     int v = 1;
     int* p = &v;
@@ -168,7 +168,8 @@ void main() {
     }
 
     int v = res else 42;
-    int v = res catch e { CRASH `Error: {e}`; };
+    int v = res catch e sizeof(e);
+    int v = res catch e do { CRASH `Error: {e}`; };
 
     int v = std::assert_ok(res);
     std::Error err = std::assert_err(res);
@@ -213,6 +214,25 @@ void main() {
     while (bool)x { // <-- int x = 0; (bool)x is false
         x -= 1;
     }
+
+    // do-expressions
+    int x = do {
+        break 1;
+    };
+
+    int x = do if true {
+        break 1;
+    } else {
+        break 2;
+    };
+
+    int x = do for i in 0..10 {
+        if i > 0 && ((i - 1) % 4 == 0) {
+            break i;
+        }
+    } else {
+        break 5;
+    };
 
     // IO
     io::println("Hello, world!");
