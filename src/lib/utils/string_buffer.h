@@ -2,12 +2,13 @@
 #define quill_string_buffer_h
 
 #include "./arena.h"
+#include "./string.h"
 #include "./base.h"
 
 typedef struct {
     Arena* arena;
-    size_t      capacity;
-    size_t      length;
+    size_t capacity;
+    size_t length;
     char* chars;
 } StringBuffer;
 

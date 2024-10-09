@@ -186,7 +186,12 @@ void main() {
     }
 
     // for-loops
-    for i in 0..5 {
+    for (int i = 0; i < 5; ++i) {
+        // i = 0, 1, 2, 3, 4
+    }
+    
+    // foreach-loops
+    foreach i in 0..5 {
         // i = 0, 1, 2, 3, 4
     }
 

@@ -56,6 +56,7 @@ typedef enum {
 
 typedef enum {
     TBI_VOID,
+    TBI_INT,
     TBI_UINT,
     TBI_CHAR,
     // TODO
@@ -99,6 +100,8 @@ typedef enum {
     ANT_VAR_DECL,
     ANT_VAR_REF,
     ANT_GET_FIELD,
+    ANT_INDEX,
+    ANT_RANGE,
     ANT_ASSIGNMENT,
     ANT_FUNCTION_CALL,
     ANT_STATEMENT_BLOCK,
@@ -110,7 +113,9 @@ typedef enum {
     ANT_WHILE,
     ANT_DO_WHILE,
     ANT_FOR,
+    ANT_FOREACH,
     ANT_RETURN,
+    ANT_DEFER,
     ANT_STRUCT_INIT,
     ANT_ARRAY_INIT,
     ANT_IMPORT,
@@ -160,17 +165,26 @@ typedef struct {
 //
 
 typedef enum {
+    BO_BIT_OR,
+    BO_BIT_AND,
+    BO_BIT_XOR,
+
     BO_ADD,
     BO_SUBTRACT,
     BO_MULTIPLY,
     BO_DIVIDE,
+    BO_MODULO,
 
     BO_BOOL_OR,
     BO_BOOL_AND,
 
-    BO_BIT_OR,
-    BO_BIT_AND,
-    BO_BIT_XOR,
+    BO_EQ,
+    BO_NOT_EQ,
+
+    BO_LESS,
+    BO_LESS_OR_EQ,
+    BO_GREATER,
+    BO_GREATER_OR_EQ,
 
     BO_COUNT
 } BinaryOp;
@@ -252,6 +266,21 @@ typedef struct {
     struct ASTNode* root;
     String name;
 } ASTNodeGetField;
+
+//
+
+typedef struct {
+    struct ASTNode* root;
+    struct ASTNode* value;
+} ASTNodeIndex;
+
+//
+
+typedef struct {
+    struct ASTNode* lhs;
+    struct ASTNode* rhs;
+    bool inclusive;
+} ASTNodeRange;
 
 //
 
@@ -341,16 +370,31 @@ typedef struct {
 //
 
 typedef struct {
-    VarDeclLHS var;
-    struct ASTNode* iterable;
+    struct ASTNode* init;
+    struct ASTNode* cond;
+    struct ASTNode* step;
     ASTNodeStatementBlock* block;
 } ASTNodeFor;
 
 //
 
 typedef struct {
+    VarDeclLHS var;
+    struct ASTNode* iterable;
+    ASTNodeStatementBlock* block;
+} ASTNodeForEach;
+
+//
+
+typedef struct {
     struct ASTNode* maybe_expr;
 } ASTNodeReturn;
+
+//
+
+typedef struct {
+    struct ASTNode* stmt;
+} ASTNodeDefer;
 
 //
 
@@ -446,9 +490,7 @@ typedef struct {
 //
 
 typedef struct {
-    String* str_parts;
-    size_t str_parts_count;
-
+    ArrayList_String str_parts;
     LL_ASTNode template_expr_parts;
 } ASTNodeTemplateString;
 
@@ -571,6 +613,8 @@ typedef struct ASTNode {
         ASTNodeVarDecl var_decl;
         ASTNodeVarRef var_ref;
         ASTNodeGetField get_field;
+        ASTNodeIndex index;
+        ASTNodeRange range;
         ASTNodeFunctionCall function_call;
         ASTNodeStatementBlock statement_block;
         ASTNodeIf if_;
@@ -581,7 +625,9 @@ typedef struct ASTNode {
         ASTNodeWhile while_;
         ASTNodeDoWhile do_while;
         ASTNodeFor for_;
+        ASTNodeForEach foreach;
         ASTNodeReturn return_;
+        ASTNodeDefer defer;
         ASTNodeStructInit struct_init;
         ASTNodeArrayInit array_init;
         ASTNodeImport import;

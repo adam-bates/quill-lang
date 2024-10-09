@@ -27,7 +27,7 @@ std::ExitCode main(std::Array<std::String> args) {
         case Speed::FAST { break nth_fib_fast; }
     };
 
-    for i in 0..n {
+    foreach i in 0..n {
         io::printf("fib(%d) = %d\n", i, nth_fib_fnptr(i));
     }
 
@@ -52,7 +52,7 @@ uint64 nth_fib_fast(uint8 n) {
     uint64 mut b = 2;
     uint64 mut tmp = a;
 
-    for _ in 2..n {
+    for (uint8 i = 2; i < n; ++i) {
         tmp = a;
         a = b;
         b = tmp + a;

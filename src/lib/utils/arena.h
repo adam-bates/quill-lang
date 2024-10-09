@@ -2,7 +2,6 @@
 #define quill_arena_h
 
 #include "./base.h"
-#include "./string.h"
 
 struct Region {
     struct Region *next;

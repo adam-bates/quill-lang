@@ -5,10 +5,10 @@
 #include "../utils/utils.h"
 
 typedef struct {
-    Arena* const arena;
+    Arena* arena;
 
-    char const* start;
-    char const* current;
+    char* start;
+    char* current;
     size_t line;
 
     size_t template_string_nest;

@@ -8,7 +8,7 @@ Some notable differences from c:
 - Namespacing: `io::println("hello")`
 - Generics: `HashTable<String, int>`
 - Type-inferencing: `let x = true;`
-- for-each loops: `for n in 0..10 { }`
+- for-each loops: `foreach n in 0..10 { }`
 - do-break pattern: `int x = do { break 1; };`
 - Standard library supplies fat strings, fat arrays, optionals, result types, and much more.
 - No macros, no metaprogramming. Sorry, not sorry!
@@ -43,7 +43,7 @@ int main(Array<String> args) {
     };
 
     ds::StringBuffer mut out = ds::strbuf_create();
-    for i in 1..=n {
+    foreach i in 1..=n {
         defer ds::strbuf_reset(&out);
     
         if i % 3 == 0 { ds::strbuf_append_str(&out, "Fizz"); }

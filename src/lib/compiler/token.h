@@ -11,8 +11,8 @@ typedef enum {
     TT_LEFT_PAREN, TT_RIGHT_PAREN,     // ()
     TT_LEFT_BRACE, TT_RIGHT_BRACE,     // {}
     TT_LEFT_BRACKET, TT_RIGHT_BRACKET, // []
-    TT_COMMA, TT_DOT, TT_TILDE,        // ,.~
-    TT_SEMICOLON, TT_QUESTION, TT_AT,  // ;?@
+    TT_COMMA, TT_TILDE, TT_SEMICOLON,  // ,~;
+    TT_QUESTION, TT_AT, TT_PERCENT,    // ?@%
 
     // one or two character tokens
     TT_BANG, TT_BANG_EQUAL,
@@ -27,6 +27,7 @@ typedef enum {
     TT_PIPE, TT_PIPE_EQUAL, TT_PIPE_PIPE,
     TT_AMPERSAND, TT_AMPERSAND_EQUAL, TT_AMPERSAND_AMPERSAND,
     TT_COLON, TT_COLON_COLON,
+    TT_DOT, TT_DOT_DOT, TT_DOT_DOT_EQUAL,
 
     // literals
     TT_LITERAL_NUMBER,
@@ -36,11 +37,13 @@ typedef enum {
     TT_LITERAL_STRING_TEMPLATE_FULL,
 
     // keywords
+    TT_CATCH,
     TT_CRASH,
     TT_ELSE,
     TT_ENUM,
     TT_FALSE,
     TT_FOR,
+    TT_FOREACH,
     TT_GLOBALTAG,
     TT_IF,
     TT_IMPORT,
@@ -55,6 +58,7 @@ typedef enum {
     TT_STRUCT,
     TT_SWITCH,
     TT_TRUE,
+    TT_TRY,
     TT_TYPEDEF,
     TT_UNION,
     TT_WHILE,
@@ -84,7 +88,7 @@ typedef enum {
 typedef struct {
     TokenType type;
 
-    char const* start;
+    char* start;
     size_t length;
 
     size_t line;

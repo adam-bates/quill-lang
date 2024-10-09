@@ -18,7 +18,16 @@ example-hello: clean build
 	&& gcc -std=c99 -o main -I./tmp ./tmp/*.c  \
 	&& clear \
 	&& ./main \
-	&& cd .. \
+	&& cd ..
+
+example-fizzbuzz: clean build
+	mkdir -p ./.bin/tmp \
+	&& .bin/quillc ./examples/fizzbuzz.ql -D=./.bin/tmp -lstd=./brainstorm/std/std.ql ./brainstorm/std/io.ql -llibc=./brainstorm/libc/stdio.ql \
+	&& cd ./.bin \
+	&& gcc -std=c99 -o main -I./tmp ./tmp/*.c  \
+	&& clear \
+	&& ./main \
+	&& cd ..
 
 setup:
 	mkdir -p ./.bin

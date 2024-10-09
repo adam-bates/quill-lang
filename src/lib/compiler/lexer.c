@@ -9,13 +9,16 @@ typedef struct {
     TokenType const type;
 } KeywordMatch;
 
-static const size_t KEYWORD_MATCHES_LEN = 42;
+static const size_t KEYWORD_MATCHES_LEN = 46;
 static const KeywordMatch KEYWORD_MATCHES[KEYWORD_MATCHES_LEN] = {
+    { "catch", TT_CATCH },
     { "CRASH", TT_CRASH },
+    { "defer", TT_DEFER },
     { "else", TT_ELSE },
     { "enum", TT_ENUM },
     { "false", TT_FALSE },
     { "for", TT_FOR },
+    { "foreach", TT_FOREACH },
     { "globaltag", TT_GLOBALTAG },
     { "if", TT_IF },
     { "import", TT_IMPORT },
@@ -30,6 +33,7 @@ static const KeywordMatch KEYWORD_MATCHES[KEYWORD_MATCHES_LEN] = {
     { "struct", TT_STRUCT },
     { "switch", TT_SWITCH },
     { "true", TT_TRUE },
+    { "try", TT_TRY },
     { "typedef", TT_TYPEDEF },
     { "union", TT_UNION },
     { "while", TT_WHILE },
@@ -98,7 +102,7 @@ static Token lexer_token_create(Lexer const* const lexer, TokenType const type) 
     };
 }
 
-static Token lexer_token_error(Lexer const* const lexer, char const* message) {
+static Token lexer_token_error(Lexer const* const lexer, char* message) {
     return (Token) {
         .type = TT_ERROR,
         .start = message,
@@ -407,9 +411,9 @@ static Token lexer_scan_token(Lexer* const lexer) {
         case '[': return lexer_token_create(lexer, TT_LEFT_BRACKET);
         case ']': return lexer_token_create(lexer, TT_RIGHT_BRACKET);
         case ',': return lexer_token_create(lexer, TT_COMMA);
-        case '.': return lexer_token_create(lexer, TT_DOT);
         case ';': return lexer_token_create(lexer, TT_SEMICOLON);
         case '?': return lexer_token_create(lexer, TT_QUESTION);
+        case '%': return lexer_token_create(lexer, TT_PERCENT);
 
         case '!': return lexer_token_create(lexer,
             lexer_match_char(lexer, '=') ? TT_BANG_EQUAL : TT_BANG
@@ -460,6 +464,11 @@ static Token lexer_scan_token(Lexer* const lexer) {
         );
         case ':': return lexer_token_create(lexer,
             lexer_match_char(lexer, ':') ? TT_COLON_COLON : TT_COLON
+        );
+        case '.': return lexer_token_create(lexer,
+            lexer_match_char(lexer, '.') ? (
+                lexer_match_char(lexer, '=') ? TT_DOT_DOT_EQUAL : TT_DOT_DOT
+            ) : TT_DOT
         );
     }
 
