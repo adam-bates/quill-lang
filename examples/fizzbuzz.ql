@@ -10,7 +10,7 @@ int main(int argc, char** argv) {
     }
     String n_str = cstr_to_str(argv[1]);
 
-    uint n = conv::parse_uint(n_str) catch err {
+    uint n = conv::parse_uint(n_str) catch err do {
         CRASH `Error parsing integer: {err}`;
     };
 
