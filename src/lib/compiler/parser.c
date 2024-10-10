@@ -18,6 +18,7 @@ typedef struct {
     ASTNode node;
 } ParseResult;
 
+static Type* parser_parse_type(Parser* const parser);
 static ParseResult parser_parse_stmt(Parser* const parser);
 static ASTNodeStatementBlock parser_parse_stmt_block(Parser* const parser);
 static ParseResult parser_parse_simple_expr(Parser* const parser, LL_Directive const directives);
@@ -66,6 +67,7 @@ void debug_token_type(TokenType token_type) {
         case TT_SEMICOLON: printf(";"); break;
         case TT_QUESTION: printf("?"); break;
         case TT_AT: printf("@"); break;
+        case TT_PERCENT: printf("%%"); break;
 
         case TT_BANG: printf("!"); break;
         case TT_BANG_EQUAL: printf("!="); break;
@@ -569,6 +571,34 @@ static Type* parser_parse_type_wrap(Parser* const parser, Type* type) {
             return parser_parse_type_wrap(parser, wrapped);
         }
 
+        case TT_LESS: {
+            // Only generics on defined types, not built-ins or wraps
+            assert(type->kind == TK_STATIC_PATH);
+            assert(type->type.static_path.generic_types.length == 0);
+            parser_advance(parser);
+
+            t = parser_peek(parser);
+            while (t.type != TT_GREATER && t.type != TT_EOF) {
+                Type* generic = parser_parse_type(parser);
+                assert(generic);
+
+                ll_type_push(parser->arena, &type->type.static_path.generic_types, *generic);
+
+                t = parser_peek(parser);
+
+                if (t.type != TT_GREATER && t.type != TT_EOF) {
+                    assert(parser_consume(parser, TT_COMMA, "Expected ',' between generics"));
+                    t = parser_peek(parser);
+                }
+            }
+            if (parser_peek(parser).type == TT_COMMA) {
+                parser_advance(parser);
+            }
+            assert(parser_consume(parser, TT_GREATER, "Expected '>' to close generic type"));
+
+            return parser_parse_type_wrap(parser, type);
+        }
+
         default: break;
     }
     
@@ -585,23 +615,14 @@ static Type* parser_parse_type(Parser* const parser) {
     Token t = parser_peek(parser);
     switch (t.type) {
         case TT_IDENTIFIER: {
-            if (parser_peek_next(parser).type == TT_COLON_COLON) {
-                StaticPath* path = parser_parse_static_path(parser);
-                assert(path);
+            StaticPath* path = parser_parse_static_path(parser);
+            assert(path);
 
-                type->kind = TK_STATIC_PATH;
-                type->type.static_path.path = path;
-                return parser_parse_type_wrap(parser, type);
-            } else {            
-                parser_advance(parser);
+            type->kind = TK_STATIC_PATH;
+            type->type.static_path.path = path;
+            type->type.static_path.generic_types = (LL_Type){0};
 
-                type->kind = TK_TYPE_REF;
-                type->type.type_ref.name = (String){
-                    .length = t.length,
-                    .chars = t.start,
-                };
-                return parser_parse_type_wrap(parser, type);
-            }
+            return parser_parse_type_wrap(parser, type);
         }
 
         case TT_VOID: {
@@ -757,6 +778,32 @@ static ParseResult parser_parse_struct_decl(Parser* const parser, LL_Directive c
     m_name->length = name.length;
     m_name->chars = name.start;
 
+    ArrayList_String generic_params = arraylist_string_create(parser->arena);
+
+    if (parser_peek(parser).type == TT_LESS) {
+        parser_advance(parser);
+
+        Token t = parser_peek(parser);
+        while (t.type != TT_GREATER && t.type != TT_EOF) {
+            assert(parser_consume(parser, TT_IDENTIFIER, "Expected identifier for generic param"));
+
+            arraylist_string_push(&generic_params, (String){
+                .length = t.length,
+                .chars = t.start,
+            });
+            t = parser_peek(parser);
+
+            if (t.type != TT_GREATER && t.type != TT_EOF) {
+                assert(parser_consume(parser, TT_COMMA, "Expected ',' between generic params"));
+            }
+        }
+        if (parser_peek(parser).type == TT_COMMA) {
+            parser_advance(parser);
+        }
+
+        assert(parser_consume(parser, TT_GREATER, "Expected '>' to close generic params"));
+    }
+
     assert(parser_consume(parser, TT_LEFT_BRACE, "Expected '{'."));
 
     LL_StructField fields = {0};
@@ -794,6 +841,7 @@ static ParseResult parser_parse_struct_decl(Parser* const parser, LL_Directive c
         .node.struct_decl = {
             .maybe_name = m_name,
             .fields = fields,
+            .generic_params = generic_params
         },
         .directives = directives,
     });

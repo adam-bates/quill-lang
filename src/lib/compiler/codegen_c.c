@@ -129,12 +129,12 @@ static void _append_return_type(CodegenC* codegen, StringBuffer* sb, Type type) 
             break;
         }
 
-        case TK_TYPE_REF: {
-            Package* package = packages_type_by_type(codegen->packages, type.id)->type->from_pkg;
-            String name = gen_name(codegen, package->full_name, type.type.type_ref.name);
-            strbuf_append_str(sb, name);
-            break;
-        }
+        // case TK_TYPE_REF: {
+        //     Package* package = packages_type_by_type(codegen->packages, type.id)->type->from_pkg;
+        //     String name = gen_name(codegen, package->full_name, type.type.type_ref.name);
+        //     strbuf_append_str(sb, name);
+        //     break;
+        // }
 
         case TK_STATIC_PATH: {
             StaticPath* curr = type.type.static_path.path;

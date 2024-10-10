@@ -4,3 +4,7 @@ package std;
 	uint  length,
 	char* bytes,
 }
+
+struct Result<T> {
+	// TODO
+}

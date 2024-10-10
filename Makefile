@@ -22,7 +22,7 @@ example-hello: clean build
 
 example-fizzbuzz: clean build
 	mkdir -p ./.bin/tmp \
-	&& .bin/quillc ./examples/fizzbuzz.ql -D=./.bin/tmp -lstd=./brainstorm/std/std.ql ./brainstorm/std/io.ql -llibc=./brainstorm/libc/stdio.ql \
+	&& .bin/quillc ./examples/fizzbuzz.ql -D=./.bin/tmp -lstd=./runtime/std/std.ql ./runtime/std/io.ql ./runtime/std/ds.ql ./runtime/std/conv.ql -llibc=./runtime/libc/stdio.ql \
 	&& cd ./.bin \
 	&& gcc -std=c99 -o main -I./tmp ./tmp/*.c  \
 	&& clear \

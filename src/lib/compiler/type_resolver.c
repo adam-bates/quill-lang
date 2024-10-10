@@ -475,16 +475,8 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
 
     // printf("TK-%d\n", type->kind);
     switch (type->kind) {
-        case TK_TYPE_REF: {
-            ResolvedType* resolved_type = scope_get(scope, type->type.type_ref.name);
-            *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
-                .status = TIS_CONFIDENT,
-                .type = resolved_type,
-            };
-            return resolved_type;
-        }
-
         case TK_STATIC_PATH: {
+            assert(false); // TODO: generics
             return calc_static_path_type(type_resolver, scope, type->type.static_path.path);
         }
 
@@ -955,6 +947,8 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 break;
             }
             assert(node->node.struct_decl.maybe_name); // TODO
+
+            assert(false); // TODO: solve type resolution alogorithm for generics
 
             ResolvedStructField* fields = arena_calloc(type_resolver->arena, node->node.struct_decl.fields.length, sizeof *fields);
 

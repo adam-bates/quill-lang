@@ -31,6 +31,7 @@ static void verify_type(Analyzer* analyzer, Type const* type, size_t depth, size
                 // Only valid on nodes
                 case DT_IGNORE_UNUSED: assert(false);
                 case DT_IMPL: assert(false);
+                case DT_STRING_LITERAL: assert(false);
             }
             
             curr = curr->next;
@@ -67,6 +68,11 @@ static void verify_node(Analyzer* analyzer, ASTNode const* const ast, size_t dep
 
                 case DT_IMPL: {
                     assert(ast->type == ANT_FUNCTION_DECL);
+                    break;
+                }
+
+                case DT_STRING_LITERAL: {
+                    assert(ast->type == ANT_STRUCT_DECL);
                     break;
                 }
 
@@ -138,6 +144,18 @@ static void verify_node(Analyzer* analyzer, ASTNode const* const ast, size_t dep
             break;
         }
 
+        case ANT_INDEX: {
+            verify_node(analyzer, ast->node.index.root, depth + 1, iter);
+            verify_node(analyzer, ast->node.index.value, depth + 1, iter);
+            break;
+        }
+
+        case ANT_RANGE: {
+            verify_node(analyzer, ast->node.range.lhs, depth + 1, iter);
+            verify_node(analyzer, ast->node.range.rhs, depth + 1, iter);
+            break;
+        }
+
         case ANT_ASSIGNMENT: {
             verify_node(analyzer, ast->node.assignment.lhs, depth + 1, iter);
             verify_node(analyzer, ast->node.assignment.rhs, depth + 1, iter);
@@ -187,16 +205,39 @@ static void verify_node(Analyzer* analyzer, ASTNode const* const ast, size_t dep
         }
 
         case ANT_TRY: assert(false); // TODO
-        case ANT_CATCH: assert(false); // TODO
+
+        case ANT_CATCH: {
+            verify_node(analyzer, ast->node.catch_.target, depth + 1, iter);
+            verify_node(analyzer, ast->node.catch_.then, depth + 1, iter);
+            break;
+        }
+
         case ANT_BREAK: assert(false); // TODO
         case ANT_WHILE: assert(false); // TODO
         case ANT_DO_WHILE: assert(false); // TODO
         case ANT_FOR: assert(false); // TODO
 
+        case ANT_FOREACH: {
+            verify_node(analyzer, ast->node.foreach.iterable, depth + 1, iter);
+
+            LLNode_ASTNode* curr = ast->node.foreach.block->stmts.head;
+            while (curr) {
+                verify_node(analyzer, &curr->data, depth + 1, iter);
+                curr = curr->next;
+            }
+
+            break;
+        }
+
         case ANT_RETURN: {
             if (ast->node.return_.maybe_expr) {
                 verify_node(analyzer, ast->node.return_.maybe_expr, depth + 1, iter);
             }
+            break;
+        }
+
+        case ANT_DEFER: {
+            verify_node(analyzer, ast->node.defer.stmt, depth + 1, iter);
             break;
         }
 
@@ -206,7 +247,7 @@ static void verify_node(Analyzer* analyzer, ASTNode const* const ast, size_t dep
         case ANT_IMPORT: break;
 
         case ANT_TEMPLATE_STRING: assert(false); // TODO
-        case ANT_CRASH: assert(false); // TODO
+        case ANT_CRASH: break;
 
         case ANT_SIZEOF: {
             // TODO ??

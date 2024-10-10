@@ -85,6 +85,8 @@ ASTNode* find_decl_by_name(ASTNodeFileRoot root, String name) {
             case ANT_LITERAL: break;
             case ANT_VAR_REF: break;
             case ANT_GET_FIELD: break;
+            case ANT_INDEX: break;
+            case ANT_RANGE: break;
             case ANT_ASSIGNMENT: break;
             case ANT_FUNCTION_CALL: break;
             case ANT_STATEMENT_BLOCK: break;
@@ -96,7 +98,9 @@ ASTNode* find_decl_by_name(ASTNodeFileRoot root, String name) {
             case ANT_WHILE: break;
             case ANT_DO_WHILE: break;
             case ANT_FOR: break;
+            case ANT_FOREACH: break;
             case ANT_RETURN: break;
+            case ANT_DEFER: break;
             case ANT_STRUCT_INIT: break;
             case ANT_ARRAY_INIT: break;
             case ANT_IMPORT: break;
@@ -167,6 +171,22 @@ void ll_param_push(Arena* const arena, LL_FnParam* const ll, FnParam const param
 void ll_field_push(Arena* const arena, LL_StructField* const ll, StructField const field) {
     LLNode_StructField* const llnode = arena_alloc(arena, sizeof *llnode);
     llnode->data = field;
+    llnode->next = NULL;
+
+    if (ll->head == NULL) {
+        ll->head = llnode;
+        ll->tail = ll->head;
+    } else {
+        ll->tail->next = llnode;
+        ll->tail = llnode;
+    }
+
+    ll->length += 1;
+}
+
+void ll_type_push(Arena* const arena, LL_Type* const ll, Type const type) {
+    LLNode_Type* const llnode = arena_alloc(arena, sizeof *llnode);
+    llnode->data = type;
     llnode->next = NULL;
 
     if (ll->head == NULL) {
@@ -373,7 +393,7 @@ static void print_package_path(PackagePath* path) {
     print_string(path->name);
 
     if (path->child != NULL) {
-        printf("__");
+        printf("/");
         print_package_path(path->child);
     }
 }
@@ -459,6 +479,11 @@ static void print_type(Type const* type) {
                     return;
                 }
 
+                case TBI_INT: {
+                    printf("int64_t");
+                    return;
+                }
+
                 case TBI_UINT: {
                     printf("size_t");
                     return;
@@ -469,11 +494,6 @@ static void print_type(Type const* type) {
                     return;
                 }
             }
-            return;
-        }
-
-        case TK_TYPE_REF: {
-            print_string(type->type.type_ref.name);
             return;
         }
 
