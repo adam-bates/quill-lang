@@ -38,7 +38,7 @@ int main(Array<String> args) {
     }
     String n_str = args.data[1];
 
-    uint n = conv::parse_uint(n_str) catch err {
+    uint n = conv::parse_uint(n_str) catch err do {
         CRASH `Error parsing integer: {err}`;
     };
 
