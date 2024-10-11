@@ -31,20 +31,27 @@ import std/ds;
 import std/io;
 
 void main() {
+    // std::args is a fat array of type Array<String>
+    // it contains the arguments passed in to the program
+    // (ie. argc, argv in c)
     let args = std::args;
 
     if args.length != 2 {
         io::eprintln("Usage: fizzbuzz [integer]");
         std::exit(1);
     }
-    let n_str = args.data[1];
 
-    let res = conv::parse_uint(n_str);
+    // parse arg as uint
+    let res = conv::parse_uint(args.data[1]);
     if !res.is_ok {
+        // crashing includes debug info when compiled with debug info
         CRASH `Error parser integer: {res.err}`;
     }
     uint n = res.val;
 
+    // writing to a StringBuffer
+    // reset between iterations (which maintains its capacity)
+    // print at the end of each iteration
     let mut out = ds::strbuf_default();
     foreach i in 1..=n {
         defer ds::strbuf_reset(&out);
