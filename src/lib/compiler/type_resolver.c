@@ -433,7 +433,14 @@ void resolve_types(TypeResolver* type_resolver) {
     printf("\n");
 }
 
-static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* scope, StaticPath* static_path) {
+static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scope, Type* type);
+
+static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* scope, TypeStaticPath* t_static_path) {
+    assert(t_static_path);
+    assert(t_static_path->path);
+
+    StaticPath* static_path = t_static_path->path;
+
     ResolvedType* rt = scope_get(scope, static_path->name);
     if (!rt) {
         return NULL;
@@ -464,6 +471,34 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
             default: assert(false);
         }
     }
+    assert(rt);
+
+    if (rt->kind == RTK_STRUCT_DECL) {
+        ResolvedType rt_new = {
+            .from_pkg = rt->from_pkg,
+            .src = rt->src,
+            .kind = RTK_STRUCT_REF,
+            .type.struct_ref = {
+                .decl = rt->type.struct_decl,
+                .generic_args = {
+                    .length = 0,
+                    .resolved_types = arena_calloc(type_resolver->arena, t_static_path->generic_types.length, sizeof(ResolvedType)),
+                },
+            },
+        };
+        *rt = rt_new;
+
+        LLNode_Type* curr = t_static_path->generic_types.head;
+        while (curr) {
+            ResolvedType* generic_arg = calc_resolved_type(type_resolver, scope, &curr->data);
+            assert(generic_arg);
+
+            assert(rt->type.struct_ref.generic_args.length < t_static_path->generic_types.length);
+            rt->type.struct_ref.generic_args.resolved_types[rt->type.struct_ref.generic_args.length++] = *generic_arg;
+
+            curr = curr->next;
+        }
+    }
 
     return rt;
 }
@@ -476,12 +511,7 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
     // printf("TK-%d\n", type->kind);
     switch (type->kind) {
         case TK_STATIC_PATH: {
-            ResolvedType* resolved_type = calc_static_path_type(type_resolver, scope, type->type.static_path.path);
-            if (resolved_type->kind == RTK_STRUCT) {
-                // TODO
-                assert(resolved_type->type.struct_.generic_params.length == 0);
-            }
-            return resolved_type;
+            return calc_static_path_type(type_resolver, scope, &type->type.static_path);
         }
 
         case TK_BUILT_IN: {
@@ -492,6 +522,30 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
                     resolved_type->from_pkg = type_resolver->current_package;
                     resolved_type->kind = RTK_VOID;
                     resolved_type->type.void_ = NULL;
+                    *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = resolved_type,
+                    };
+                    return resolved_type;
+                }
+
+                case TBI_BOOL: {
+                    ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+                    resolved_type->from_pkg = type_resolver->current_package;
+                    resolved_type->kind = RTK_BOOL;
+                    resolved_type->type.uint_ = NULL;
+                    *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = resolved_type,
+                    };
+                    return resolved_type;
+                }
+
+                case TBI_INT: {
+                    ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+                    resolved_type->from_pkg = type_resolver->current_package;
+                    resolved_type->kind = RTK_INT;
+                    resolved_type->type.uint_ = NULL;
                     *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
                         .status = TIS_CONFIDENT,
                         .type = resolved_type,
@@ -555,6 +609,7 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
 
         default: assert(false);
     }
+    assert(false);
 
     return NULL;
 }
@@ -730,12 +785,12 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             if (!root.type) {
                 break;
             }
-            assert(root.type->kind == RTK_STRUCT);
+            assert(root.type->kind == RTK_STRUCT_REF);
 
             ResolvedStructField* found = NULL;
-            for (size_t i = 0; i < root.type->type.struct_.fields_length; ++i) {
-                if (str_eq(root.type->type.struct_.fields[i].name, node->node.get_field.name)) {
-                    found = root.type->type.struct_.fields + i;
+            for (size_t i = 0; i < root.type->type.struct_ref.decl.fields_length; ++i) {
+                if (str_eq(root.type->type.struct_ref.decl.fields[i].name, node->node.get_field.name)) {
+                    found = root.type->type.struct_ref.decl.fields + i;
                     break;
                 }
             }
@@ -984,8 +1039,8 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
             resolved_type->from_pkg = type_resolver->current_package;
             resolved_type->src = node;
-            resolved_type->kind = RTK_STRUCT;
-            resolved_type->type.struct_ = (ResolvedStruct){
+            resolved_type->kind = RTK_STRUCT_DECL;
+            resolved_type->type.struct_decl = (ResolvedStructDecl){
                 .name = *node->node.struct_decl.maybe_name,
                 .generic_params = generic_params,
                 .fields_length = node->node.struct_decl.fields.length,
@@ -1221,7 +1276,11 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 break;
             }
 
-            ResolvedType* resolved_type = calc_static_path_type(type_resolver, scope, node->node.var_ref.path);
+            TypeStaticPath t_path = {
+                .path = node->node.var_ref.path,
+                .generic_types = {0},
+            };
+            ResolvedType* resolved_type = calc_static_path_type(type_resolver, scope, &t_path);
             if (resolved_type) {
                 type_resolver->packages->types[node->id.val] = (TypeInfo){
                     .status = TIS_CONFIDENT,

@@ -61,6 +61,7 @@ typedef enum {
 
 typedef enum {
     TBI_VOID,
+    TBI_BOOL,
     TBI_INT,
     TBI_UINT,
     TBI_CHAR,

@@ -10,16 +10,26 @@ typedef struct {
     bool is_entry;
 } Package;
 
+typedef struct {
+    size_t length;
+    struct ResolvedType* resolved_types;
+} ResolvedTypes;
+
 typedef enum {
     RTK_NAMESPACE,
     RTK_VOID,
+    RTK_BOOL,
     RTK_INT,
     RTK_UINT,
     RTK_CHAR,
     RTK_POINTER,
     RTK_MUT_POINTER,
     RTK_FUNCTION,
-    RTK_STRUCT,
+
+    // separate struct decl vs ref because
+    // generic params vs generic args
+    RTK_STRUCT_DECL,
+    RTK_STRUCT_REF,
 
     RTK_COUNT
 } ResolvedTypeKind;
@@ -58,7 +68,12 @@ typedef struct {
     Strings generic_params;
     size_t fields_length;
     ResolvedStructField* fields;
-} ResolvedStruct;
+} ResolvedStructDecl;
+
+typedef struct {
+    ResolvedStructDecl decl;
+    ResolvedTypes generic_args;
+} ResolvedStructRef;
 
 typedef struct ResolvedType {
     ResolvedTypeKind kind;
@@ -73,7 +88,8 @@ typedef struct ResolvedType {
         ResolvedTypePointer ptr;
         ResolvedTypePointer mut_ptr;
         ResolvedFunction function;
-        ResolvedStruct struct_;
+        ResolvedStructDecl struct_decl;
+        ResolvedStructRef struct_ref;
     } type;
 } ResolvedType;
 

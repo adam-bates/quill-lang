@@ -114,6 +114,16 @@ static void _append_return_type(CodegenC* codegen, StringBuffer* sb, Type type) 
                     break;
                 }
 
+                case TBI_BOOL: {
+                    strbuf_append_chars(sb, "bool");
+                    break;
+                }
+
+                case TBI_INT: {
+                    strbuf_append_chars(sb, "int64_t");
+                    break;
+                }
+
                 case TBI_UINT: {
                     strbuf_append_chars(sb, "size_t");
                     break;
@@ -202,8 +212,8 @@ static void _append_type_resolved(CodegenC* codegen, StringBuffer* sb, ResolvedT
             break;
         }
 
-        case RTK_STRUCT: {
-            strbuf_append_str(sb, type->type.struct_.name);
+        case RTK_STRUCT_REF: {
+            strbuf_append_str(sb, type->type.struct_ref.decl.name);
             break;
         }
 
@@ -1073,6 +1083,20 @@ GeneratedFiles generate_c_code(CodegenC* codegen) {
                 .node.include = {
                     .is_local = false,
                     .file = c_str("<stdlib.h>"),
+                },
+            });
+            ll_node_push(codegen->arena, &common, (IR_C_Node){
+                .type = ICNT_MACRO_INCLUDE,
+                .node.include = {
+                    .is_local = false,
+                    .file = c_str("<stdbool.h>"),
+                },
+            });
+            ll_node_push(codegen->arena, &common, (IR_C_Node){
+                .type = ICNT_MACRO_INCLUDE,
+                .node.include = {
+                    .is_local = false,
+                    .file = c_str("<stdint.h>"),
                 },
             });
             ll_node_push(codegen->arena, &common, (IR_C_Node){

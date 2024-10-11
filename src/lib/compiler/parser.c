@@ -620,6 +620,28 @@ static Type* parser_parse_type(Parser* const parser) {
             type->type.static_path.path = path;
             type->type.static_path.generic_types = (LL_Type){0};
 
+            if (parser_peek(parser).type == TT_LESS) {
+                parser_advance(parser);
+
+                Token t = parser_peek(parser);
+                while (t.type != TT_GREATER && t.type != TT_EOF) {
+                    Type* generic_arg = parser_parse_type(parser);
+                    assert(generic_arg);
+
+                    ll_type_push(parser->arena, &type->type.static_path.generic_types, *generic_arg);
+                    t = parser_peek(parser);
+
+                    if (t.type != TT_GREATER && t.type != TT_EOF) {
+                        assert(parser_consume(parser, TT_COMMA, "Expected ',' between generic args"));
+                    }
+                }
+                if (parser_peek(parser).type == TT_COMMA) {
+                    parser_advance(parser);
+                }
+
+                assert(parser_consume(parser, TT_GREATER, "Expected '>' to close generic args"));
+            }
+
             return parser_parse_type_wrap(parser, type);
         }
 
@@ -628,6 +650,14 @@ static Type* parser_parse_type(Parser* const parser) {
 
             type->kind = TK_BUILT_IN;
             type->type.built_in = TBI_VOID;
+            return parser_parse_type_wrap(parser, type);
+        }
+
+        case TT_BOOL: {
+            parser_advance(parser);
+
+            type->kind = TK_BUILT_IN;
+            type->type.built_in = TBI_BOOL;
             return parser_parse_type_wrap(parser, type);
         }
 
@@ -1244,10 +1274,10 @@ static ParseResult parser_parse_sizeof(Parser* const parser, LL_Directive const 
 static ParseResult parser_parse_unary(Parser* const parser, LL_Directive const directives) {
     UnaryOp op;
     switch (parser_peek(parser).type) {
-        case TT_MINUS_EQUAL: op = UO_BOOL_NEGATE; break;
-        case TT_STAR_EQUAL:  op = UO_NUM_NEGATE; break;
-        case TT_AMPERSAND:   op = UO_PTR_REF; break;
-        case TT_STAR:        op = UO_PTR_DEREF; break;
+        case TT_BANG:      op = UO_BOOL_NEGATE; break;
+        case TT_MINUS:     op = UO_NUM_NEGATE; break;
+        case TT_AMPERSAND: op = UO_PTR_REF; break;
+        case TT_STAR:      op = UO_PTR_DEREF; break;
 
         default: return parseres_none();
     }
@@ -1287,7 +1317,7 @@ static ParseResult parser_wrap_simple_expr(Parser* const parser, ParseResult exp
     if (wrapped_res.status == PRS_OK) {
         wrapped_res.node.directives = expr.directives;
         expr.directives = (LL_Directive){0};
-        return wrapped_res;
+        return parser_wrap_simple_expr(parser, wrapped_res);
     }
     parser->cursor_current = cached_current;
 
@@ -1295,7 +1325,7 @@ static ParseResult parser_wrap_simple_expr(Parser* const parser, ParseResult exp
     if (wrapped_res.status == PRS_OK) {
         wrapped_res.node.directives = expr.directives;
         expr.directives = (LL_Directive){0};
-        return wrapped_res;
+        return parser_wrap_simple_expr(parser, wrapped_res);
     }
     parser->cursor_current = cached_current;
 
@@ -1303,15 +1333,7 @@ static ParseResult parser_wrap_simple_expr(Parser* const parser, ParseResult exp
     if (wrapped_res.status == PRS_OK) {
         wrapped_res.node.directives = expr.directives;
         expr.directives = (LL_Directive){0};
-        return wrapped_res;
-    }
-    parser->cursor_current = cached_current;
-
-    wrapped_res = parser_parse_range(parser, expr);
-    if (wrapped_res.status == PRS_OK) {
-        wrapped_res.node.directives = expr.directives;
-        expr.directives = (LL_Directive){0};
-        return wrapped_res;
+        return parser_wrap_simple_expr(parser, wrapped_res);
     }
     parser->cursor_current = cached_current;
 
@@ -1413,7 +1435,15 @@ static ParseResult parser_wrap_expr(Parser* const parser, ParseResult expr_res) 
     if (wrapped_res.status == PRS_OK) {
         wrapped_res.node.directives = expr.directives;
         expr.directives = (LL_Directive){0};
-        return wrapped_res;
+        return parser_wrap_expr(parser, wrapped_res);
+    }
+    parser->cursor_current = cached_current;
+
+    wrapped_res = parser_parse_range(parser, expr);
+    if (wrapped_res.status == PRS_OK) {
+        wrapped_res.node.directives = expr.directives;
+        expr.directives = (LL_Directive){0};
+        return parser_wrap_expr(parser, wrapped_res);
     }
     parser->cursor_current = cached_current;
 

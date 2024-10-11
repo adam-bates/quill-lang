@@ -1,24 +1,23 @@
-import std::*;
+import std;
 import std/conv;
 import std/ds;
 import std/io;
 
 void main() {
-    Array<String> args = std::args;
+    let args = std::args;
 
     if args.length != 2 {
         io::eprintln("Usage: fizzbuzz [integer]");
         std::exit(1);
     }
-    String n_str = cstr_to_str(args.data[1]);
 
-    Result<uint> res = conv::parse_uint(n_str);
+    let res = conv::parse_uint(args.data[1]);
     if !res.is_ok {
         CRASH `Error parser integer: {res.err}`;
     }
     uint n = res.val;
 
-    ds::StringBuffer mut out = ds::strbuf_create();
+    let mut out = ds::strbuf_default();
     foreach i in 1..=n {
         defer ds::strbuf_reset(&out);
     

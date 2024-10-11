@@ -5,6 +5,6 @@ package std;
 	char* bytes,
 }
 
-// struct Result<T> {
-// 	// TODO
-// }
+struct Result<T> {
+	bool is_ok,
+}
