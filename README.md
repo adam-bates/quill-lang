@@ -9,7 +9,6 @@ Some notable differences from c:
 - Generics: `HashTable<String, int>`
 - Type-inferencing: `let x = true;`
 - for-each loops: `foreach n in 0..10 { }`
-- do-break pattern: `int x = do { break 1; };`
 - Standard library supplies fat strings, fat arrays, optionals, result types, and much more.
 - No macros, no metaprogramming. Sorry, not sorry!
 
@@ -31,16 +30,20 @@ import std/conv;
 import std/ds;
 import std/io;
 
-int main(Array<String> args) {
+void main() {
+    Array<String> args = std::args;
+
     if args.length != 2 {
         io::eprintln("Usage: fizzbuzz [integer]");
-        return 1;
+        std::exit(1);
     }
     String n_str = args.data[1];
 
-    uint n = conv::parse_uint(n_str) catch err do {
-        CRASH `Error parsing integer: {err}`;
-    };
+    Result<uint> res = conv::parse_uint(n_str);
+    if !res.is_ok {
+        CRASH `Error parser integer: {res.err}`;
+    }
+    uint n = res.val;
 
     ds::StringBuffer mut out = ds::strbuf_create();
     foreach i in 1..=n {
@@ -54,8 +57,6 @@ int main(Array<String> args) {
         ds::strbuf_append_char(&out, '\n');
         io::print(ds::strbuf_as_str(out));
     }
-
-    return 0;
 }
 ```
 

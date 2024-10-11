@@ -3,16 +3,20 @@ import std/conv;
 import std/ds;
 import std/io;
 
-int main(int argc, char** argv) {
-    if argc != 2 {
-        io::eprintln("Usage: fizzbuzz [integer]");
-        return 1;
-    }
-    String n_str = cstr_to_str(argv[1]);
+void main() {
+    Array<String> args = std::args;
 
-    uint n = conv::parse_uint(n_str) catch err do {
-        CRASH `Error parsing integer: {err}`;
-    };
+    if args.length != 2 {
+        io::eprintln("Usage: fizzbuzz [integer]");
+        std::exit(1);
+    }
+    String n_str = cstr_to_str(args.data[1]);
+
+    Result<uint> res = conv::parse_uint(n_str);
+    if !res.is_ok {
+        CRASH `Error parser integer: {res.err}`;
+    }
+    uint n = res.val;
 
     ds::StringBuffer mut out = ds::strbuf_create();
     foreach i in 1..=n {
@@ -26,6 +30,4 @@ int main(int argc, char** argv) {
         ds::strbuf_append_char(&out, '\n');
         io::print(strbuf_as_str(out));
     }
-
-    return 0;
 }

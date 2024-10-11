@@ -12,6 +12,7 @@
 import std;
 import std/ds;
 import std/io;
+import std/mem;
 
 /*
     entry-point to the program
@@ -29,6 +30,10 @@ import std/io;
     - Quill-style: (std::Array<std::String> args)
 */
 void main() {
+    // Different allocators available
+    // We'll just use the default (arena over libc's malloc)
+    // note: this can be rewritten
+    mem::Alloc* alloc = mem::default_alloc();
 
     // type inference
     let v = 1;
@@ -73,6 +78,8 @@ void main() {
     void*   ptr = ptr;
     uint    ptr = (uint)ptr;
 
+    void* nptr = null;
+
     // arrays
     int[]  v = []{ 1, 2, 3 };
     int[]* v = &[]{ 1, 2, 3 };
@@ -89,14 +96,14 @@ void main() {
 
     //
 
-    std::Array<int> v = std::arr_create([]{ 1, 2, 3 });
+    std::Array<int> v = std::arr([]{ 1, 2, 3 });
     uint len = v.length;
     int[] data = v.data;
 
     std::Maybe<int> v0 = std::arr_get(&v, 0);
 
     // list
-    ds::ArrayBuffer<int> mut v = ds::arrbuf_create();
+    ds::ArrayBuffer<int> mut v = ds::arrbuf_create(alloc, 8); // or just call ds::arrbuf_default()
     ds::arrbuf_push(&v, 42);
     std::Array<int> vv = ds::arrbuf_to_arr(v);
 
@@ -116,13 +123,13 @@ void main() {
     char* v = @c_str "hello";
 
     // template strings
-    ds::StringBuffer v = `{v}, world`;
+    ds::StringBuffer v = `{v}, world`; // uses mem::default_alloc() (which can be rewritten)
 
-    ds::StringBuffer mut v = ds::strbuf_create();
+    ds::StringBuffer mut v = ds::strbuf_default();
     ds::strbuf_append_char(&v, '!');
     std::String vv = ds::strbuf_to_str(v);
 
-    // optionals (ie. "nullables")
+    // optionals
     std::Maybe<int> m = std::some(0);
     std::Maybe<int> m = std::none();
 
@@ -130,8 +137,19 @@ void main() {
         int _ = m.val;
     }
 
-    int v2 = m else 42;
-    int v2 = m else do { CRASH "uh oh!"; };
+    int v2;
+    if m.is_some {
+        v2 = m.val;
+    } else {
+        v2 = 42;
+    }
+
+    int v2;
+    if m.is_some {
+        v2 = m.val;
+    } else {
+        CRASH "uh oh!";
+    }
 
     int v = 1;
     int* p = &v;
@@ -142,12 +160,12 @@ void main() {
     p2 = std::some(&v);
     int* v = std::assert_some(p2);
 
-    p2 = std::some((int*)0); // this is still valid, but compiler warning
+    p2 = std::some(null);
 
-    std::Maybe<std::NonullPtr<int>> mut p3 = std::none();
+    std::Maybe<std::Nonull<int>> mut p3 = std::none();
     p3 = std::some(std::assert_nonull(&v));
 
-    std::NullablePtr<int> mut p4 = std::null();
+    std::Nullable<int> mut p4 = std::nullable(null);
     p3 = std::nullable(&v);
 
     // errors
@@ -167,9 +185,26 @@ void main() {
         std::Error _ = res.err;
     }
 
-    int v = res else 42;
-    int v = res catch e sizeof(e);
-    int v = res catch e do { CRASH `Error: {e}`; };
+    int v;
+    if res.is_ok {
+        v = res.val;
+    } else {
+        v = 42;
+    }
+
+    int v;
+    if res.is_ok {
+        v = res.val;
+    } else {
+        v = sizeof(res.err);
+    }
+
+    int v;
+    if res.is_ok {
+        v = res.val;
+    } else {
+        CRASH `Error: {e}`;
+    }
 
     int v = std::assert_ok(res);
     std::Error err = std::assert_err(res);
@@ -189,7 +224,7 @@ void main() {
     for (int i = 0; i < 5; ++i) {
         // i = 0, 1, 2, 3, 4
     }
-    
+
     // foreach-loops
     foreach i in 0..5 {
         // i = 0, 1, 2, 3, 4
@@ -220,25 +255,6 @@ void main() {
         x -= 1;
     }
 
-    // do-expressions
-    int x = do {
-        break 1;
-    };
-
-    int x = do if true {
-        break 1;
-    } else {
-        break 2;
-    };
-
-    int x = do for i in 0..10 {
-        if i > 0 && ((i - 1) % 4 == 0) {
-            break i;
-        }
-    } else {
-        break 5;
-    };
-
     // IO
     io::println("Hello, world!");
 
@@ -264,24 +280,3 @@ void main() {
 // file separator
 // Everything under this line is considered "private"
 ---
-
-void try_example() {
-    int double = fetch_double(true) else return;    
-    int double = fetch_double(false) else return;
-}
-
-std::Result<int> fetch_double(bool should_succeed) {
-    // Here's the first time I'm showcasing `try`
-    // This will bubble up an error, or resolve to the ok value.
-
-    int n = try fetch_int(should_succeed);
-    return n * 2;
-}
-
-std::Result<int> fetch_int(bool should_succeed) {
-    if !should_succeed {
-        return std::res_err_create(std::ErrorType::UNSPECIFIED, "failed!");
-    }
-
-    return std::res_ok(42);
-}

@@ -13,7 +13,7 @@ test: test-lexer
 
 example-hello: clean build
 	mkdir -p ./.bin/tmp \
-	&& .bin/quillc ./examples/hello.ql -D=./.bin/tmp -lstd=./brainstorm/std/std.ql ./brainstorm/std/io.ql -llibc=./brainstorm/libc/stdio.ql \
+	&& .bin/quillc ./examples/hello.ql -D=./.bin/tmp -lstd=./runtime/std/std.ql ./runtime/std/io.ql -llibc=./runtime/libc/stdio.ql \
 	&& cd ./.bin \
 	&& gcc -std=c99 -o main -I./tmp ./tmp/*.c  \
 	&& clear \

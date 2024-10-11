@@ -108,7 +108,6 @@ void debug_token_type(TokenType token_type) {
         case TT_LITERAL_STRING_TEMPLATE_CONT: printf("literal_string_template_cont"); break;
         case TT_LITERAL_STRING_TEMPLATE_FULL: printf("literal_string_template_full"); break;
 
-        case TT_CATCH: printf("catch"); break;
         case TT_CRASH: printf("CRASH"); break;
         case TT_ELSE: printf("else"); break;
         case TT_ENUM: printf("enum"); break;
@@ -129,7 +128,6 @@ void debug_token_type(TokenType token_type) {
         case TT_STRUCT: printf("struct"); break;
         case TT_SWITCH: printf("switch"); break;
         case TT_TRUE: printf("true"); break;
-        case TT_TRY: printf("try"); break;
         case TT_TYPEDEF: printf("typedef"); break;
         case TT_UNION: printf("union"); break;
         case TT_WHILE: printf("while"); break;
@@ -1402,56 +1400,6 @@ static ParseResult parser_parse_binary(Parser* const parser, ASTNode expr) {
     });
 }
 
-static ParseResult parser_parse_catch(Parser* const parser, ASTNode expr) {
-    if (parser_peek(parser).type != TT_CATCH) {
-        return parseres_none();
-    }
-    parser_advance(parser);
-
-    Token error_ident = parser_peek(parser);
-    String error_str = {
-        .length = error_ident.length,
-        .chars = error_ident.start,
-    };
-
-    assert(parser_consume(parser, TT_IDENTIFIER, "Expected variable name to capture error."));
-
-    ASTNode* then = NULL;
-    if (parser_peek(parser).type == TT_LEFT_BRACE) {
-        ASTNodeStatementBlock block = parser_parse_stmt_block(parser);
-
-        then = arena_alloc(parser->arena, sizeof *then);
-        *then = (ASTNode){
-            .id = { parser->next_node_id++ },
-            .type = ANT_STATEMENT_BLOCK,
-            .node.statement_block = block,
-            .directives = {0},
-        };
-    } else {
-        ParseResult then_res = parser_parse_expr(parser, (LL_Directive){0});
-        assert(then_res.status == PRS_OK);
-
-        then = arena_alloc(parser->arena, sizeof *then);
-        *then = then_res.node;
-    }
-
-    ASTNode* target = arena_alloc(parser->arena, sizeof *target);
-    *target = expr;
-
-    LL_Directive directives = {0};
-
-    return parseres_ok((ASTNode){
-        .id = { parser->next_node_id++ },
-        .type = ANT_CATCH,
-        .node.catch_ = {
-            .target = target,
-            .error = error_str,
-            .then = then,
-        },
-        .directives = directives,
-    });
-}
-
 static ParseResult parser_wrap_expr(Parser* const parser, ParseResult expr_res) {
     if (expr_res.status != PRS_OK) {
         return expr_res;
@@ -1462,14 +1410,6 @@ static ParseResult parser_wrap_expr(Parser* const parser, ParseResult expr_res) 
     size_t const cached_current = parser->cursor_current;
 
     wrapped_res = parser_parse_binary(parser, expr);
-    if (wrapped_res.status == PRS_OK) {
-        wrapped_res.node.directives = expr.directives;
-        expr.directives = (LL_Directive){0};
-        return wrapped_res;
-    }
-    parser->cursor_current = cached_current;
-
-    wrapped_res = parser_parse_catch(parser, expr);
     if (wrapped_res.status == PRS_OK) {
         wrapped_res.node.directives = expr.directives;
         expr.directives = (LL_Directive){0};
