@@ -8,7 +8,7 @@ Some notable differences from c:
 - Namespacing: `io::println("hello")`
 - Generics: `HashTable<String, int>`
 - Type-inferencing: `let x = true;`
-- for-each loops: `foreach n in 0..10 { }`
+- for-each loops: `foreach n in 0..10`
 - Standard library supplies fat strings, fat arrays, optionals, result types, and much more.
 - No macros, no metaprogramming. Sorry, not sorry!
 
