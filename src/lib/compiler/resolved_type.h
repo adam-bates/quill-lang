@@ -55,6 +55,7 @@ typedef struct {
 
 typedef struct {
     String name;
+    Strings generic_params;
     size_t fields_length;
     ResolvedStructField* fields;
 } ResolvedStruct;

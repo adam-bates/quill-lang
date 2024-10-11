@@ -476,8 +476,12 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
     // printf("TK-%d\n", type->kind);
     switch (type->kind) {
         case TK_STATIC_PATH: {
-            assert(false); // TODO: generics
-            return calc_static_path_type(type_resolver, scope, type->type.static_path.path);
+            ResolvedType* resolved_type = calc_static_path_type(type_resolver, scope, type->type.static_path.path);
+            if (resolved_type->kind == RTK_STRUCT) {
+                // TODO
+                assert(resolved_type->type.struct_.generic_params.length == 0);
+            }
+            return resolved_type;
         }
 
         case TK_BUILT_IN: {
@@ -948,7 +952,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             }
             assert(node->node.struct_decl.maybe_name); // TODO
 
-            assert(false); // TODO: solve type resolution alogorithm for generics
+            // assert(false); // TODO: solve type resolution alogorithm for generics
 
             ResolvedStructField* fields = arena_calloc(type_resolver->arena, node->node.struct_decl.fields.length, sizeof *fields);
 
@@ -972,12 +976,18 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 break;
             }
 
+            Strings generic_params = {
+                .length = node->node.struct_decl.generic_params.length,
+                .strings = node->node.struct_decl.generic_params.array,
+            };
+
             ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
             resolved_type->from_pkg = type_resolver->current_package;
             resolved_type->src = node;
             resolved_type->kind = RTK_STRUCT;
             resolved_type->type.struct_ = (ResolvedStruct){
                 .name = *node->node.struct_decl.maybe_name,
+                .generic_params = generic_params,
                 .fields_length = node->node.struct_decl.fields.length,
                 .fields = fields,
             };
