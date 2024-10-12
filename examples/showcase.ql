@@ -162,7 +162,7 @@ void main() {
 
     // errors
     std::Error err = std::err_create(std::ErrorType::UNSPECIFIED, "example error");
-    std::Error err = {
+    std::Error err = .{
         .type = std::ErrorType::UNSPECIFIED,
         .msg  = "example error",
     };
