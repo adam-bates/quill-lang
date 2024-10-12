@@ -17,17 +17,9 @@ import std/mem;
 /*
     entry-point to the program
 
-    There's a couple options for what main can look like.
-
-    return type can be one of:
-    - None:        void
-    - c-style:     int
-    - Quill-style: std::ExitCode
-
-    params can be either:
-    - None:        ()
-    - c-style:     (int argc, char** argv)
-    - Quill-style: (std::Array<std::String> args)
+    main always takes 0 params and returns void type.
+    - std::args provides an Array<String> for program args
+    - std::exit(1) exits the program with the error code 1
 */
 void main() {
     // Different allocators available
