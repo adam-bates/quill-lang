@@ -24,7 +24,7 @@ import std/mem;
 void main() {
     // Different allocators available
     // We'll just use the default (arena over libc's malloc)
-    // note: this can be rewritten
+    // note: this can be changed using mem::set_default_alloc(...)
     mem::Alloc* alloc = mem::default_alloc();
 
     // type inference
