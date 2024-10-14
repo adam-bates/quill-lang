@@ -200,6 +200,186 @@ void ll_type_push(Arena* const arena, LL_Type* const ll, Type const type) {
     ll->length += 1;
 }
 
+ArrayList_LL_Type arraylist_typells_create_with_capacity(Arena* const arena, size_t capacity) {
+    LL_Type* array = arena_calloc(arena, capacity, sizeof(LL_Type));
+
+    return (ArrayList_LL_Type){    
+        .arena = arena,
+
+        .capacity = capacity,
+        .length = 0,
+
+        .array = array,
+    };
+}
+
+ArrayList_LL_Type arraylist_typells_create(Arena* const arena) {
+    return arraylist_typells_create_with_capacity(arena, 1);
+}
+
+void arraylist_typells_push(ArrayList_LL_Type* list, LL_Type type_ll) {
+    assert(list);
+
+    if (list->length >= list->capacity) {
+        size_t prev_cap = list->capacity;
+        list->capacity = list->length * 2;
+        list->array = arena_realloc(
+            list->arena,
+            list->array,
+            sizeof(Token) * prev_cap,
+            sizeof(Token) * list->capacity
+        );
+    }
+
+    assert(list->array);
+    assert(list->array + list->length);
+
+    list->array[list->length] = type_ll;
+    list->length += 1;
+}
+
+bool static_path_eq(StaticPath a, StaticPath b) {
+    if (!str_eq(a.name, b.name)) {
+        return false;
+    }
+
+    if (a.child || b.child) {
+        if (!a.child || !b.child) {
+            return false;
+        }
+
+        return static_path_eq(*a.child, *b.child);
+    }
+
+    return true;
+}
+
+bool type_static_path_eq(TypeStaticPath a, TypeStaticPath b) {
+    if (!a.path || !b.path) {
+        if (a.path || b.path) {
+            return false;
+        }
+    }
+
+    return typells_eq(a.generic_types, b.generic_types);
+}
+
+bool directive_eq(Directive a, Directive b) {
+    if (a.type != b.type) {
+        return false;
+    }
+
+    switch (a.type) {
+        case DT_C_HEADER: return str_eq(a.dir.c_header.include, b.dir.c_header.include);
+        case DT_C_RESTRICT: break;
+        case DT_C_FILE: break;
+        case DT_IGNORE_UNUSED: break;
+        case DT_IMPL: break;
+        case DT_STRING_LITERAL: break;
+    }
+
+    return true;
+}
+
+bool directivells_eq(LL_Directive a, LL_Directive b) {
+    if (a.length != b.length) {
+        return true;
+    }
+
+    LLNode_Directive* curr_a = a.head;
+    LLNode_Directive* curr_b = b.head;
+
+    while (curr_a || curr_b) {
+        if (!curr_a || !curr_b) {
+            return false;
+        }
+
+        if (!directive_eq(curr_a->data, curr_b->data)) {
+            return false;
+        }
+
+        curr_a = curr_a->next;
+        curr_b = curr_b->next;
+    }
+    
+    return true;
+}
+
+bool type_eq(Type a, Type b) {
+    // if (a.id.val != b.id.val) {
+    //     return false;
+    // }
+
+    if (a.kind != b.kind) {
+        return false;
+    }
+
+    if (!directivells_eq(a.directives, b.directives)) {
+        return false;
+    }
+
+    switch (a.kind) {
+        case TK_BUILT_IN: return a.type.built_in == b.type.built_in;
+
+        case TK_STATIC_PATH: return type_static_path_eq(a.type.static_path, b.type.static_path);
+
+        case TK_POINTER: {
+            if (!a.type.ptr.of || !b.type.ptr.of) {
+                if (a.type.ptr.of || b.type.ptr.of) {
+                    return true;
+                }
+            }
+            return type_eq(*a.type.ptr.of, *b.type.ptr.of);
+        }
+
+        case TK_MUT_POINTER: {
+            if (!a.type.mut_ptr.of || !b.type.mut_ptr.of) {
+                if (a.type.mut_ptr.of || b.type.mut_ptr.of) {
+                    return true;
+                }
+            }
+            return type_eq(*a.type.mut_ptr.of, *b.type.mut_ptr.of);
+        }
+
+        // TODO
+        case TK_ARRAY: assert(false);
+        case TK_SLICE: assert(false);
+        case TK_TUPLE: assert(false);
+
+        case TK_COUNT: assert(false);
+    }
+
+    return true;
+}
+
+bool typells_eq(LL_Type a, LL_Type b) {
+    if (a.length != b.length) {
+        return false;
+    }
+
+    if (a.length == 0) {
+        return true;
+    }
+
+    LLNode_Type* curr_a = a.head;
+    LLNode_Type* curr_b = b.head;
+
+    while (curr_a || curr_b) {
+        if (!curr_a && !curr_b) {
+            return false;
+        }
+
+        if (!type_eq(curr_a->data, curr_b->data)) {
+            return false;
+        }
+
+        curr_a = curr_a->next;
+        curr_b = curr_b->next;
+    }
+
+    return true;
+}
+
 static void append_static_path(StringBuffer* sb, StaticPath* path) {
     strbuf_append_str(sb, path->name);
 
@@ -476,6 +656,11 @@ static void print_type(Type const* type) {
             switch (type->type.built_in) {
                 case TBI_VOID: {
                     printf("void");
+                    return;
+                }
+
+                case TBI_BOOL: {
+                    printf("bool");
                     return;
                 }
 

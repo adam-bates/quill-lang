@@ -78,7 +78,7 @@ typedef struct {
 typedef struct ResolvedType {
     ResolvedTypeKind kind;
     Package* from_pkg;
-    ASTNode const* src;
+    ASTNode* src;
     union {
         Package* namespace_;
         void* void_;

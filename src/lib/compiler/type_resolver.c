@@ -474,6 +474,11 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
     assert(rt);
 
     if (rt->kind == RTK_STRUCT_DECL) {
+        ArrayList_LL_Type* generic_impls = &rt->src->node.struct_decl.generic_impls;
+        if (!generic_impls || !generic_impls->array) {
+            *generic_impls = arraylist_typells_create(type_resolver->arena);
+        }
+
         ResolvedType rt_new = {
             .from_pkg = rt->from_pkg,
             .src = rt->src,
@@ -498,6 +503,26 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
 
             curr = curr->next;
         }
+    }
+
+    if (rt->kind == RTK_STRUCT_REF) {
+        ArrayList_LL_Type* generic_impls = &rt->src->node.struct_decl.generic_impls;
+
+        bool already_has_decl = false;
+        for (size_t i = 0; i < generic_impls->length; ++i) {
+            if (typells_eq(generic_impls->array[i], t_static_path->generic_types)) {
+                already_has_decl = true;
+                t_static_path->impl_version = i;
+                break;
+            }
+        }
+
+        if (!already_has_decl) {
+            t_static_path->impl_version = generic_impls->length;
+            arraylist_typells_push(generic_impls, t_static_path->generic_types);
+        }
+    } else {
+        assert(t_static_path->generic_types.length == 0);
     }
 
     return rt;
@@ -614,7 +639,7 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
     return NULL;
 }
 
-static Changed resolve_type_type(TypeResolver* type_resolver, Scope* scope, ASTNode const* node, Type* type) {
+static Changed resolve_type_type(TypeResolver* type_resolver, Scope* scope, ASTNode* node, Type* type) {
     if (type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
         return false;
     }
@@ -634,7 +659,7 @@ static Changed resolve_type_type(TypeResolver* type_resolver, Scope* scope, ASTN
     return true;
 }
 
-static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTNode const* node) {
+static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTNode* node) {
     Changed changed = false;
     switch (node->type) {
         case ANT_FILE_ROOT: assert(false);
@@ -1279,6 +1304,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             TypeStaticPath t_path = {
                 .path = node->node.var_ref.path,
                 .generic_types = {0},
+                .impl_version = 0,
             };
             ResolvedType* resolved_type = calc_static_path_type(type_resolver, scope, &t_path);
             if (resolved_type) {

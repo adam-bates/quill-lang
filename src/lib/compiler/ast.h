@@ -42,6 +42,13 @@ typedef struct {
     struct LLNode_Type* tail;
 } LL_Type;
 
+typedef struct {
+    Arena* arena;
+    size_t capacity;
+    size_t length;
+    LL_Type* array;
+} ArrayList_LL_Type;
+
 typedef struct StaticPath_s {
     String name;
     struct StaticPath_s* child;
@@ -71,6 +78,7 @@ typedef enum {
 typedef struct {
     StaticPath* path;
     LL_Type generic_types;
+    size_t impl_version;
 } TypeStaticPath;
 
 typedef struct {
@@ -552,6 +560,7 @@ typedef struct {
     String* maybe_name;
     LL_StructField fields;
     ArrayList_String generic_params;
+    ArrayList_LL_Type generic_impls;
 } ASTNodeStructDecl;
 
 //
@@ -669,6 +678,7 @@ typedef void* DirectiveCRestrict;
 typedef void* DirectiveCFile;
 typedef void* DirectiveIgnoreUnused;
 typedef void* DirectiveImpl;
+typedef void* DirectiveStringLiteral;
 
 typedef struct {
     DirectiveType type;
@@ -678,6 +688,7 @@ typedef struct {
         DirectiveCFile c_file;
         DirectiveIgnoreUnused ignore_unused;
         DirectiveImpl impl;
+        DirectiveStringLiteral string_literal;
     } dir;
 } Directive;
 
@@ -721,6 +732,19 @@ void ll_directive_push(Arena* const arena, LL_Directive* const ll, Directive con
 void ll_param_push(Arena* const arena, LL_FnParam* const ll, FnParam const param);
 void ll_field_push(Arena* const arena, LL_StructField* const ll, StructField const field);
 void ll_type_push(Arena* const arena, LL_Type* const ll, Type const type);
+
+ArrayList_LL_Type arraylist_typells_create(Arena* const arena);
+ArrayList_LL_Type arraylist_typells_create_with_capacity(Arena* const arena, size_t capacity);
+
+void arraylist_typells_push(ArrayList_LL_Type* list, LL_Type type_ll);
+
+bool static_path_eq(StaticPath a, StaticPath b);
+bool type_static_path_eq(TypeStaticPath a, TypeStaticPath b);
+bool type_eq(Type a, Type b);
+bool directive_eq(Directive a, Directive b);
+
+bool directivells_eq(LL_Directive a, LL_Directive b);
+bool typells_eq(LL_Type a, LL_Type b);
 
 ASTNode* find_decl_by_id(ASTNodeFileRoot, NodeId id);
 ASTNode* find_decl_by_name(ASTNodeFileRoot root, String name);

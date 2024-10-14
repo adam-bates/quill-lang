@@ -92,20 +92,7 @@ static String gen_header_file_path(Arena* arena, PackagePath* package_path) {
     return strbuf_to_str(sb);
 }
 
-static String gen_name(CodegenC* codegen, PackagePath* pkg, String name) {
-    return name;
-    // StringBuffer sb = strbuf_create(codegen->arena);
-    // while (pkg) {
-    //     strbuf_append_str(&sb, pkg->name);
-    //     strbuf_append_char(&sb, '_');
-    //     pkg = pkg->child;
-    // }
-    // strbuf_append_char(&sb, '_');
-    // strbuf_append_str(&sb, name);
-    // return strbuf_to_str(sb);
-}
-
-static void _append_return_type(CodegenC* codegen, StringBuffer* sb, Type type) {
+static void _append_type(CodegenC* codegen, StringBuffer* sb, Type type) {
     switch (type.kind) {
         case TK_BUILT_IN: {
             switch (type.type.built_in) {
@@ -139,13 +126,6 @@ static void _append_return_type(CodegenC* codegen, StringBuffer* sb, Type type) 
             break;
         }
 
-        // case TK_TYPE_REF: {
-        //     Package* package = packages_type_by_type(codegen->packages, type.id)->type->from_pkg;
-        //     String name = gen_name(codegen, package->full_name, type.type.type_ref.name);
-        //     strbuf_append_str(sb, name);
-        //     break;
-        // }
-
         case TK_STATIC_PATH: {
             StaticPath* curr = type.type.static_path.path;
             while (curr->child) {
@@ -153,6 +133,12 @@ static void _append_return_type(CodegenC* codegen, StringBuffer* sb, Type type) 
             }
 
             strbuf_append_str(sb, curr->name);
+
+            if (type.type.static_path.generic_types.length > 0) {
+                strbuf_append_chars(sb, "__");
+                strbuf_append_uint(sb, type.type.static_path.impl_version);
+            }
+
             break;
         }
 
@@ -162,13 +148,13 @@ static void _append_return_type(CodegenC* codegen, StringBuffer* sb, Type type) 
         }
 
         case TK_POINTER: {
-            _append_return_type(codegen, sb, *type.type.mut_ptr.of);
+            _append_type(codegen, sb, *type.type.mut_ptr.of);
             strbuf_append_chars(sb, " const*"); // does this always work?
             break;
         }
 
         case TK_MUT_POINTER: {
-            _append_return_type(codegen, sb, *type.type.mut_ptr.of);
+            _append_type(codegen, sb, *type.type.mut_ptr.of);
             strbuf_append_char(sb, '*');
             break;
         }
@@ -229,7 +215,7 @@ static String gen_type_resolved(CodegenC* codegen, ResolvedType* type) {
 
 static String gen_type(CodegenC* codegen, Type type) {
     StringBuffer sb = strbuf_create(codegen->arena);
-    _append_return_type(codegen, &sb, type);
+    _append_type(codegen, &sb, type);
     return strbuf_to_str(sb);
 }
 
@@ -694,33 +680,56 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
             ResolvedType* type = codegen->packages->types[node->id.val].type;
 
-            Strings fields = {
-                .length = 0,
-                .strings = arena_calloc(codegen->arena, node->node.struct_decl.fields.length, sizeof(String)),
-            };
-            {
-                StringBuffer sb = strbuf_create(codegen->arena);
-
-                LLNode_StructField* curr = node->node.struct_decl.fields.head;
-                while (curr) {
-                    strbuf_append_str(&sb, gen_type(codegen, *curr->data.type));
-                    strbuf_append_char(&sb, ' ');
-                    strbuf_append_str(&sb, curr->data.name);
-
-                    fields.strings[fields.length++] = strbuf_to_strcpy(sb);
-                    strbuf_reset(&sb);
-
-                    curr = curr->next;
-                }
+            size_t versions = node->node.struct_decl.generic_impls.length;
+            if (versions == 0) {
+                versions = 1;
             }
 
-            ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
-                .type = ICNT_STRUCT_DECL,
-                .node.struct_decl = {
-                    .name = *node->node.struct_decl.maybe_name,
-                    .fields = fields,
-                },
-            });
+            if (node->node.struct_decl.generic_params.length == 0) {
+                assert(versions == 1);
+            }
+
+            for (size_t version = 0; version < versions; ++version) {
+                Strings fields = {
+                    .length = 0,
+                    .strings = arena_calloc(codegen->arena, node->node.struct_decl.fields.length, sizeof(String)),
+                };
+                {
+                    StringBuffer sb = strbuf_create(codegen->arena);
+
+                    LLNode_StructField* curr = node->node.struct_decl.fields.head;
+                    while (curr) {
+                        strbuf_append_str(&sb, gen_type(codegen, *curr->data.type));
+                        strbuf_append_char(&sb, ' ');
+                        strbuf_append_str(&sb, curr->data.name);
+
+                        fields.strings[fields.length++] = strbuf_to_strcpy(sb);
+                        strbuf_reset(&sb);
+
+                        curr = curr->next;
+                    }
+                }
+
+                String name = *node->node.struct_decl.maybe_name;
+
+                if (versions == 1) {
+                    assert(node->node.struct_decl.generic_impls.length <= 1);
+                } else {
+                    StringBuffer sb = strbuf_create_with_capacity(codegen->arena, name.length + 3);
+                    strbuf_append_str(&sb, name);
+                    strbuf_append_chars(&sb, "__");
+                    strbuf_append_uint(&sb, version);
+                    name = strbuf_to_str(sb);
+                }
+
+                ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                    .type = ICNT_STRUCT_DECL,
+                    .node.struct_decl = {
+                        .name = name,
+                        .fields = fields,
+                    },
+                });
+            }
             break;
         }
 

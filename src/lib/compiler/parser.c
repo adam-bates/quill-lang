@@ -619,6 +619,7 @@ static Type* parser_parse_type(Parser* const parser) {
             type->kind = TK_STATIC_PATH;
             type->type.static_path.path = path;
             type->type.static_path.generic_types = (LL_Type){0};
+            type->type.static_path.impl_version = 0;
 
             if (parser_peek(parser).type == TT_LESS) {
                 parser_advance(parser);
@@ -863,13 +864,19 @@ static ParseResult parser_parse_struct_decl(Parser* const parser, LL_Directive c
 
     assert(parser_consume(parser, TT_RIGHT_BRACE, "Expected '}'."));
 
+    ArrayList_LL_Type generic_impls = {0};
+    if (generic_params.length > 0) {
+        generic_impls = arraylist_typells_create(parser->arena);
+    }
+
     return parseres_ok((ASTNode){
         .id = { parser->next_node_id++ },
         .type = ANT_STRUCT_DECL,
         .node.struct_decl = {
             .maybe_name = m_name,
             .fields = fields,
-            .generic_params = generic_params
+            .generic_params = generic_params,
+            .generic_impls = generic_impls,
         },
         .directives = directives,
     });
