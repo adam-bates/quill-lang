@@ -684,6 +684,20 @@ static void print_type(Type const* type) {
 
         case TK_STATIC_PATH: {
             print_static_path(type->type.static_path.path);
+
+            if (type->type.static_path.generic_types.length > 0) {
+                printf("<");
+                LLNode_Type* curr = type->type.static_path.generic_types.head;
+                while (curr) {
+                    print_type(&curr->data);
+
+                    curr = curr->next;
+                    if (curr) {
+                        printf(", ");
+                    }
+                }
+                printf(">");
+            }
             return;
         }
 

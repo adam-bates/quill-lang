@@ -479,6 +479,15 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
             *generic_impls = arraylist_typells_create(type_resolver->arena);
         }
 
+        Scope fields_scope = scope_create(type_resolver->arena, scope);
+        for (size_t i = 0; i < rt->type.struct_decl.generic_params.length; ++i) {
+            ResolvedType* generic_rt = arena_alloc(type_resolver->arena, sizeof *generic_rt);
+            generic_rt->kind = RTK_GENERIC;
+            generic_rt->type.generic.name = rt->type.struct_decl.generic_params.strings[i];
+            generic_rt->from_pkg = type_resolver->current_package;
+            scope_set(&fields_scope, rt->type.struct_decl.generic_params.strings[i], generic_rt);
+        }
+
         ResolvedType rt_new = {
             .from_pkg = rt->from_pkg,
             .src = rt->src,
@@ -489,13 +498,15 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
                     .length = 0,
                     .resolved_types = arena_calloc(type_resolver->arena, t_static_path->generic_types.length, sizeof(ResolvedType)),
                 },
+                .impl_version = 0,
             },
         };
+        rt = arena_alloc(type_resolver->arena, sizeof *rt);
         *rt = rt_new;
 
         LLNode_Type* curr = t_static_path->generic_types.head;
         while (curr) {
-            ResolvedType* generic_arg = calc_resolved_type(type_resolver, scope, &curr->data);
+            ResolvedType* generic_arg = calc_resolved_type(type_resolver, &fields_scope, &curr->data);
             assert(generic_arg);
 
             assert(rt->type.struct_ref.generic_args.length < t_static_path->generic_types.length);
@@ -513,12 +524,14 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
             if (typells_eq(generic_impls->array[i], t_static_path->generic_types)) {
                 already_has_decl = true;
                 t_static_path->impl_version = i;
+                rt->type.struct_ref.impl_version = i;
                 break;
             }
         }
 
         if (!already_has_decl) {
             t_static_path->impl_version = generic_impls->length;
+            rt->type.struct_ref.impl_version = generic_impls->length;
             arraylist_typells_push(generic_impls, t_static_path->generic_types);
         }
     } else {
@@ -1032,14 +1045,28 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             }
             assert(node->node.struct_decl.maybe_name); // TODO
 
-            // assert(false); // TODO: solve type resolution alogorithm for generics
-
             ResolvedStructField* fields = arena_calloc(type_resolver->arena, node->node.struct_decl.fields.length, sizeof *fields);
+
+            Strings generic_params = {
+                .length = node->node.struct_decl.generic_params.length,
+                .strings = node->node.struct_decl.generic_params.array,
+            };
+
+            Scope fields_scope = scope_create(type_resolver->arena, scope);
+            for (size_t i = 0; i < generic_params.length; ++i) {
+                ResolvedType* generic_rt = arena_alloc(type_resolver->arena, sizeof *generic_rt);
+                generic_rt->from_pkg = type_resolver->current_package;
+                generic_rt->src = node;
+                generic_rt->kind = RTK_GENERIC;
+                generic_rt->type.generic.name = generic_params.strings[i];
+
+                scope_set(&fields_scope, generic_params.strings[i], generic_rt);
+            }
 
             size_t i = 0;
             LLNode_StructField* curr = node->node.struct_decl.fields.head;
             while (curr) {
-                ResolvedType* resolved_type = calc_resolved_type(type_resolver, scope, curr->data.type);
+                ResolvedType* resolved_type = calc_resolved_type(type_resolver, &fields_scope, curr->data.type);
                 if (!resolved_type) {
                     break;
                 }
@@ -1055,11 +1082,6 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             if (i < node->node.struct_decl.fields.length) {
                 break;
             }
-
-            Strings generic_params = {
-                .length = node->node.struct_decl.generic_params.length,
-                .strings = node->node.struct_decl.generic_params.array,
-            };
 
             ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
             resolved_type->from_pkg = type_resolver->current_package;

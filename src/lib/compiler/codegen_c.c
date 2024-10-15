@@ -22,6 +22,20 @@ typedef enum {
     TS_COUNT
 } TransformStage;
 
+static String* get_mapped_generic(GenericImplMap* map, String generic) {
+    if (!map) {
+        return NULL;
+    }
+
+    for (size_t i = 0; i < map->length; ++i) {
+        if (str_eq(map->generic_names[i], generic)) {
+            return map->mapped_types + i;
+        }
+    }
+
+    return get_mapped_generic(map->parent, generic);
+}
+
 static void ll_node_push(Arena* const arena, LL_IR_C_Node* const ll, IR_C_Node const node) {
     LLNode_IR_C_Node* const llnode = arena_alloc(arena, sizeof *llnode);
     llnode->data = node;
@@ -127,6 +141,25 @@ static void _append_type(CodegenC* codegen, StringBuffer* sb, Type type) {
         }
 
         case TK_STATIC_PATH: {
+            if (
+                type.type.static_path.generic_types.length == 0
+                && type.type.static_path.impl_version == 0
+                && !type.type.static_path.path->child
+            ) {
+                String* mapped = get_mapped_generic(codegen->generic_map, type.type.static_path.path->name);
+                if (mapped) {
+                    assert(false);
+                    strbuf_append_str(sb, *mapped);
+                    break;
+                } else {
+                    // printf("searched map, none found\n");
+                }
+            }
+            // printf("%lu\n", type.type.static_path.generic_types.length);
+            // printf("%lu\n", type.type.static_path.impl_version);
+            // printf("%s\n", type.type.static_path.path->child ? "has child" : "no child");
+            // printf("%s\n", arena_strcpy(codegen->arena, type.type.static_path.path->name).chars);
+
             StaticPath* curr = type.type.static_path.path;
             while (curr->child) {
                 curr = curr->child;
@@ -178,6 +211,7 @@ static void _append_type_resolved(CodegenC* codegen, StringBuffer* sb, ResolvedT
         case RTK_NAMESPACE: assert(false);
 
         case RTK_VOID: strbuf_append_chars(sb, "void"); break;
+        case RTK_BOOL: strbuf_append_chars(sb, "bool"); break;
         case RTK_UINT: strbuf_append_chars(sb, "size_t"); break;
         case RTK_CHAR: strbuf_append_chars(sb, "char"); break;
 
@@ -200,6 +234,22 @@ static void _append_type_resolved(CodegenC* codegen, StringBuffer* sb, ResolvedT
 
         case RTK_STRUCT_REF: {
             strbuf_append_str(sb, type->type.struct_ref.decl.name);
+            if (type->type.struct_ref.generic_args.length > 0) {
+                strbuf_append_chars(sb, "__");
+                strbuf_append_uint(sb, type->type.struct_ref.impl_version);
+            }
+            break;
+        }
+
+        case RTK_GENERIC: {
+            String* mapped = get_mapped_generic(codegen->generic_map, type->type.generic.name);
+            assert(mapped);
+            String* next = get_mapped_generic(codegen->generic_map, *mapped);
+            while (next) {
+                mapped = next;
+                next = get_mapped_generic(codegen->generic_map, *mapped);
+            }
+            strbuf_append_str(sb, *mapped);
             break;
         }
 
@@ -677,6 +727,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 break;
             }
             assert(node->node.struct_decl.maybe_name);
+            // printf("CODEGEN: %s [%lu]\n", arena_strcpy(codegen->arena, *node->node.struct_decl.maybe_name).chars, node->node.struct_decl.generic_impls.length);
 
             ResolvedType* type = codegen->packages->types[node->id.val].type;
 
@@ -689,7 +740,27 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 assert(versions == 1);
             }
 
+            GenericImplMap* root_map = codegen->generic_map;
+
             for (size_t version = 0; version < versions; ++version) {
+                LL_Type generic_impl_types = node->node.struct_decl.generic_impls.array[version];
+
+                GenericImplMap map = {
+                    .parent = root_map,
+                    .length = node->node.struct_decl.generic_params.length,
+                    .generic_names = arena_calloc(codegen->arena, node->node.struct_decl.generic_params.length, sizeof(String)),
+                    .mapped_types = arena_calloc(codegen->arena, node->node.struct_decl.generic_params.length, sizeof(String)),
+                };
+                {
+                    LLNode_Type* curr = generic_impl_types.head;
+                    for (size_t i = 0; curr && i < node->node.struct_decl.generic_params.length; ++i) {
+                        map.generic_names[i] = node->node.struct_decl.generic_params.array[i];
+                        map.mapped_types[i] = gen_type(codegen, curr->data);
+                        curr = curr->next;
+                    }
+                }
+                codegen->generic_map = &map;
+
                 Strings fields = {
                     .length = 0,
                     .strings = arena_calloc(codegen->arena, node->node.struct_decl.fields.length, sizeof(String)),
@@ -697,15 +768,17 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 {
                     StringBuffer sb = strbuf_create(codegen->arena);
 
+                    size_t i = 0;
                     LLNode_StructField* curr = node->node.struct_decl.fields.head;
                     while (curr) {
-                        strbuf_append_str(&sb, gen_type(codegen, *curr->data.type));
+                        strbuf_append_str(&sb, gen_type_resolved(codegen, type->type.struct_decl.fields[i].type));
                         strbuf_append_char(&sb, ' ');
                         strbuf_append_str(&sb, curr->data.name);
 
                         fields.strings[fields.length++] = strbuf_to_strcpy(sb);
                         strbuf_reset(&sb);
 
+                        i += 1;
                         curr = curr->next;
                     }
                 }
@@ -729,6 +802,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                         .fields = fields,
                     },
                 });
+                codegen->generic_map = root_map;
             }
             break;
         }

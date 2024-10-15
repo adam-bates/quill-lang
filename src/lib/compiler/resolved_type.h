@@ -31,6 +31,8 @@ typedef enum {
     RTK_STRUCT_DECL,
     RTK_STRUCT_REF,
 
+    RTK_GENERIC,
+
     RTK_COUNT
 } ResolvedTypeKind;
 
@@ -73,7 +75,12 @@ typedef struct {
 typedef struct {
     ResolvedStructDecl decl;
     ResolvedTypes generic_args;
+    size_t impl_version;
 } ResolvedStructRef;
+
+typedef struct {
+    String name;
+} ResolvedGeneric;
 
 typedef struct ResolvedType {
     ResolvedTypeKind kind;
@@ -90,6 +97,7 @@ typedef struct ResolvedType {
         ResolvedFunction function;
         ResolvedStructDecl struct_decl;
         ResolvedStructRef struct_ref;
+        ResolvedGeneric generic;
     } type;
 } ResolvedType;
 

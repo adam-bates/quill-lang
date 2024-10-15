@@ -157,11 +157,20 @@ typedef struct {
     IR_C_File* files;
 } IR_C;
 
+typedef struct GenericImplMap {
+    struct GenericImplMap* parent;
+    size_t length;
+    String* generic_names;
+    String* mapped_types;
+} GenericImplMap;
+
 typedef struct {
     Arena* arena;
     Packages* packages;
 
     IR_C ir;
+
+    GenericImplMap* generic_map;
 
     bool seen_file_separator;
     BlockType prev_block;
