@@ -38,6 +38,12 @@ typedef struct {
 
 typedef struct {
     size_t length;
+    struct LLNode_ArrayInitElem* head;
+    struct LLNode_ArrayInitElem* tail;
+} LL_ArrayInitElem;
+
+typedef struct {
+    size_t length;
     struct LLNode_Type* head;
     struct LLNode_Type* tail;
 } LL_Type;
@@ -107,6 +113,7 @@ typedef enum {
     ANT_UNARY_OP,
     ANT_BINARY_OP,
     ANT_LITERAL,
+    ANT_TUPLE,
     ANT_VAR_DECL,
     ANT_VAR_REF,
     ANT_GET_FIELD,
@@ -231,6 +238,12 @@ typedef struct {
         void* lit_null;
     } value;
 } ASTNodeLiteral;
+
+//
+
+typedef struct {
+    LL_ASTNode exprs;
+} ASTNodeTuple;
 
 //
 
@@ -421,14 +434,13 @@ typedef struct {
 //
 
 typedef struct {
-    TokensSlice lhs;
-    struct ASTNode* rhs;
+    struct ASTNode* maybe_index;
+    struct ASTNode* value;
 } ArrayInitElem;
 
 typedef struct {
-    size_t* maybe_length;
-    ArrayInitElem* elems;
-    size_t elems_count;
+    struct ASTNode* maybe_explicit_length;
+    LL_ArrayInitElem elems;
 } ASTNodeArrayInit;
 
 //
@@ -622,6 +634,7 @@ typedef struct ASTNode {
         ASTNodeUnaryOp unary_op;
         ASTNodeBinaryOp binary_op;
         ASTNodeLiteral literal;
+        ASTNodeTuple tuple;
         ASTNodeVarDecl var_decl;
         ASTNodeVarRef var_ref;
         ASTNodeGetField get_field;
@@ -712,6 +725,11 @@ typedef struct LLNode_StructField {
     StructField data;
 } LLNode_StructField;
 
+typedef struct LLNode_ArrayInitElem {
+    struct LLNode_ArrayInitElem* next;
+    ArrayInitElem data;
+} LLNode_ArrayInitElem;
+
 typedef struct LLNode_Type {
     struct LLNode_Type* next;
     Type data;
@@ -731,6 +749,7 @@ void ll_ast_push(Arena* const arena, LL_ASTNode* const ll, ASTNode const node);
 void ll_directive_push(Arena* const arena, LL_Directive* const ll, Directive const directive);
 void ll_param_push(Arena* const arena, LL_FnParam* const ll, FnParam const param);
 void ll_field_push(Arena* const arena, LL_StructField* const ll, StructField const field);
+void ll_array_init_elem_push(Arena* const arena, LL_ArrayInitElem* const ll, ArrayInitElem const array_init_elem);
 void ll_type_push(Arena* const arena, LL_Type* const ll, Type const type);
 
 ArrayList_LL_Type arraylist_typells_create(Arena* const arena);

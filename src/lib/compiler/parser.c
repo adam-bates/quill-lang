@@ -1278,6 +1278,128 @@ static ParseResult parser_parse_sizeof(Parser* const parser, LL_Directive const 
     });
 }
 
+static ParseResult parser_parse_tuple(Parser* const parser, LL_Directive const directives) {
+    if (!parser_consume(parser, TT_LEFT_PAREN, "Expected '('.")) {
+        return parseres_none();
+    }
+
+    LL_ASTNode exprs = {0};
+
+    Token t = parser_peek(parser);
+    while (t.type != TT_RIGHT_PAREN && t.type != TT_EOF) {
+        ParseResult res = parser_parse_expr(parser, (LL_Directive){0});
+        assert(res.status == PRS_OK);
+
+        ll_ast_push(parser->arena, &exprs, res.node);
+
+        t = parser_peek(parser);
+        if (t.type != TT_RIGHT_PAREN && t.type != TT_EOF) {
+            assert(parser_consume(parser, TT_COMMA, "Expected ','"));
+            t = parser_peek(parser);
+        }
+    }
+
+    assert(parser_consume(parser, TT_RIGHT_PAREN, "Exptected ')'."));
+
+    return parseres_ok((ASTNode){
+        .id = { parser->next_node_id++ },
+        .type = ANT_TUPLE,
+        .node.tuple.exprs = exprs,
+        .directives = directives,
+    });
+}
+
+static ParseResult parser_parse_struct_init(Parser* const parser, LL_Directive const directives) {
+    if (!parser_consume(parser, TT_DOT, "Expected '.'")) {
+        return parseres_none();
+    }
+    assert(parser_consume(parser, TT_LEFT_BRACE, "Expected '{'."));
+
+    assert(false);
+}
+
+static ParseResult parser_parse_array_init(Parser* const parser, LL_Directive const directives) {
+    if (!parser_consume(parser, TT_LEFT_BRACKET, "Expected '['.")) {
+        return parseres_none();
+    }
+
+    ASTNode* maybe_explicit_length = NULL;
+    if (parser_peek(parser).type != TT_RIGHT_BRACKET) {
+        ParseResult res = parser_parse_simple_expr(parser, (LL_Directive){0});
+        assert(res.status == PRS_OK);
+
+        maybe_explicit_length = arena_alloc(parser->arena, sizeof *maybe_explicit_length);
+        *maybe_explicit_length = res.node;
+    }
+    assert(parser_consume(parser, TT_RIGHT_BRACKET, "Expected ']'."));
+
+    assert(parser_consume(parser, TT_LEFT_BRACE, "Expected '{'."));
+
+    LL_ArrayInitElem elems = {0};
+
+    Token t = parser_peek(parser);
+    while (t.type != TT_RIGHT_BRACE && t.type != TT_EOF) {
+        size_t cached_current = parser->cursor_current;
+
+        ParseResult s_res = parser_parse_simple_expr(parser, (LL_Directive){0});
+        if (s_res.status == PRS_OK) {
+            if (parser_peek(parser).type == TT_EQUAL) {
+                ASTNode* maybe_index = arena_alloc(parser->arena, sizeof *maybe_index);
+                *maybe_index = s_res.node;
+
+                ParseResult res = parser_parse_expr(parser, (LL_Directive){0});
+                assert(res.status == PRS_OK);
+
+                ASTNode* value = arena_alloc(parser->arena, sizeof *value);
+                *value = res.node;
+                ll_array_init_elem_push(parser->arena, &elems, (ArrayInitElem){
+                    .maybe_index = NULL,
+                    .value = value,
+                });
+            } else if (parser_peek(parser).type == TT_COMMA || parser_peek(parser).type == TT_RIGHT_BRACE) {
+                ASTNode* value = arena_alloc(parser->arena, sizeof *value);
+                *value = s_res.node;
+                ll_array_init_elem_push(parser->arena, &elems, (ArrayInitElem){
+                    .maybe_index = NULL,
+                    .value = value,
+                });
+            } else {
+                assert(parser_consume(parser, TT_RIGHT_BRACE, "Expected '}'"));
+            }
+        } else {
+            parser->cursor_current = cached_current;
+
+            ParseResult res = parser_parse_expr(parser, (LL_Directive){0});
+            assert(res.status == PRS_OK);
+
+            ASTNode* value = arena_alloc(parser->arena, sizeof *value);
+            *value = res.node;
+            ll_array_init_elem_push(parser->arena, &elems, (ArrayInitElem){
+                .maybe_index = NULL,
+                .value = value,
+            });
+        }
+
+        t = parser_peek(parser);
+        if (t.type != TT_RIGHT_BRACE && t.type != TT_EOF) {
+            assert(parser_consume(parser, TT_COMMA, "Expected ','"));
+            t = parser_peek(parser);
+        }
+    }
+
+    assert(parser_consume(parser, TT_RIGHT_BRACE, "Exptected '}'."));
+
+    return parseres_ok((ASTNode){
+        .id = { parser->next_node_id++ },
+        .type = ANT_ARRAY_INIT,
+        .node.array_init = {
+            .maybe_explicit_length = maybe_explicit_length,
+            .elems = elems,
+        },
+        .directives = directives,
+    });
+}
+
 static ParseResult parser_parse_unary(Parser* const parser, LL_Directive const directives) {
     UnaryOp op;
     switch (parser_peek(parser).type) {
@@ -1350,6 +1472,7 @@ static ParseResult parser_wrap_simple_expr(Parser* const parser, ParseResult exp
 static ParseResult parser_parse_simple_expr(Parser* const parser, LL_Directive const directives) {
     switch (parser_peek(parser).type) {
         case TT_SIZEOF: return parser_wrap_simple_expr(parser, parser_parse_sizeof(parser, directives));
+        case TT_LEFT_PAREN: return parser_wrap_simple_expr(parser, parser_parse_tuple(parser, directives));
 
         default: break;
     }
@@ -1458,6 +1581,13 @@ static ParseResult parser_wrap_expr(Parser* const parser, ParseResult expr_res) 
 }
 
 static ParseResult parser_parse_expr(Parser* const parser, LL_Directive const directives) {
+    switch (parser_peek(parser).type) {
+        case TT_DOT: return parser_wrap_expr(parser, parser_parse_struct_init(parser, directives));
+        case TT_LEFT_BRACKET: return parser_wrap_expr(parser, parser_parse_array_init(parser, directives));
+
+        default: break;
+    }
+
     ParseResult expr_res;
     size_t const cached_current = parser->cursor_current;
 

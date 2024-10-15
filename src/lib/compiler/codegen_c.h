@@ -25,6 +25,7 @@ typedef enum {
     ICNT_MACRO_ENDIF,
 
     ICNT_VAR_REF,
+    ICNT_ARRAY_INIT,
     ICNT_UNARY,
     ICNT_GET_FIELD,
     ICNT_SIZEOF_EXPR,
@@ -103,6 +104,12 @@ typedef struct {
 } IR_C_VarDecl;
 
 typedef struct {
+    size_t elems_length;
+    struct IR_C_Node* indicies;
+    struct IR_C_Node* elems;
+} IR_C_ArrayInit;
+
+typedef struct {
     String return_type;
     String name;
     Strings params;
@@ -136,6 +143,7 @@ typedef struct IR_C_Node {
         IR_C_Return return_;
         IR_C_Assignment assignment;
         IR_C_VarDecl var_decl;
+        IR_C_ArrayInit array_init;
         IR_C_FunctionHeaderDecl function_header_decl;
         IR_C_FunctionDecl function_decl;
         IR_C_StructDecl struct_decl;

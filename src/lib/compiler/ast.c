@@ -83,6 +83,7 @@ ASTNode* find_decl_by_name(ASTNodeFileRoot root, String name) {
             case ANT_UNARY_OP: break;
             case ANT_BINARY_OP: break;
             case ANT_LITERAL: break;
+            case ANT_TUPLE: break;
             case ANT_VAR_REF: break;
             case ANT_GET_FIELD: break;
             case ANT_INDEX: break;
@@ -171,6 +172,22 @@ void ll_param_push(Arena* const arena, LL_FnParam* const ll, FnParam const param
 void ll_field_push(Arena* const arena, LL_StructField* const ll, StructField const field) {
     LLNode_StructField* const llnode = arena_alloc(arena, sizeof *llnode);
     llnode->data = field;
+    llnode->next = NULL;
+
+    if (ll->head == NULL) {
+        ll->head = llnode;
+        ll->tail = ll->head;
+    } else {
+        ll->tail->next = llnode;
+        ll->tail = llnode;
+    }
+
+    ll->length += 1;
+}
+
+void ll_array_init_elem_push(Arena* const arena, LL_ArrayInitElem* const ll, ArrayInitElem const array_init_elem) {
+    LLNode_ArrayInitElem* const llnode = arena_alloc(arena, sizeof *llnode);
+    llnode->data = array_init_elem;
     llnode->next = NULL;
 
     if (ll->head == NULL) {
@@ -1083,6 +1100,28 @@ void print_astnode(ASTNode const node) {
 
             print_astnode(*node.node.unary_op.right);
             break;             
+        }
+
+        case ANT_ARRAY_INIT: {
+            printf("[");
+            if (node.node.array_init.maybe_explicit_length) {
+                print_astnode(*node.node.array_init.maybe_explicit_length);
+            }
+            printf("]{");
+            LLNode_ArrayInitElem* curr = node.node.array_init.elems.head;
+            while (curr) {
+                if (curr->data.maybe_index) {
+                    print_astnode(*curr->data.maybe_index);
+                    printf(" = ");
+                }
+                print_astnode(*curr->data.value);
+                curr = curr->next;
+                if (curr) {
+                    printf(", ");
+                }
+            }
+            printf("}");
+            break;
         }
 
         default: printf("/* TODO: print_node(%d) */", node.type);

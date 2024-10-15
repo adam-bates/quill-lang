@@ -412,6 +412,47 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             break;
         }
 
+        case ANT_ARRAY_INIT: {
+            size_t elems_length = node->node.array_init.elems.length;
+            IR_C_Node* indicies = arena_calloc(codegen->arena, elems_length, sizeof *indicies);
+            IR_C_Node* elems = arena_calloc(codegen->arena, elems_length, sizeof *elems);
+
+            size_t i = 0;
+            LLNode_ArrayInitElem* curr = node->node.array_init.elems.head;
+            while (curr) {
+                if (curr->data.maybe_index) {
+                    LL_IR_C_Node expr_ll = {0};
+                    fill_nodes(codegen, &expr_ll, curr->data.maybe_index, ftype, stage, false);
+                    assert(expr_ll.length == 1);
+
+                    indicies[i] = expr_ll.head->data;
+                } else {
+                    indicies[i] = (IR_C_Node){
+                        .type = ICNT_COUNT,
+                    };
+                }
+
+                LL_IR_C_Node expr_ll = {0};
+                fill_nodes(codegen, &expr_ll, curr->data.value, ftype, stage, false);
+                assert(expr_ll.length == 1);
+
+                elems[i] = expr_ll.head->data;
+
+                i += 1;
+                curr = curr->next;
+            }
+
+            ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                .type = ICNT_ARRAY_INIT,
+                .node.array_init = {
+                    .elems_length = elems_length,
+                    .indicies = indicies,
+                    .elems = elems,
+                },
+            });
+            break;
+        }
+
         case ANT_VAR_REF: {
             assert(node->node.var_ref.path);
 
@@ -580,6 +621,8 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 break;
             }
             ResolvedType* rt = codegen->packages->types[node->id.val].type;
+            print_astnode(*node);
+            printf("\n");
             assert(rt);
 
             String type;
@@ -785,9 +828,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
                 String name = *node->node.struct_decl.maybe_name;
 
-                if (versions == 1) {
-                    assert(node->node.struct_decl.generic_impls.length <= 1);
-                } else {
+                if (node->node.struct_decl.generic_params.length > 0) {
                     StringBuffer sb = strbuf_create_with_capacity(codegen->arena, name.length + 3);
                     strbuf_append_str(&sb, name);
                     strbuf_append_chars(&sb, "__");
@@ -943,6 +984,24 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
 
         case ICNT_VAR_REF: {
             strbuf_append_str(sb, node->node.var_ref.name);
+            break;
+        }
+
+        case ICNT_ARRAY_INIT: {
+            strbuf_append_char(sb, '{');
+            for (size_t i = 0; i < node->node.array_init.elems_length; ++i) {
+                if (node->node.array_init.indicies[i].type != ICNT_COUNT) {
+                    strbuf_append_char(sb, '[');
+                    append_ir_node(sb, node->node.array_init.indicies + i);
+                    strbuf_append_chars(sb, "] = ");
+                }
+                append_ir_node(sb, node->node.array_init.elems + i);
+
+                if (i + 1 < node->node.array_init.elems_length) {
+                    strbuf_append_chars(sb, ", ");
+                }
+            }
+            strbuf_append_char(sb, '}');
             break;
         }
 

@@ -242,7 +242,23 @@ static void verify_node(Analyzer* analyzer, ASTNode const* const ast, size_t dep
         }
 
         case ANT_STRUCT_INIT: assert(false); // TODO
-        case ANT_ARRAY_INIT: assert(false); // TODO
+
+        case ANT_ARRAY_INIT: {
+            // TODO: ensure length is known at compile time
+            if (ast->node.array_init.maybe_explicit_length) {
+                assert(ast->node.array_init.maybe_explicit_length->type == ANT_LITERAL);
+                assert(ast->node.array_init.maybe_explicit_length->node.literal.kind == LK_INT);
+            }
+
+            LLNode_ArrayInitElem* curr = ast->node.array_init.elems.head;
+            while (curr) {
+                if (curr->data.maybe_index) {
+                    verify_node(analyzer, curr->data.maybe_index, depth + 1, iter);
+                }
+                verify_node(analyzer, curr->data.value, depth + 1, iter);
+                curr = curr->next;
+            }
+        }
 
         case ANT_IMPORT: break;
 
