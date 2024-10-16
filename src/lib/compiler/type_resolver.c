@@ -621,6 +621,18 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
             break;
         }
 
+        case TK_ARRAY: {
+            ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+            resolved_type->from_pkg = type_resolver->current_package;
+            resolved_type->kind = RTK_ARRAY;
+            resolved_type->type.array.of = calc_resolved_type(type_resolver, scope, type->type.array.of);
+            *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+                .status = TIS_CONFIDENT,
+                .type = resolved_type,
+            };
+            return resolved_type;
+        }
+
         case TK_POINTER: {
             ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
             resolved_type->from_pkg = type_resolver->current_package;
@@ -1033,8 +1045,61 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             break;
         }
 
-        case ANT_TEMPLATE_STRING: assert(false); // TODO
-        case ANT_CRASH: assert(false); // TODO
+        case ANT_TEMPLATE_STRING: {
+            bool resolved = true;
+
+            LLNode_ASTNode* curr = node->node.template_string.template_expr_parts.head;
+            while (curr) {
+                changed |= resolve_type_node(type_resolver, scope, &curr->data);
+
+                if (!type_resolver->packages->types[curr->data.id.val].type) {
+                    resolved = false;
+                }
+                
+                curr = curr->next;
+            }
+
+            if (resolved) {
+                type_resolver->packages->types[node->id.val] = (TypeInfo){
+                    .status = TIS_CONFIDENT,
+                    .type = type_resolver->packages->string_literal_type,
+                };
+            }
+            break;
+        }
+
+        case ANT_CRASH: {
+           if (node->node.crash.maybe_expr) {
+                changed |= resolve_type_node(type_resolver, scope, node->node.crash.maybe_expr);
+
+                if (type_resolver->packages->types[node->node.crash.maybe_expr->id.val].type) {
+                    ResolvedType* rt = arena_alloc(type_resolver->arena, sizeof *rt);
+                    *rt = (ResolvedType){
+                        .from_pkg = type_resolver->current_package,
+                        .src = node,
+                        .kind = RTK_TERMINAL,
+                        .type.terminal = NULL,
+                    };
+                    type_resolver->packages->types[node->id.val] = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = rt,
+                    };
+                }
+            } else {
+                ResolvedType* rt = arena_alloc(type_resolver->arena, sizeof *rt);
+                *rt = (ResolvedType){
+                    .from_pkg = type_resolver->current_package,
+                    .src = node,
+                    .kind = RTK_TERMINAL,
+                    .type.terminal = NULL,
+                };
+                type_resolver->packages->types[node->id.val] = (TypeInfo){
+                    .status = TIS_CONFIDENT,
+                    .type = rt,
+                };
+            }
+            break;
+        }
 
         case ANT_SIZEOF: {
             if (node->node.sizeof_.kind == SOK_EXPR) {

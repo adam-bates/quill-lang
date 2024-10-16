@@ -34,6 +34,8 @@ typedef enum {
 
     RTK_GENERIC,
 
+    RTK_TERMINAL,
+
     RTK_COUNT
 } ResolvedTypeKind;
 
@@ -89,6 +91,8 @@ typedef struct {
     String name;
 } ResolvedGeneric;
 
+typedef void* ResolvedTerminal;
+
 typedef struct ResolvedType {
     ResolvedTypeKind kind;
     Package* from_pkg;
@@ -106,6 +110,7 @@ typedef struct ResolvedType {
         ResolvedStructDecl struct_decl;
         ResolvedStructRef struct_ref;
         ResolvedGeneric generic;
+        ResolvedTerminal terminal;
     } type;
 } ResolvedType;
 

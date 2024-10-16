@@ -258,11 +258,20 @@ static void verify_node(Analyzer* analyzer, ASTNode const* const ast, size_t dep
                 verify_node(analyzer, curr->data.value, depth + 1, iter);
                 curr = curr->next;
             }
+            break;
         }
 
         case ANT_IMPORT: break;
 
-        case ANT_TEMPLATE_STRING: assert(false); // TODO
+        case ANT_TEMPLATE_STRING: {
+            LLNode_ASTNode* curr = ast->node.template_string.template_expr_parts.head;
+            while (curr) {
+                verify_node(analyzer, &curr->data, depth + 1, iter);
+                curr = curr->next;
+            }
+            break;
+        }
+
         case ANT_CRASH: break;
 
         case ANT_SIZEOF: {

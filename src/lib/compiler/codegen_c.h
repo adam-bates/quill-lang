@@ -179,6 +179,7 @@ typedef struct {
     IR_C ir;
 
     GenericImplMap* generic_map;
+    LL_IR_C_Node* stmt_block;
 
     bool seen_file_separator;
     BlockType prev_block;

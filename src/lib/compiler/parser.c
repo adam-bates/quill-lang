@@ -597,6 +597,20 @@ static Type* parser_parse_type_wrap(Parser* const parser, Type* type) {
             return parser_parse_type_wrap(parser, type);
         }
 
+        case TT_LEFT_BRACKET: {
+            parser_advance(parser);
+            assert(parser_consume(parser, TT_RIGHT_BRACKET, "Exptected ']'"));
+
+            Type* wrapped = arena_alloc(parser->arena, sizeof *wrapped);
+            *wrapped = (Type){
+                .id = { parser->next_type_id++ },
+                .kind = TK_ARRAY,
+                .type.array.of = type,
+            };
+
+            return parser_parse_type_wrap(parser, wrapped);
+        }
+
         default: break;
     }
     
@@ -1103,6 +1117,10 @@ static ParseResult parser_parse_lit(Parser* const parser, LL_Directive const dir
         case TT_LITERAL_STRING: return parser_parse_lit_str(parser, directives);
         case TT_LITERAL_CHAR: return parser_parse_lit_char_s(parser, directives);
         case TT_LITERAL_NUMBER: return parser_parse_lit_number(parser, directives);
+
+        case TT_LITERAL_STRING_TEMPLATE_START:
+        case TT_LITERAL_STRING_TEMPLATE_FULL:
+            return parser_parse_lit_str_template(parser, directives);
 
         default: break;
     }

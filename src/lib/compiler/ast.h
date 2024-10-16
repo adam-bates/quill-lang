@@ -91,6 +91,10 @@ typedef struct {
     struct Type* of;
 } TypePointer;
 
+typedef struct {
+    struct Type* of;
+} TypeArray;
+
 typedef struct Type {
     TypeId id;
     TypeKind kind;
@@ -100,7 +104,7 @@ typedef struct Type {
         // TypeTuple tuple;
         TypePointer ptr;
         TypePointer mut_ptr;
-        // TODO
+        TypeArray array;
     } type;
     LL_Directive directives;
 } Type;

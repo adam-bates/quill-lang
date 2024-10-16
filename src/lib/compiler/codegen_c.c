@@ -212,8 +212,14 @@ static void _append_type_resolved(CodegenC* codegen, StringBuffer* sb, ResolvedT
 
         case RTK_VOID: strbuf_append_chars(sb, "void"); break;
         case RTK_BOOL: strbuf_append_chars(sb, "bool"); break;
+        case RTK_INT: strbuf_append_chars(sb, "int64_t"); break;
         case RTK_UINT: strbuf_append_chars(sb, "size_t"); break;
         case RTK_CHAR: strbuf_append_chars(sb, "char"); break;
+
+        case RTK_ARRAY: {
+            _append_type_resolved(codegen, sb, type->type.array.of);
+            break;
+        }
 
         case RTK_POINTER: {
             _append_type_resolved(codegen, sb, type->type.ptr.of);
@@ -250,6 +256,11 @@ static void _append_type_resolved(CodegenC* codegen, StringBuffer* sb, ResolvedT
                 next = get_mapped_generic(codegen->generic_map, *mapped);
             }
             strbuf_append_str(sb, *mapped);
+            break;
+        }
+
+        case RTK_TERMINAL: {
+            assert(false); // ??
             break;
         }
 
@@ -407,6 +418,173 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 }
 
                 default: assert(false);
+            }
+
+            break;
+        }
+
+        case ANT_TEMPLATE_STRING: {
+            // gen: StringBuffer sb = strbuf_default();
+            {
+                IR_C_Node* sb_init_target = arena_alloc(codegen->arena, sizeof *sb_init_target);
+                *sb_init_target = (IR_C_Node){
+                    .type = ICNT_VAR_REF,
+                    .node.var_ref.name = c_str("strbuf_default"),
+                };
+
+                IR_C_Node* sb_init = arena_alloc(codegen->arena, sizeof *sb_init);
+                *sb_init = (IR_C_Node){
+                    .type = ICNT_FUNCTION_CALL,
+                    .node.function_call = {
+                        .target = sb_init_target,
+                        .args = {0},
+                    },
+                };
+
+                ll_node_push(codegen->arena, codegen->stmt_block, (IR_C_Node){
+                    .type = ICNT_VAR_DECL,
+                    .node.var_decl = {
+                        .type = c_str("StringBuffer"), // TODO: codegen->string_template_type
+                        .name = c_str("sb"),
+                        .init = sb_init,
+                    },
+                });
+            }
+
+            // gen: strbuf_append_chars(&sb, "..."); // first string part
+            {
+                IR_C_Node* append_chars_target = arena_alloc(codegen->arena, sizeof *append_chars_target);
+                *append_chars_target = (IR_C_Node){
+                    .type = ICNT_VAR_REF,
+                    .node.var_ref.name = c_str("strbuf_append_chars"),
+                };
+
+                LL_IR_C_Node append_chars_args = {0};
+                ll_node_push(codegen->arena, &append_chars_args, (IR_C_Node){
+                    .type = ICNT_VAR_REF,
+                    .node.var_ref.name = c_str("&sb"),
+                });
+
+                StringBuffer sb = strbuf_create(codegen->arena);
+                strbuf_append_char(&sb, '"');
+                strbuf_append_str(&sb, (String){
+                    .length = node->node.template_string.str_parts.array[0].length - 2,
+                    .chars = node->node.template_string.str_parts.array[0].chars + 1,
+                });
+                strbuf_append_char(&sb, '"');
+                String str_lit = strbuf_to_str(sb);
+                
+                ll_node_push(codegen->arena, &append_chars_args, (IR_C_Node){
+                    .type = ICNT_VAR_REF,
+                    .node.var_ref.name = str_lit,
+                });
+
+                ll_node_push(codegen->arena, codegen->stmt_block, (IR_C_Node){
+                    .type = ICNT_FUNCTION_CALL,
+                    .node.function_call = {
+                        .target = append_chars_target,
+                        .args = append_chars_args,
+                    },
+                });
+            }
+
+            size_t i = 1;
+            LLNode_ASTNode* curr = node->node.template_string.template_expr_parts.head;
+            while (curr) {
+                switch (codegen->packages->types[curr->data.id.val].type->kind) {
+                    case RTK_INT: {
+                        IR_C_Node* append_chars_target = arena_alloc(codegen->arena, sizeof *append_chars_target);
+                        *append_chars_target = (IR_C_Node){
+                            .type = ICNT_VAR_REF,
+                            .node.var_ref.name = c_str("strbuf_append_int"),
+                        };
+
+                        LL_IR_C_Node append_chars_args = {0};
+                        ll_node_push(codegen->arena, &append_chars_args, (IR_C_Node){
+                            .type = ICNT_VAR_REF,
+                            .node.var_ref.name = c_str("&sb"),
+                        });
+                        {
+                            LL_IR_C_Node expr_ll = {0};
+                            fill_nodes(codegen, &expr_ll, &curr->data, ftype, stage, false);
+                            assert(expr_ll.length == 1);
+
+                            ll_node_push(codegen->arena, &append_chars_args, expr_ll.head->data);
+                        }
+
+                        ll_node_push(codegen->arena, codegen->stmt_block, (IR_C_Node){
+                            .type = ICNT_FUNCTION_CALL,
+                            .node.function_call = {
+                                .target = append_chars_target,
+                                .args = append_chars_args,
+                            },
+                        });
+
+                        break;
+                    }
+
+                    default: assert(false);
+                }
+
+                IR_C_Node* append_chars_target = arena_alloc(codegen->arena, sizeof *append_chars_target);
+                *append_chars_target = (IR_C_Node){
+                    .type = ICNT_VAR_REF,
+                    .node.var_ref.name = c_str("strbuf_append_chars"),
+                };
+
+                LL_IR_C_Node append_chars_args = {0};
+                ll_node_push(codegen->arena, &append_chars_args, (IR_C_Node){
+                    .type = ICNT_VAR_REF,
+                    .node.var_ref.name = c_str("&sb"),
+                });
+
+                StringBuffer sb = strbuf_create(codegen->arena);
+                strbuf_append_char(&sb, '"');
+                strbuf_append_str(&sb, (String){
+                    .length = node->node.template_string.str_parts.array[i].length - 2,
+                    .chars = node->node.template_string.str_parts.array[i].chars + 1,
+                });
+                strbuf_append_char(&sb, '"');
+                String str_lit = strbuf_to_str(sb);
+                
+                ll_node_push(codegen->arena, &append_chars_args, (IR_C_Node){
+                    .type = ICNT_VAR_REF,
+                    .node.var_ref.name = str_lit,
+                });
+
+                ll_node_push(codegen->arena, codegen->stmt_block, (IR_C_Node){
+                    .type = ICNT_FUNCTION_CALL,
+                    .node.function_call = {
+                        .target = append_chars_target,
+                        .args = append_chars_args,
+                    },
+                });
+ 
+                i += 1;
+                curr = curr->next;
+            }
+
+            // gen: strbuf_to_str(sb);
+            {
+                IR_C_Node* to_str_target = arena_alloc(codegen->arena, sizeof *to_str_target);
+                *to_str_target = (IR_C_Node){
+                    .type = ICNT_VAR_REF,
+                    .node.var_ref.name = c_str("strbuf_as_str"),
+                };
+
+                LL_IR_C_Node to_str_args = {0};
+                ll_node_push(codegen->arena, &to_str_args, (IR_C_Node){
+                    .type = ICNT_VAR_REF,
+                    .node.var_ref.name = c_str("sb"),
+                });
+
+                ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                    .type = ICNT_FUNCTION_CALL,
+                    .node.function_call = {
+                        .target = to_str_target,
+                        .args = to_str_args,
+                    },
+                });
             }
 
             break;
@@ -621,19 +799,24 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 break;
             }
             ResolvedType* rt = codegen->packages->types[node->id.val].type;
-            print_astnode(*node);
-            printf("\n");
             assert(rt);
 
             String type;
-            if (node->node.var_decl.type_or_let.is_let) {
+            // if (node->node.var_decl.type_or_let.is_let) {
                 type = gen_type_resolved(codegen, rt);
-            } else {
-                type = gen_type(codegen, *node->node.var_decl.type_or_let.maybe_type);
-            }
+            // } else {
+            //     type = gen_type(codegen, *node->node.var_decl.type_or_let.maybe_type);
+            // }
 
             assert(node->node.var_decl.lhs.type == VDLT_NAME);
             String name = node->node.var_decl.lhs.lhs.name;
+
+            if (rt->kind == RTK_ARRAY) {
+                StringBuffer sb = strbuf_create_with_capacity(codegen->arena, name.length + 2);
+                strbuf_append_str(&sb, name);
+                strbuf_append_chars(&sb, "[]");
+                name = strbuf_to_str(sb);
+            }
 
             IR_C_Node* init = NULL;
             if (node->node.var_decl.initializer) {
@@ -736,6 +919,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             }
 
             LL_IR_C_Node statements = {0};
+            codegen->stmt_block = &statements;
             {
                 LLNode_ASTNode* curr = node->node.function_decl.stmts.head;
                 while (curr) {
@@ -743,6 +927,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                     curr = curr->next;
                 }
             }
+            codegen->stmt_block = NULL;
 
             String return_type = gen_type(codegen, node->node.function_decl.header.return_type);
 
@@ -845,6 +1030,14 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 });
                 codegen->generic_map = root_map;
             }
+            break;
+        }
+
+        case ANT_CRASH: {
+            ll_node_push(codegen->arena, codegen->stmt_block, (IR_C_Node){
+                .type = ICNT_VAR_REF,
+                .node.var_ref.name = c_str("assert(false)"),
+            });
             break;
         }
 
@@ -1174,6 +1367,10 @@ CodegenC codegen_c_create(Arena* arena, Packages* packages) {
             .files_length = 0,
             .files = files,
         },
+
+        .generic_map = NULL,
+        .stmt_block = NULL,
+
         .seen_file_separator = false,
         .prev_block = BT_OTHER,
     };
@@ -1220,6 +1417,13 @@ GeneratedFiles generate_c_code(CodegenC* codegen) {
                 .node.define.name = c_str("_h"),
             });
 
+            ll_node_push(codegen->arena, &common, (IR_C_Node){
+                .type = ICNT_MACRO_INCLUDE,
+                .node.include = {
+                    .is_local = false,
+                    .file = c_str("<assert.h>"),
+                },
+            });
             ll_node_push(codegen->arena, &common, (IR_C_Node){
                 .type = ICNT_MACRO_INCLUDE,
                 .node.include = {
