@@ -393,9 +393,12 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
                 case LK_CHAR: {
                     StringBuffer sb = strbuf_create(codegen->arena);
-                    strbuf_append_chars(&sb, "(((char_){'");
+                    strbuf_append_char(&sb, '\'');
                     strbuf_append_str(&sb, node->node.literal.value.lit_char);
-                    strbuf_append_chars(&sb, "'})._)");
+                    strbuf_append_char(&sb, '\'');
+                    // strbuf_append_chars(&sb, "(((char_){'");
+                    // strbuf_append_str(&sb, node->node.literal.value.lit_char);
+                    // strbuf_append_chars(&sb, "'})._)");
                     String value = strbuf_to_str(sb);
 
                     ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
@@ -655,23 +658,79 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
             IR_C_Node* expr = &expr_ll.head->data;
 
+            bool already_done = false;
+
             String op;
             switch (node->node.unary_op.op) {
                 case UO_PTR_REF: {
                     op = c_str("&");
+                    // break;
+                    if (node->node.unary_op.right->type == ANT_LITERAL) {
+                        TypeBuiltIn built_in;
+                        ResolvedTypeKind rtk;
+                        switch (node->node.unary_op.right->node.literal.kind) {
+                            case LK_BOOL: built_in = TBI_BOOL; rtk = RTK_BOOL; break;
+                            case LK_CHAR: built_in = TBI_CHAR; rtk = RTK_CHAR; break;
+                            case LK_INT: built_in = TBI_INT; rtk = RTK_INT; break;
+                            default: assert(false);
+                        }
+                        LL_IR_C_Node vardecl_ll = {0};
+                        Type typ = {
+                            .id = { 0 },
+                            .kind = TK_BUILT_IN,
+                            .type.built_in = built_in,
+                            .directives = {0},
+                        };
+                        ASTNode vardecl = {
+                            .id = { codegen->packages->types_length - 1 },
+                            .type = ANT_VAR_DECL,
+                            .node.var_decl = {
+                                .is_static = false,
+                                .type_or_let = {
+                                    .is_let = false,
+                                    .is_mut = false,
+                                    .maybe_type = &typ,
+                                },
+                                .lhs = {
+                                    .count = 1,
+                                    .type = VDLT_NAME,
+                                    .lhs.name = c_str("__tmp"),
+                                },
+                                .initializer = node->node.unary_op.right,
+                            },
+                            .directives = {0},
+                        };
+                        ResolvedType rt = {
+                            .kind = rtk,
+                        };
+                        codegen->packages->types[vardecl.id.val].type = &rt;
+                        fill_nodes(codegen, &vardecl_ll, &vardecl, ftype, stage, false);
+                        assert(vardecl_ll.length == 1);
+
+                        ll_node_push(codegen->arena, codegen->stmt_block, vardecl_ll.head->data);
+                        ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                            .type = ICNT_VAR_REF,
+                            .node.var_ref = {
+                                .name = c_str("&__tmp"),
+                            },
+                        });
+                        already_done = true;
+                    }
                     break;
                 }
 
                 default: printf("TODO: unary op [%d]\n", node->node.unary_op.op); assert(false);
             }
 
-            ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
-                .type = ICNT_UNARY,
-                .node.unary = {
-                    .op = op,
-                    .expr = expr,
-                },
-            });
+            if (!already_done) {
+                ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                    .type = ICNT_UNARY,
+                    .node.unary = {
+                        .op = op,
+                        .expr = expr,
+                    },
+                });
+            }
             break;
         }
 
