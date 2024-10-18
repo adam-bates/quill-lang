@@ -797,9 +797,17 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             } else {
                 changed |= resolve_type_type(type_resolver, scope, node, node->node.var_decl.type_or_let.maybe_type);
 
-                if (has_init && type_resolver->packages->types[node->node.var_decl.initializer->id.val].type) {
-                    changed |= resolve_type_node(type_resolver, scope, node->node.var_decl.initializer);
-                    // assert(type.resolved_type == node.resolved_type); // TODO
+                if (has_init) {
+                    if (type_resolver->packages->types[node->id.val].type) {
+                        changed |= resolve_type_node(type_resolver, scope, node->node.var_decl.initializer);
+                        // assert(type.resolved_type == node.resolved_type); // TODO
+
+                        if (!type_resolver->packages->types[node->node.var_decl.initializer->id.val].type
+                            && node->node.var_decl.initializer->type == ANT_STRUCT_INIT
+                        ) {
+                            type_resolver->packages->types[node->node.var_decl.initializer->id.val] = type_resolver->packages->types[node->id.val];
+                        }
+                    }
                 }
             }
 
@@ -817,14 +825,42 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             if (!root.type) {
                 break;
             }
-            assert(root.type->kind == RTK_STRUCT_REF);
+            ResolvedStructDecl struct_decl;
+            if (node->node.get_field.is_ptr_deref) {
+                assert(root.type->kind == RTK_POINTER || root.type->kind == RTK_MUT_POINTER);
+                if (root.type->kind == RTK_POINTER) {
+                    assert(root.type->type.ptr.of->kind == RTK_STRUCT_REF || root.type->type.ptr.of->kind == RTK_STRUCT_DECL);
+                    if (root.type->type.ptr.of->kind == RTK_STRUCT_REF) {
+                        struct_decl = root.type->type.ptr.of->type.struct_ref.decl;
+                    } else {
+                        struct_decl = root.type->type.ptr.of->type.struct_decl;
+                    }
+                } else {
+                    assert(root.type->type.mut_ptr.of->kind == RTK_STRUCT_REF || root.type->type.mut_ptr.of->kind == RTK_STRUCT_DECL);
+                    if (root.type->type.mut_ptr.of->kind == RTK_STRUCT_REF) {
+                        struct_decl = root.type->type.mut_ptr.of->type.struct_ref.decl;
+                    } else {
+                        struct_decl = root.type->type.mut_ptr.of->type.struct_decl;
+                    }
+                }
+            } else {
+                assert(root.type->kind == RTK_STRUCT_REF || root.type->kind == RTK_STRUCT_DECL);
+                if (root.type->kind == RTK_STRUCT_REF) {
+                    struct_decl = root.type->type.struct_ref.decl;
+                } else {
+                    struct_decl = root.type->type.struct_decl;
+                }
+            }
 
             ResolvedStructField* found = NULL;
-            for (size_t i = 0; i < root.type->type.struct_ref.decl.fields_length; ++i) {
-                if (str_eq(root.type->type.struct_ref.decl.fields[i].name, node->node.get_field.name)) {
-                    found = root.type->type.struct_ref.decl.fields + i;
+            for (size_t i = 0; i < struct_decl.fields_length; ++i) {
+                if (str_eq(struct_decl.fields[i].name, node->node.get_field.name)) {
+                    found = struct_decl.fields + i;
                     break;
                 }
+            }
+            if (!found) {
+                printf("Couldn't find %s\n", arena_strcpy(type_resolver->arena, node->node.get_field.name).chars);
             }
             assert(found);
 
@@ -949,20 +985,37 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
         case ANT_RETURN: {
             assert(type_resolver->current_function);
+            assert(type_resolver->current_function->return_type);
 
             if (node->node.return_.maybe_expr) {
+                assert(type_resolver->current_function->return_type->kind != RTK_VOID);
+
                 changed |= resolve_type_node(type_resolver, scope, node->node.return_.maybe_expr);
 
-                if (type_resolver->packages->types[node->id.val].type) {
-                    assert(type_resolver->packages->types[node->id.val].type == type_resolver->current_function->return_type);
+                if (type_resolver->packages->types[node->node.return_.maybe_expr->id.val].type) {
+                    assert(type_resolver->packages->types[node->node.return_.maybe_expr->id.val].type->kind == type_resolver->current_function->return_type->kind);
 
                     type_resolver->packages->types[node->id.val] = (TypeInfo){
                         .status = TIS_CONFIDENT,
-                        .type = type_resolver->packages->types[node->id.val].type,
+                        .type = type_resolver->packages->types[node->node.return_.maybe_expr->id.val].type,
                     };
                     changed = true;
+                } else if (node->node.return_.maybe_expr->type == ANT_STRUCT_INIT) {
+                    assert(
+                        type_resolver->current_function->return_type->kind != RTK_STRUCT_DECL
+                        || type_resolver->current_function->return_type->kind != RTK_STRUCT_REF
+                    );
+                    type_resolver->packages->types[node->id.val] = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = type_resolver->current_function->return_type,
+                    };
+                    changed = true;
+
+                    type_resolver->packages->types[node->node.return_.maybe_expr->id.val] = type_resolver->packages->types[node->id.val];
                 }
             } else {
+                assert(type_resolver->current_function->return_type->kind == RTK_VOID);
+
                 ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
                 resolved_type->from_pkg = type_resolver->current_package;
                 resolved_type->src = node;
@@ -1008,7 +1061,14 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             break;
         }
 
-        case ANT_STRUCT_INIT: assert(false); // TODO
+        case ANT_STRUCT_INIT: {
+            LLNode_StructFieldInit* curr = node->node.struct_init.fields.head;
+            while (curr) {
+                changed |= resolve_type_node(type_resolver, scope, curr->data.value);
+                curr = curr->next;
+            }
+            break;
+        }
 
         case ANT_ARRAY_INIT: {
             bool resolved = true;

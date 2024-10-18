@@ -24,7 +24,8 @@ typedef enum {
     ICNT_MACRO_INCLUDE,
     ICNT_MACRO_ENDIF,
 
-    ICNT_VAR_REF,
+    ICNT_RAW,
+    ICNT_RAW_WRAP,
     ICNT_ARRAY_INIT,
     ICNT_UNARY,
     ICNT_GET_FIELD,
@@ -34,6 +35,7 @@ typedef enum {
     ICNT_RETURN,
     ICNT_BINARY_OP,
     ICNT_INDEX,
+    ICNT_STRUCT_INIT,
 
     ICNT_VAR_DECL,
     ICNT_FUNCTION_HEADER_DECL,
@@ -42,6 +44,16 @@ typedef enum {
 
     ICNT_COUNT
 } IR_C_NodeType;
+
+typedef struct {
+    String str;
+} IR_C_Raw;
+
+typedef struct {
+    String pre;
+    struct IR_C_Node* wrapped;
+    String post;
+} IR_C_RawWrap;
 
 typedef struct {
     String condition;
@@ -62,15 +74,12 @@ typedef struct {
 } IR_C_MacroEndif;
 
 typedef struct {
-    String name;
-} IR_C_VarRef;
-
-typedef struct {
     String op;
     struct IR_C_Node* expr;
 } IR_C_Unary;
 
 typedef struct {
+    bool is_ptr;
     struct IR_C_Node* root;
     String name;
 } IR_C_GetField;
@@ -105,6 +114,11 @@ typedef struct {
 
 typedef struct {
     String type;
+    LL_IR_C_Node fields;
+} IR_C_StructInit;
+
+typedef struct {
+    String type;
     String name;
     struct IR_C_Node* init;
 } IR_C_VarDecl;
@@ -136,11 +150,12 @@ typedef struct {
 typedef struct IR_C_Node {
     IR_C_NodeType type;
     union {
+        IR_C_Raw raw;
+        IR_C_RawWrap raw_wrap;
         IR_C_MacroIfndef ifndef;
         IR_C_MacroDefine define;
         IR_C_MacroInclude include;
         IR_C_MacroEndif endif;
-        IR_C_VarRef var_ref;
         IR_C_Unary unary;
         IR_C_GetField get_field;
         IR_C_SizeofExpr sizeof_expr;
@@ -149,6 +164,7 @@ typedef struct IR_C_Node {
         IR_C_Return return_;
         IR_C_BinaryOp binary_op;
         IR_C_Index index;
+        IR_C_StructInit struct_init;
         IR_C_VarDecl var_decl;
         IR_C_ArrayInit array_init;
         IR_C_FunctionHeaderDecl function_header_decl;

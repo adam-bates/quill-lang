@@ -78,6 +78,7 @@ void debug_token_type(TokenType token_type) {
         case TT_PLUS_PLUS: printf("++"); break;
         case TT_MINUS: printf("-"); break;
         case TT_MINUS_EQUAL: printf("-="); break;
+        case TT_MINUS_GREATER: printf("->"); break;
         case TT_MINUS_MINUS: printf("--"); break;
         case TT_MINUS_MINUS_MINUS: printf("---"); break;
         case TT_SLASH: printf("/"); break;
@@ -1202,9 +1203,11 @@ static ParseResult parser_parse_range(Parser* const parser, ASTNode expr) {
 }
 
 static ParseResult parser_parse_get_field(Parser* const parser, ASTNode expr) {
-    if (parser_peek(parser).type != TT_DOT) {
+    Token t = parser_peek(parser);
+    if (t.type != TT_DOT && t.type != TT_MINUS_GREATER) {
         return parseres_none();
     }
+    bool is_ptr_deref = t.type == TT_MINUS_GREATER;
     parser_advance(parser);
 
     Token name = parser_peek(parser);
@@ -1218,6 +1221,7 @@ static ParseResult parser_parse_get_field(Parser* const parser, ASTNode expr) {
         .type = ANT_GET_FIELD,
         .node.get_field = {
             .root = root,
+            .is_ptr_deref = is_ptr_deref,
             .name = {
                 .length = name.length,
                 .chars = name.start,
@@ -1333,7 +1337,47 @@ static ParseResult parser_parse_struct_init(Parser* const parser, LL_Directive c
     }
     assert(parser_consume(parser, TT_LEFT_BRACE, "Expected '{'."));
 
-    assert(false);
+    LL_StructFieldInit fields = {0};
+
+    Token t = parser_peek(parser);
+    while (t.type != TT_RIGHT_BRACE && t.type != TT_EOF) {
+        assert(parser_consume(parser, TT_DOT, "Expected '.'"));
+
+        t = parser_peek(parser);
+        assert(parser_consume(parser, TT_IDENTIFIER, "Expected name"));
+        String name = {
+            .length = t.length,
+            .chars = t.start,
+        };
+
+        assert(parser_consume(parser, TT_EQUAL, "Expected '='"));
+
+        ParseResult res = parser_parse_expr(parser, (LL_Directive){0});
+        assert(res.status == PRS_OK);
+
+        ASTNode* value = arena_alloc(parser->arena, sizeof *value);
+        *value = res.node;
+
+        ll_field_init_push(parser->arena, &fields, (StructFieldInit){
+            .name = name,
+            .value = value,
+        });
+
+        t = parser_peek(parser);
+        if (t.type != TT_RIGHT_BRACE && t.type != TT_EOF) {
+            assert(parser_consume(parser, TT_COMMA, "Expected ','"));
+            t = parser_peek(parser);
+        }
+    }
+
+    assert(parser_consume(parser, TT_RIGHT_BRACE, "Expected '}'."));
+
+    return parseres_ok((ASTNode){
+        .id = { parser->next_node_id++ },
+        .type = ANT_STRUCT_INIT,
+        .node.struct_init.fields = fields,
+        .directives = directives,
+    });
 }
 
 static ParseResult parser_parse_array_init(Parser* const parser, LL_Directive const directives) {

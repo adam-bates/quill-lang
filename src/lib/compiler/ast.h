@@ -38,6 +38,12 @@ typedef struct {
 
 typedef struct {
     size_t length;
+    struct LLNode_StructFieldInit* head;
+    struct LLNode_StructFieldInit* tail;
+} LL_StructFieldInit;
+
+typedef struct {
+    size_t length;
     struct LLNode_ArrayInitElem* head;
     struct LLNode_ArrayInitElem* tail;
 } LL_ArrayInitElem;
@@ -291,6 +297,7 @@ typedef struct {
 
 typedef struct {
     struct ASTNode* root;
+    bool is_ptr_deref;
     String name;
 } ASTNodeGetField;
 
@@ -426,13 +433,12 @@ typedef struct {
 //
 
 typedef struct {
-    TokensSlice lhs;
-    struct ASTNode* rhs;
-} StructInitField;
+    String name;
+    struct ASTNode* value;
+} StructFieldInit;
 
 typedef struct {
-    StructInitField* fields;
-    size_t fields_count;
+    LL_StructFieldInit fields;
 } ASTNodeStructInit;
 
 //
@@ -729,6 +735,11 @@ typedef struct LLNode_StructField {
     StructField data;
 } LLNode_StructField;
 
+typedef struct LLNode_StructFieldInit {
+    struct LLNode_StructFieldInit* next;
+    StructFieldInit data;
+} LLNode_StructFieldInit;
+
 typedef struct LLNode_ArrayInitElem {
     struct LLNode_ArrayInitElem* next;
     ArrayInitElem data;
@@ -753,6 +764,7 @@ void ll_ast_push(Arena* const arena, LL_ASTNode* const ll, ASTNode const node);
 void ll_directive_push(Arena* const arena, LL_Directive* const ll, Directive const directive);
 void ll_param_push(Arena* const arena, LL_FnParam* const ll, FnParam const param);
 void ll_field_push(Arena* const arena, LL_StructField* const ll, StructField const field);
+void ll_field_init_push(Arena* const arena, LL_StructFieldInit* const ll, StructFieldInit const field_init);
 void ll_array_init_elem_push(Arena* const arena, LL_ArrayInitElem* const ll, ArrayInitElem const array_init_elem);
 void ll_type_push(Arena* const arena, LL_Type* const ll, Type const type);
 

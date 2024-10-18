@@ -241,7 +241,14 @@ static void verify_node(Analyzer* analyzer, ASTNode const* const ast, size_t dep
             break;
         }
 
-        case ANT_STRUCT_INIT: assert(false); // TODO
+        case ANT_STRUCT_INIT: {
+            LLNode_StructFieldInit* curr = ast->node.struct_init.fields.head;
+            while (curr) {
+                verify_node(analyzer, curr->data.value, depth + 1, iter);
+                curr = curr->next;
+            }
+            break;
+        }
 
         case ANT_ARRAY_INIT: {
             // TODO: ensure length is known at compile time

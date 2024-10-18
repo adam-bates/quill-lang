@@ -426,9 +426,11 @@ static Token lexer_scan_token(Lexer* const lexer) {
         );
         case '-': return lexer_token_create(lexer,
             lexer_match_char(lexer, '=') ? TT_MINUS_EQUAL : (
-                lexer_match_char(lexer, '-') ? (
-                    lexer_match_char(lexer, '-') ? TT_MINUS_MINUS_MINUS : TT_MINUS_MINUS
-                ) : TT_MINUS
+                lexer_match_char(lexer, '>') ? TT_MINUS_GREATER : (
+                    lexer_match_char(lexer, '-') ? (
+                        lexer_match_char(lexer, '-') ? TT_MINUS_MINUS_MINUS : TT_MINUS_MINUS
+                    ) : TT_MINUS
+                )
             )
         );
         case '/': return lexer_token_create(lexer,

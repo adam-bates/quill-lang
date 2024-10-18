@@ -185,6 +185,22 @@ void ll_field_push(Arena* const arena, LL_StructField* const ll, StructField con
     ll->length += 1;
 }
 
+void ll_field_init_push(Arena* const arena, LL_StructFieldInit* const ll, StructFieldInit const field_init) {
+    LLNode_StructFieldInit* const llnode = arena_alloc(arena, sizeof *llnode);
+    llnode->data = field_init;
+    llnode->next = NULL;
+
+    if (ll->head == NULL) {
+        ll->head = llnode;
+        ll->tail = ll->head;
+    } else {
+        ll->tail->next = llnode;
+        ll->tail = llnode;
+    }
+
+    ll->length += 1;
+}
+
 void ll_array_init_elem_push(Arena* const arena, LL_ArrayInitElem* const ll, ArrayInitElem const array_init_elem) {
     LLNode_ArrayInitElem* const llnode = arena_alloc(arena, sizeof *llnode);
     llnode->data = array_init_elem;
