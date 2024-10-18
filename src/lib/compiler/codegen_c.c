@@ -1470,6 +1470,9 @@ static void append_ir_file(StringBuffer* sb, IR_C_File* file) {
     LLNode_IR_C_Node* curr = file->nodes.head;
     while (curr) {
         append_ir_node(sb, &curr->data);
+        if (sb->chars[sb->length - 1] != ';') {
+            strbuf_append_char(sb, ';');
+        }
         strbuf_append_char(sb, '\n');
         curr = curr->next;
     }

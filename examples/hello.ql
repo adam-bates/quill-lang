@@ -1,8 +1,9 @@
 import libc/stdio;
 import libc/stdlib;
 
+static let sz = sizeof(char);
+
 void main() {
-    uint sz = sizeof(char);
     uint len = 15;
 
     uint mut i = 0;
