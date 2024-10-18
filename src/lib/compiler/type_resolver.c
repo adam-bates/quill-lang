@@ -773,7 +773,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         }
 
         case ANT_BINARY_OP: {
-            assert(false); // TODO
+            // assert(false); // TODO
             changed |= resolve_type_node(type_resolver, scope, node->node.binary_op.lhs);
             changed |= resolve_type_node(type_resolver, scope, node->node.binary_op.rhs);
             break;
@@ -797,12 +797,9 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             } else {
                 changed |= resolve_type_type(type_resolver, scope, node, node->node.var_decl.type_or_let.maybe_type);
 
-                if (has_init) {
+                if (has_init && type_resolver->packages->types[node->node.var_decl.initializer->id.val].type) {
                     changed |= resolve_type_node(type_resolver, scope, node->node.var_decl.initializer);
                     // assert(type.resolved_type == node.resolved_type); // TODO
-
-                    type_resolver->packages->types[node->id.val] = type_resolver->packages->types[node->node.var_decl.initializer->id.val];
-                    assert(type_resolver->packages->types[node->id.val].type);
                 }
             }
 
@@ -978,6 +975,36 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 };
                 changed = true;
             }
+            break;
+        }
+
+        case ANT_INDEX: {
+            changed |= resolve_type_node(type_resolver, scope, node->node.index.root);
+            changed |= resolve_type_node(type_resolver, scope, node->node.index.value);
+
+            if (type_resolver->packages->types[node->node.index.root->id.val].type
+                && type_resolver->packages->types[node->node.index.value->id.val].type
+            ) {
+                ResolvedType* inner;
+                switch (type_resolver->packages->types[node->node.index.root->id.val].type->kind) {
+                    case RTK_ARRAY: inner = type_resolver->packages->types[node->node.index.root->id.val].type->type.array.of; break;
+                    case RTK_POINTER: inner = type_resolver->packages->types[node->node.index.root->id.val].type->type.ptr.of; break;
+                    case RTK_MUT_POINTER: inner = type_resolver->packages->types[node->node.index.root->id.val].type->type.mut_ptr.of; break;
+                    default: assert(false);
+                }
+                assert(
+                    type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_INT
+                    || type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_UINT
+                    || type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_BOOL
+                    || type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_CHAR
+                );
+
+                type_resolver->packages->types[node->id.val] = (TypeInfo){
+                    .status = type_resolver->packages->types[node->node.index.root->id.val].status,
+                    .type = inner,
+                };
+            }
+
             break;
         }
 
@@ -1426,7 +1453,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         case ANT_NONE: assert(false);
         case ANT_COUNT: assert(false);
 
-        default: assert(false);
+        default: printf("TODO: ANT_%d\n", node->type); assert(false);
     }
 
     return changed;

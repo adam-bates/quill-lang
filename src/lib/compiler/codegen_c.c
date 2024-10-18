@@ -223,7 +223,7 @@ static void _append_type_resolved(CodegenC* codegen, StringBuffer* sb, ResolvedT
 
         case RTK_POINTER: {
             _append_type_resolved(codegen, sb, type->type.ptr.of);
-            strbuf_append_chars(sb, " const*");
+            strbuf_append_chars(sb, "*");
             break;
         }
 
@@ -783,11 +783,66 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             }
 
             ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
-                .type = ICNT_ASSIGNMENT,
-                .node.assignment = {
+                .type = ICNT_BINARY_OP,
+                .node.binary_op = {
                     .lhs = lhs_expr,
                     .op = op,
                     .rhs = rhs_expr,
+                },
+            });
+
+            break;
+        }
+
+        case ANT_BINARY_OP: {
+            LL_IR_C_Node lhs_expr_ll = {0};
+            fill_nodes(codegen, &lhs_expr_ll, node->node.binary_op.lhs, ftype, stage, false);
+            assert(lhs_expr_ll.length == 1);
+            IR_C_Node* lhs_expr = &lhs_expr_ll.head->data;
+
+            LL_IR_C_Node rhs_expr_ll = {0};
+            fill_nodes(codegen, &rhs_expr_ll, node->node.binary_op.rhs, ftype, stage, false);
+            assert(rhs_expr_ll.length == 1);
+            IR_C_Node* rhs_expr = &rhs_expr_ll.head->data;
+
+            String op;
+            switch (node->node.binary_op.op) {
+                case BO_ADD: op = c_str("+"); break;
+                case BO_SUBTRACT: op = c_str("-"); break;
+                case BO_MULTIPLY: op = c_str("*"); break;
+                case BO_DIVIDE: op = c_str("/"); break;
+
+                default: printf("TODO: assignment op [%d]\n", node->node.assignment.op); assert(false);
+            }
+
+            ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                .type = ICNT_BINARY_OP,
+                .node.binary_op = {
+                    .lhs = lhs_expr,
+                    .op = op,
+                    .rhs = rhs_expr,
+                },
+            });
+
+            break;
+        }
+
+        case ANT_INDEX: {
+            LL_IR_C_Node root_expr_ll = {0};
+            fill_nodes(codegen, &root_expr_ll, node->node.index.root, ftype, stage, false);
+            assert(root_expr_ll.length == 1);
+            IR_C_Node* root_expr = &root_expr_ll.head->data;
+
+            LL_IR_C_Node value_expr_ll = {0};
+            fill_nodes(codegen, &value_expr_ll, node->node.index.value, ftype, stage, false);
+            assert(value_expr_ll.length == 1);
+            IR_C_Node* value_expr = &value_expr_ll.head->data;
+
+            ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                .type = ICNT_INDEX,
+                .node.index = {
+                    .root = root_expr,
+                    .value = value_expr,
                 },
             });
 
@@ -1249,17 +1304,15 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
                 strbuf_append_char(sb, ' ');
                 append_ir_node(sb, node->node.return_.expr);
             }
-            strbuf_append_char(sb, ';');
             break;
         }
 
-        case ICNT_ASSIGNMENT: {
-            append_ir_node(sb, node->node.assignment.lhs);
+        case ICNT_BINARY_OP: {
+            append_ir_node(sb, node->node.binary_op.lhs);
             strbuf_append_char(sb, ' ');
-            strbuf_append_str(sb, node->node.assignment.op);
+            strbuf_append_str(sb, node->node.binary_op.op);
             strbuf_append_char(sb, ' ');
-            append_ir_node(sb, node->node.assignment.rhs);
-            strbuf_append_char(sb, ';');
+            append_ir_node(sb, node->node.binary_op.rhs);
             break;
         }
 
@@ -1272,8 +1325,6 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
                 strbuf_append_chars(sb, " = ");
                 append_ir_node(sb, node->node.var_decl.init);
             }
-
-            strbuf_append_char(sb, ';');
             
             break;
         }
@@ -1323,7 +1374,7 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
                     if (sb->chars[sb->length - 1] != ';') {
                         strbuf_append_char(sb, ';');
                     }
-                    strbuf_append_chars(sb, "\n");
+                    strbuf_append_char(sb, '\n');
                     curr = curr->next;
                 }
             }
@@ -1341,6 +1392,14 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
             strbuf_append_chars(sb, "} ");
             strbuf_append_str(sb, node->node.struct_decl.name);
             strbuf_append_char(sb, ';');
+            break;
+        }
+
+        case ICNT_INDEX: {
+            append_ir_node(sb, node->node.index.root);
+            strbuf_append_char(sb, '[');
+            append_ir_node(sb, node->node.index.value);
+            strbuf_append_char(sb, ']');
             break;
         }
 

@@ -32,7 +32,8 @@ typedef enum {
     ICNT_SIZEOF_TYPE,
     ICNT_FUNCTION_CALL,
     ICNT_RETURN,
-    ICNT_ASSIGNMENT,
+    ICNT_BINARY_OP,
+    ICNT_INDEX,
 
     ICNT_VAR_DECL,
     ICNT_FUNCTION_HEADER_DECL,
@@ -95,7 +96,12 @@ typedef struct {
     struct IR_C_Node* lhs;
     String op;
     struct IR_C_Node* rhs;
-} IR_C_Assignment;
+} IR_C_BinaryOp;
+
+typedef struct {
+    struct IR_C_Node* root;
+    struct IR_C_Node* value;
+} IR_C_Index;
 
 typedef struct {
     String type;
@@ -141,7 +147,8 @@ typedef struct IR_C_Node {
         IR_C_SizeofType sizeof_type;
         IR_C_FunctionCall function_call;
         IR_C_Return return_;
-        IR_C_Assignment assignment;
+        IR_C_BinaryOp binary_op;
+        IR_C_Index index;
         IR_C_VarDecl var_decl;
         IR_C_ArrayInit array_init;
         IR_C_FunctionHeaderDecl function_header_decl;

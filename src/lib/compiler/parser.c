@@ -1972,14 +1972,6 @@ static ParseResult parser_parse_stmt(Parser* const parser) {
     }
     size_t const cached_current = parser->cursor_current;
 
-    stmt_res = parser_parse_var_decl(parser, directives);
-    if (stmt_res.status == PRS_OK) {
-        // semicolon already consumed
-        // parser_consume(parser, TT_SEMICOLON, "Expected semicolon.");
-        return stmt_res;
-    }
-    parser->cursor_current = cached_current;
-
     stmt_res = parser_parse_expr(parser, directives);
     if (stmt_res.status == PRS_OK) {
         if (parser_peek(parser).type == TT_SEMICOLON) {
@@ -1989,6 +1981,14 @@ static ParseResult parser_parse_stmt(Parser* const parser) {
             assert(parser_consume(parser, TT_SEMICOLON, "Expected semicolon."));
         }
 
+        return stmt_res;
+    }
+    parser->cursor_current = cached_current;
+
+    stmt_res = parser_parse_var_decl(parser, directives);
+    if (stmt_res.status == PRS_OK) {
+        // semicolon already consumed
+        // parser_consume(parser, TT_SEMICOLON, "Expected semicolon.");
         return stmt_res;
     }
     parser->cursor_current = cached_current;
