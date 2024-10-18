@@ -1140,6 +1140,42 @@ void print_astnode(ASTNode const node) {
             break;
         }
 
+        case ANT_INDEX: {
+            print_astnode(*node.node.index.root);
+            printf("[");
+            print_astnode(*node.node.index.value);
+            printf("]");
+            break;
+        }
+
+        case ANT_BINARY_OP: {
+            print_astnode(*node.node.binary_op.lhs);
+
+            switch (node.node.binary_op.op) {
+                case BO_MULTIPLY: printf(" * "); break;
+
+                default: printf("<unary_op:%d>", node.node.binary_op.op);
+            }
+
+            print_astnode(*node.node.binary_op.rhs);
+            break;
+        }
+
+        case ANT_TEMPLATE_STRING: {
+            print_string(node.node.template_string.str_parts.array[0]);
+
+            size_t i = 1;
+            LLNode_ASTNode* curr = node.node.template_string.template_expr_parts.head;
+            while (curr) {
+                print_astnode(curr->data);
+                print_string(node.node.template_string.str_parts.array[i]);
+                i += 1;
+                curr = curr->next;
+            }
+
+            break;
+        }
+
         default: printf("/* TODO: print_node(%d) */", node.type);
     }
 

@@ -956,14 +956,33 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         }
 
         case ANT_IF: {
-            assert(false); // TODO
             changed |= resolve_type_node(type_resolver, scope, node->node.if_.cond);
+
+            bool resolved = true;
+            if (type_resolver->packages->types[node->node.if_.cond->id.val].type) {
+                assert(type_resolver->packages->types[node->node.if_.cond->id.val].type->kind = RTK_BOOL);
+            } else {
+                resolved = false;
+            }
 
             Scope block_scope = scope_create(type_resolver->arena, scope);
             LLNode_ASTNode* curr = node->node.if_.block->stmts.head;
             while (curr) {
                 changed |= resolve_type_node(type_resolver, &block_scope, &curr->data);
+                if (!type_resolver->packages->types[curr->data.id.val].type) {
+                    resolved = false;
+                }
                 curr = curr->next;
+            }
+
+            if (resolved) {
+                ResolvedType* rt = arena_alloc(type_resolver->arena, sizeof *rt);
+                *rt = (ResolvedType){
+                    .kind = RTK_VOID,
+                };
+                type_resolver->packages->types[node->id.val] = (TypeInfo){
+                    .type = rt,
+                };
             }
 
             break;

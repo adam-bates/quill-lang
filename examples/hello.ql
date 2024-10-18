@@ -1,3 +1,6 @@
+import std/io;
+import std/ds;
+
 import libc/stdio;
 import libc/stdlib;
 
@@ -28,4 +31,7 @@ void main() {
     stdio::fwrite(c, sz, len, stdio::stdout);
 
     stdlib::free(c);
+
+    char n = '2';
+    io::println(`1, {n}`);
 }

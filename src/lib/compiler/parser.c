@@ -1804,12 +1804,34 @@ static ParseResult parser_parse_if(Parser* const parser, LL_Directive const dire
     ASTNodeStatementBlock* block = arena_alloc(parser->arena, sizeof *block);
     *block = parser_parse_stmt_block(parser);
 
+    ASTNode* else_ = NULL;
+    if (parser_peek(parser).type == TT_ELSE) {
+        parser_advance(parser);
+
+        else_ = arena_alloc(parser->arena, sizeof *else_);
+
+        if (parser_peek(parser).type == TT_IF) {
+            ParseResult res = parser_parse_if(parser, (LL_Directive){0});
+            assert(res.status == PRS_OK);
+            *else_ = res.node;
+        } else {
+            ASTNodeStatementBlock else_block = parser_parse_stmt_block(parser);
+            *else_ = (ASTNode){
+                .id = { parser->next_node_id++ },
+                .type = ANT_STATEMENT_BLOCK,
+                .node.statement_block = else_block,
+                .directives = {0},
+            };
+        }
+    }
+
     return parseres_ok((ASTNode){
         .id = { parser->next_node_id++ },
         .type = ANT_IF,
         .node.if_ = {
             .cond = cond,
             .block = block,
+            .else_ = else_,
         },
         .directives = directives,
     });
@@ -2020,12 +2042,13 @@ static ParseResult parser_parse_stmt(Parser* const parser) {
     if (stmt_res.status == PRS_OK) {
         if (parser_peek(parser).type == TT_SEMICOLON) {
             parser_advance(parser);
+            return stmt_res;
         } else {
             stmt_res = parser_wrap_stmt_expr(parser, stmt_res);
-            assert(parser_consume(parser, TT_SEMICOLON, "Expected semicolon."));
+            if (stmt_res.status == PRS_OK && parser_peek(parser).type == TT_SEMICOLON) {
+                return stmt_res;
+            }
         }
-
-        return stmt_res;
     }
     parser->cursor_current = cached_current;
 

@@ -358,6 +358,7 @@ typedef struct {
 typedef struct {
     struct ASTNode* cond;
     ASTNodeStatementBlock* block;
+    struct ASTNode* else_;
 } ASTNodeIf;
 
 //

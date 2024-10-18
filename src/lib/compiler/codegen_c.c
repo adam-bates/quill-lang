@@ -526,7 +526,38 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                         break;
                     }
 
-                    default: assert(false);
+                    case RTK_CHAR: {
+                        IR_C_Node* append_chars_target = arena_alloc(codegen->arena, sizeof *append_chars_target);
+                        *append_chars_target = (IR_C_Node){
+                            .type = ICNT_RAW,
+                            .node.raw.str = c_str("strbuf_append_char"),
+                        };
+
+                        LL_IR_C_Node append_chars_args = {0};
+                        ll_node_push(codegen->arena, &append_chars_args, (IR_C_Node){
+                            .type = ICNT_RAW,
+                            .node.raw.str = c_str("&sb"),
+                        });
+                        {
+                            LL_IR_C_Node expr_ll = {0};
+                            fill_nodes(codegen, &expr_ll, &curr->data, ftype, stage, false);
+                            assert(expr_ll.length == 1);
+
+                            ll_node_push(codegen->arena, &append_chars_args, expr_ll.head->data);
+                        }
+
+                        ll_node_push(codegen->arena, codegen->stmt_block, (IR_C_Node){
+                            .type = ICNT_FUNCTION_CALL,
+                            .node.function_call = {
+                                .target = append_chars_target,
+                                .args = append_chars_args,
+                            },
+                        });
+
+                        break;
+                    }
+
+                    default: printf("TODO: string template RTK_%d\n", codegen->packages->types[curr->data.id.val].type->kind); assert(false);
                 }
 
                 IR_C_Node* append_chars_target = arena_alloc(codegen->arena, sizeof *append_chars_target);
@@ -870,7 +901,10 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 case BO_MULTIPLY: op = c_str("*"); break;
                 case BO_DIVIDE: op = c_str("/"); break;
 
-                default: printf("TODO: assignment op [%d]\n", node->node.assignment.op); assert(false);
+                case BO_GREATER_OR_EQ: op = c_str(">="); break;
+                case BO_LESS_OR_EQ: op = c_str("<="); break;
+
+                default: printf("TODO: binary op [%d]\n", node->node.assignment.op); assert(false);
             }
 
             ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
@@ -1185,7 +1219,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
                 curr = curr->next;
             }
-            
+
             ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
                 .type = ICNT_STRUCT_INIT,
                 .node.struct_init = {
@@ -1193,6 +1227,59 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                     .fields = fields,
                 },
             });
+            break;
+        }
+
+        case ANT_IF: {
+            LL_IR_C_Node cond_ll = {0};
+            fill_nodes(codegen, &cond_ll, node->node.if_.cond, ftype, stage, false);
+            assert(cond_ll.length == 1);
+
+            LL_IR_C_Node then = {0};
+            LLNode_ASTNode* curr = node->node.if_.block->stmts.head;
+            while (curr) {
+                fill_nodes(codegen, &then, &curr->data, ftype, stage, false);
+                curr = curr->next;
+            }
+
+            IR_C_Node* else_ = NULL;
+            if (node->node.if_.else_) {
+                LL_IR_C_Node else_ll = {0};
+                fill_nodes(codegen, &else_ll, node->node.if_.else_, ftype, stage, false);
+                assert(else_ll.length == 1);
+
+                else_ = &else_ll.head->data;
+            }
+
+            ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                .type = ICNT_IF,
+                .node.if_ = {
+                    .cond = &cond_ll.head->data,
+                    .then = then,
+                    .else_ = else_,
+                },
+            });
+            break;
+        }
+
+        case ANT_ELSE: {
+            assert(false);
+            break;
+        }
+
+        case ANT_STATEMENT_BLOCK: {
+            LL_IR_C_Node stmts = {0};
+            LLNode_ASTNode* curr = node->node.statement_block.stmts.head;
+            while (curr) {
+                fill_nodes(codegen, &stmts, &curr->data, ftype, stage, false);
+                curr = curr->next;
+            }
+
+            ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                .type = ICNT_MANY,
+                .node.many.nodes = stmts,
+            });
+
             break;
         }
 
@@ -1296,6 +1383,16 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
             strbuf_append_str(sb, node->node.raw_wrap.pre);
             append_ir_node(sb, node->node.raw_wrap.wrapped);
             strbuf_append_str(sb, node->node.raw_wrap.post);
+            break;
+        }
+
+        case ICNT_MANY: {
+            LLNode_IR_C_Node* curr = node->node.many.nodes.head;
+            while (curr) {
+                append_ir_node(sb, &curr->data);
+                curr = curr->next;
+                strbuf_append_chars(sb, ";\n");
+            }
             break;
         }
 
@@ -1524,6 +1621,23 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
                 curr = curr->next;
             }
             strbuf_append_chars(sb, " }");
+            break;
+        }
+
+        case ICNT_IF: {
+            strbuf_append_chars(sb, "if (");
+            append_ir_node(sb, node->node.if_.cond);
+            strbuf_append_chars(sb, ") {\n");
+            LLNode_IR_C_Node* curr = node->node.if_.then.head;
+            while (curr) {
+                strbuf_append_chars(sb, "    ");
+                strbuf_append_chars(sb, "    ");
+                append_ir_node(sb, &curr->data);
+                strbuf_append_chars(sb, ";\n");
+                curr = curr->next;
+            }
+            strbuf_append_chars(sb, "    }");
+            // TODO: else
             break;
         }
 
