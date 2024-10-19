@@ -40,8 +40,16 @@ void main() {
     // prints: "1, 2, 3, 4, 5 ... 1337 :)"
     io::println(`1, {n}, {str}, 5 ... {number} :)`);
 
+    // prints "-> [-42] <-"
+    f();
+
     bool x = false;
     while x {
         CRASH "unreachable";
     }
+}
+
+void f() {
+    int foo = -42;
+    io::println(`-> [{foo}] <-`);
 }

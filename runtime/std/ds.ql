@@ -1,5 +1,6 @@
 package std/ds;
 
+import libc/stdlib;
 import libc/string;
 
 import std;
@@ -66,7 +67,16 @@ void strbuf_append_str(StringBuffer mut* sb, std::String str) {
 }
 
 void strbuf_append_int(StringBuffer mut* sb, int n) {
-	CRASH "TODO";
+    if (n == 0) {
+        strbuf_append_char(sb, '0');
+        return;
+    }
+
+    if (n < 0) {
+        strbuf_append_char(sb, '-');
+    }
+
+    strbuf_append_uint(sb, stdlib::llabs(n));
 }
 
 void strbuf_append_uint(StringBuffer mut* sb, uint input) {
