@@ -1313,6 +1313,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
             IR_C_Node* else_ = NULL;
             if (node->node.if_.else_) {
+                assert(node->node.if_.else_->type == ANT_IF || node->node.if_.else_->type == ANT_STATEMENT_BLOCK);
                 LL_IR_C_Node else_ll = {0};
                 fill_nodes(codegen, &else_ll, node->node.if_.else_, ftype, stage, false);
                 assert(else_ll.length == 1);
@@ -1436,7 +1437,7 @@ static LL_IR_C_Node transform_to_nodes(CodegenC* codegen, Package* package, File
     return nodes;
 }
 
-static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
+static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
     switch (node->type) {
         case ICNT_RAW: {
             strbuf_append_str(sb, node->node.raw.str);
@@ -1445,7 +1446,7 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
 
         case ICNT_RAW_WRAP: {
             strbuf_append_str(sb, node->node.raw_wrap.pre);
-            append_ir_node(sb, node->node.raw_wrap.wrapped);
+            append_ir_node(sb, node->node.raw_wrap.wrapped, indent);
             strbuf_append_str(sb, node->node.raw_wrap.post);
             break;
         }
@@ -1453,9 +1454,17 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
         case ICNT_MANY: {
             LLNode_IR_C_Node* curr = node->node.many.nodes.head;
             while (curr) {
-                append_ir_node(sb, &curr->data);
+                for (size_t idnt = 0; idnt < indent; ++idnt) { strbuf_append_chars(sb, "    "); }
+                append_ir_node(sb, &curr->data, indent);
                 curr = curr->next;
-                strbuf_append_chars(sb, ";\n");
+
+                if (sb->chars[sb->length - 1] != ';' && sb->chars[sb->length - 1] != '\n') {
+                    if (sb->chars[sb->length - 1] != '\n') {
+                        strbuf_append_chars(sb, ";\n");
+                    } else {
+                        strbuf_append_char(sb, ';');
+                    }
+                }
             }
             break;
         }
@@ -1508,10 +1517,10 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
             for (size_t i = 0; i < node->node.array_init.elems_length; ++i) {
                 if (node->node.array_init.indicies[i].type != ICNT_COUNT) {
                     strbuf_append_char(sb, '[');
-                    append_ir_node(sb, node->node.array_init.indicies + i);
+                    append_ir_node(sb, node->node.array_init.indicies + i, indent);
                     strbuf_append_chars(sb, "] = ");
                 }
-                append_ir_node(sb, node->node.array_init.elems + i);
+                append_ir_node(sb, node->node.array_init.elems + i, indent);
 
                 if (i + 1 < node->node.array_init.elems_length) {
                     strbuf_append_chars(sb, ", ");
@@ -1523,12 +1532,12 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
 
         case ICNT_UNARY: {
             strbuf_append_str(sb, node->node.unary.op);
-            append_ir_node(sb, node->node.unary.expr);
+            append_ir_node(sb, node->node.unary.expr, indent);
             break;
         }
 
         case ICNT_GET_FIELD: {
-            append_ir_node(sb, node->node.get_field.root);
+            append_ir_node(sb, node->node.get_field.root, indent);
             if (node->node.get_field.is_ptr) {
                 strbuf_append_chars(sb, "->");
             } else {
@@ -1540,7 +1549,7 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
 
         case ICNT_SIZEOF_EXPR: {
             strbuf_append_chars(sb, "sizeof(");
-            append_ir_node(sb, node->node.sizeof_expr.expr);
+            append_ir_node(sb, node->node.sizeof_expr.expr, indent);
             strbuf_append_char(sb, ')');
             break;
         }
@@ -1553,12 +1562,12 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
         }
 
         case ICNT_FUNCTION_CALL: {
-            append_ir_node(sb, node->node.function_call.target);
+            append_ir_node(sb, node->node.function_call.target, indent);
             strbuf_append_char(sb, '(');
             {
                 LLNode_IR_C_Node* curr = node->node.function_call.args.head;
                 while (curr) {
-                    append_ir_node(sb, &curr->data);
+                    append_ir_node(sb, &curr->data, indent);
                     curr = curr->next;
 
                     if (curr) {
@@ -1574,17 +1583,17 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
             strbuf_append_chars(sb, "return");
             if (node->node.return_.expr) {
                 strbuf_append_char(sb, ' ');
-                append_ir_node(sb, node->node.return_.expr);
+                append_ir_node(sb, node->node.return_.expr, indent);
             }
             break;
         }
 
         case ICNT_BINARY_OP: {
-            append_ir_node(sb, node->node.binary_op.lhs);
+            append_ir_node(sb, node->node.binary_op.lhs, indent);
             strbuf_append_char(sb, ' ');
             strbuf_append_str(sb, node->node.binary_op.op);
             strbuf_append_char(sb, ' ');
-            append_ir_node(sb, node->node.binary_op.rhs);
+            append_ir_node(sb, node->node.binary_op.rhs, indent);
             break;
         }
 
@@ -1595,7 +1604,7 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
 
             if (node->node.var_decl.init) {
                 strbuf_append_chars(sb, " = ");
-                append_ir_node(sb, node->node.var_decl.init);
+                append_ir_node(sb, node->node.var_decl.init, indent);
             }
             
             break;
@@ -1640,15 +1649,20 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
             strbuf_append_chars(sb, ") {\n");
             {
                 LLNode_IR_C_Node* curr = node->node.function_decl.statements.head;
+                indent += 1;
                 while (curr) {
-                    strbuf_append_chars(sb, "    ");
-                    append_ir_node(sb, &curr->data);
-                    if (sb->chars[sb->length - 1] != ';') {
-                        strbuf_append_char(sb, ';');
+                    for (size_t idnt = 0; idnt < indent; ++idnt) { strbuf_append_chars(sb, "    "); }
+                    append_ir_node(sb, &curr->data, indent);
+                    if (sb->chars[sb->length - 1] != ';' && sb->chars[sb->length - 1] != '\n') {
+                        if (sb->chars[sb->length - 1] != '\n') {
+                            strbuf_append_chars(sb, ";\n");
+                        } else {
+                            strbuf_append_char(sb, ';');
+                        }
                     }
-                    strbuf_append_char(sb, '\n');
                     curr = curr->next;
                 }
+                indent -= 1;
             }
             strbuf_append_char(sb, '}');
             break;
@@ -1656,11 +1670,13 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
 
         case ICNT_STRUCT_DECL: {
             strbuf_append_chars(sb, "typedef struct {\n");
+            indent += 1;
             for (size_t i = 0; i < node->node.struct_decl.fields.length; ++i) {
-                strbuf_append_chars(sb, "    ");
+                for (size_t idnt = 0; idnt < indent; ++idnt) { strbuf_append_chars(sb, "    "); }
                 strbuf_append_str(sb, node->node.struct_decl.fields.strings[i]);
                 strbuf_append_chars(sb, ";\n");
             }
+            indent -= 1;
             strbuf_append_chars(sb, "} ");
             strbuf_append_str(sb, node->node.struct_decl.name);
             strbuf_append_char(sb, ';');
@@ -1668,9 +1684,9 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
         }
 
         case ICNT_INDEX: {
-            append_ir_node(sb, node->node.index.root);
+            append_ir_node(sb, node->node.index.root, indent);
             strbuf_append_char(sb, '[');
-            append_ir_node(sb, node->node.index.value);
+            append_ir_node(sb, node->node.index.value, indent);
             strbuf_append_char(sb, ']');
             break;
         }
@@ -1681,7 +1697,7 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
             strbuf_append_chars(sb, "){ ");
             LLNode_IR_C_Node* curr = node->node.struct_init.fields.head;
             while (curr) {
-                append_ir_node(sb, &curr->data);
+                append_ir_node(sb, &curr->data, indent);
                 curr = curr->next;
             }
             strbuf_append_chars(sb, " }");
@@ -1690,37 +1706,64 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
 
         case ICNT_IF: {
             strbuf_append_chars(sb, "if (");
-            append_ir_node(sb, node->node.if_.cond);
+            append_ir_node(sb, node->node.if_.cond, indent);
             strbuf_append_chars(sb, ") {\n");
             LLNode_IR_C_Node* curr = node->node.if_.then.head;
+            indent += 1;
             while (curr) {
-                strbuf_append_chars(sb, "    ");
-                strbuf_append_chars(sb, "    ");
-                append_ir_node(sb, &curr->data);
-                strbuf_append_chars(sb, ";\n");
+                for (size_t idnt = 0; idnt < indent; ++idnt) { strbuf_append_chars(sb, "    "); }
+                append_ir_node(sb, &curr->data, indent);
+                if (sb->chars[sb->length - 1] != ';' && sb->chars[sb->length - 1] != '\n') {
+                    if (sb->chars[sb->length - 1] != '\n') {
+                        strbuf_append_chars(sb, ";\n");
+                    } else {
+                        strbuf_append_char(sb, ';');
+                    }
+                }
                 curr = curr->next;
             }
-            strbuf_append_chars(sb, "    }");
+            indent -= 1;
+            for (size_t idnt = 0; idnt < indent; ++idnt) { strbuf_append_chars(sb, "    "); }
+            strbuf_append_chars(sb, "}");
             if (node->node.if_.else_) {
-                strbuf_append_chars(sb, "else ");
-                append_ir_node(sb, node->node.if_.else_);
+                strbuf_append_chars(sb, " else ");
+                if (node->node.if_.else_->type == ICNT_IF) {
+                    append_ir_node(sb, node->node.if_.else_, indent);
+                } else {
+                    strbuf_append_chars(sb, "{\n");
+                    indent += 1;
+                    append_ir_node(sb, node->node.if_.else_, indent);
+                    indent -= 1;
+                    for (size_t idnt = 0; idnt < indent; ++idnt) { strbuf_append_chars(sb, "    "); }
+                    strbuf_append_chars(sb, "}");
+                }
             }
+            strbuf_append_char(sb, '\n');
             break;
         }
 
         case ICNT_WHILE: {
             strbuf_append_chars(sb, "while (");
-            append_ir_node(sb, node->node.while_.cond);
+            append_ir_node(sb, node->node.while_.cond, indent);
             strbuf_append_chars(sb, ") {\n");
             LLNode_IR_C_Node* curr = node->node.while_.then.head;
+            indent += 1;
             while (curr) {
-                strbuf_append_chars(sb, "    ");
-                strbuf_append_chars(sb, "    ");
-                append_ir_node(sb, &curr->data);
-                strbuf_append_chars(sb, ";\n");
+                for (size_t idnt = 0; idnt < indent; ++idnt) { strbuf_append_chars(sb, "    "); }
+                append_ir_node(sb, &curr->data, indent);
+
+                if (sb->chars[sb->length - 1] != ';' && sb->chars[sb->length - 1] != '\n') {
+                    if (sb->chars[sb->length - 1] != '\n') {
+                        strbuf_append_chars(sb, ";\n");
+                    } else {
+                        strbuf_append_char(sb, ';');
+                    }
+                }
                 curr = curr->next;
             }
-            strbuf_append_chars(sb, "    }");
+            indent -= 1;
+            for (size_t idnt = 0; idnt < indent; ++idnt) { strbuf_append_chars(sb, "    "); }
+            strbuf_append_chars(sb, "}");
             break;
         }
 
@@ -1731,8 +1774,9 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
 static void append_ir_file(StringBuffer* sb, IR_C_File* file) {
     LLNode_IR_C_Node* curr = file->nodes.head;
     while (curr) {
-        append_ir_node(sb, &curr->data);
-        if (sb->chars[sb->length - 1] != ';') {
+        bool is_macro = ICNT_MACRO_IFNDEF <= curr->data.type && curr->data.type <= ICNT_MACRO_ENDIF;
+        append_ir_node(sb, &curr->data, 0);
+        if (!is_macro && sb->chars[sb->length - 1] != ';') {
             strbuf_append_char(sb, ';');
         }
         strbuf_append_char(sb, '\n');
