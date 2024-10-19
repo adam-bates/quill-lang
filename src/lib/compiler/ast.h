@@ -98,6 +98,7 @@ typedef struct {
 } TypePointer;
 
 typedef struct {
+    Token* explicit_size;
     struct Type* of;
 } TypeArray;
 
@@ -122,6 +123,7 @@ typedef enum {
     ANT_FILE_SEPARATOR,
     ANT_UNARY_OP,
     ANT_BINARY_OP,
+    ANT_POSTFIX_OP,
     ANT_LITERAL,
     ANT_TUPLE,
     ANT_VAR_DECL,
@@ -180,12 +182,15 @@ typedef enum {
     UO_PTR_REF,
     UO_PTR_DEREF,
 
+    UO_PLUS_PLUS,
+    UO_MINUS_MINUS,
+
     UO_COUNT
 } UnaryOp;
 
 typedef struct {
     UnaryOp op;
-    struct ASTNode* right;    
+    struct ASTNode* right;
 } ASTNodeUnaryOp;
 
 //
@@ -220,6 +225,20 @@ typedef struct {
     struct ASTNode* lhs;
     struct ASTNode* rhs;
 } ASTNodeBinaryOp;
+
+//
+
+typedef enum {
+    PFO_PLUS_PLUS,
+    PFO_MINUS_MINUS,
+
+    PFO_COUNT
+} PostfixOp;
+
+typedef struct {
+    struct ASTNode* left;
+    PostfixOp op;
+} ASTNodePostfixOp;
 
 //
 
@@ -636,6 +655,7 @@ typedef struct ASTNode {
         ASTNodeFileSeparator file_separator;
         ASTNodeUnaryOp unary_op;
         ASTNodeBinaryOp binary_op;
+        ASTNodePostfixOp postfix_op;
         ASTNodeLiteral literal;
         ASTNodeTuple tuple;
         ASTNodeVarDecl var_decl;

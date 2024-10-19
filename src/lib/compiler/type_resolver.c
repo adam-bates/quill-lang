@@ -516,7 +516,7 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
         }
     }
 
-    if (rt->kind == RTK_STRUCT_REF) {
+    if (rt->kind == RTK_STRUCT_REF && rt->src->type == ANT_STRUCT_DECL) {
         ArrayList_LL_Type* generic_impls = &rt->src->node.struct_decl.generic_impls;
 
         bool already_has_decl = false;
@@ -766,16 +766,350 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             changed |= resolve_type_node(type_resolver, scope, node->node.unary_op.right);
             TypeInfo inner_ti = type_resolver->packages->types[node->node.unary_op.right->id.val];
             if (inner_ti.type) {
-                type_resolver->packages->types[node->id.val] = inner_ti;
+                ResolvedType* rt = arena_alloc(type_resolver->arena, sizeof *rt);
+                *rt = *inner_ti.type;
+
+                switch (node->node.unary_op.op) {
+                    case UO_NUM_NEGATE: {
+                        switch (rt->kind) {
+                            case RTK_INT: break;
+                            case RTK_UINT: rt->kind = RTK_INT; break;
+                            case RTK_CHAR: rt->kind = RTK_INT; break;
+                            case RTK_BOOL: rt->kind = RTK_INT; break;
+
+                            default: assert(false);
+                        }
+                        break;
+                    }
+
+                    case UO_BOOL_NEGATE: {
+                        switch (rt->kind) {
+                            case RTK_BOOL: break;
+                            case RTK_INT: rt->kind = RTK_BOOL; break;
+                            case RTK_UINT: rt->kind = RTK_BOOL; break;
+                            case RTK_CHAR: rt->kind = RTK_BOOL; break;
+
+                            case RTK_POINTER:
+                            case RTK_MUT_POINTER: {
+                                rt->kind = RTK_BOOL;
+                                rt->type.bool_ = NULL;
+                                break;
+                            }
+
+                            default: assert(false);
+                        }
+                        break;
+                    }
+
+                    case UO_PTR_REF: {
+                        rt->kind = RTK_MUT_POINTER;
+                        rt->type.mut_ptr.of = inner_ti.type;
+                        break;
+                    }
+
+                    case UO_PTR_DEREF: {
+                        switch (rt->kind) {
+                            case RTK_POINTER: {
+                                *rt = *inner_ti.type->type.ptr.of;
+                                break;
+                            }
+                            case RTK_MUT_POINTER: {
+                                *rt = *inner_ti.type->type.mut_ptr.of;
+                                break;
+                            }
+
+                            default: assert(false);
+                        }
+                        assert(rt->kind != RTK_VOID && rt->kind != RTK_TERMINAL);
+                        break;
+                    }
+
+                    case UO_PLUS_PLUS:
+                    case UO_MINUS_MINUS: {
+                        switch (rt->kind) {
+                            case RTK_INT:
+                            case RTK_UINT:
+                            case RTK_CHAR:
+                                break;
+
+                            case RTK_BOOL: rt->kind = RTK_INT; break;
+
+                            case RTK_POINTER:
+                            case RTK_MUT_POINTER:
+                                break;
+
+                            default: assert(false);
+                        }
+                        break;
+                    }
+
+                    default: assert(false);
+                }
+                type_resolver->packages->types[node->id.val] = (TypeInfo){
+                    .status = inner_ti.status,
+                    .type = rt,
+                };
                 changed = true;
             }
             break;
         }
 
         case ANT_BINARY_OP: {
-            // assert(false); // TODO
             changed |= resolve_type_node(type_resolver, scope, node->node.binary_op.lhs);
             changed |= resolve_type_node(type_resolver, scope, node->node.binary_op.rhs);
+
+            TypeInfo inner_ti1 = type_resolver->packages->types[node->node.binary_op.lhs->id.val];
+            TypeInfo inner_ti2 = type_resolver->packages->types[node->node.binary_op.rhs->id.val];
+
+                printf("\n\n------\n");
+                print_astnode(*node);
+                printf("\n%s, %s\n", inner_ti1.type ? "true" : "false", inner_ti2.type ? "true" : "false");
+                printf("------\n\n\n");
+
+            if (inner_ti1.type && inner_ti2.type) {
+                ResolvedType* rt = arena_alloc(type_resolver->arena, sizeof *rt);
+                *rt = *inner_ti1.type;
+
+                switch (node->node.binary_op.op) {
+                    case BO_BIT_OR:
+                    case BO_BIT_AND:
+                    case BO_BIT_XOR:
+                    {
+                        switch (inner_ti2.type->kind) {
+                            case RTK_INT:
+                            case RTK_UINT:
+                            case RTK_CHAR:
+                                break;
+
+                            default: assert(false);
+                        }
+                        switch (inner_ti1.type->kind) {
+                            case RTK_INT:
+                            case RTK_UINT:
+                                break;
+
+                            case RTK_BOOL:
+                            case RTK_CHAR:
+                                rt->kind = RTK_INT; break;
+
+                            default: assert(false);
+                        }
+                        break;
+                    }
+
+                    case BO_ADD:
+                    case BO_SUBTRACT:
+                    {
+                        switch (inner_ti1.type->kind) {
+                            case RTK_UINT:
+                            case RTK_CHAR:
+                            case RTK_POINTER:
+                            case RTK_MUT_POINTER:
+                                break;
+
+                            case RTK_INT:
+                            case RTK_BOOL:
+                                rt->kind = RTK_INT; break;
+
+                            default: assert(false);
+                        }
+                        switch (inner_ti2.type->kind) {
+                            case RTK_UINT:
+                            case RTK_CHAR:
+                                break;
+
+                            case RTK_INT:
+                            case RTK_BOOL:
+                                rt->kind = RTK_INT; break;
+
+                            default: assert(false);
+                        }
+                        break;
+                    }
+
+                    case BO_MULTIPLY:
+                    case BO_DIVIDE:
+                    {
+                        switch (inner_ti1.type->kind) {
+                            case RTK_UINT:
+                            case RTK_CHAR:
+                                break;
+
+                            case RTK_INT:
+                            case RTK_BOOL:
+                                rt->kind = RTK_INT; break;
+
+                            default: assert(false);
+                        }
+                        switch (inner_ti2.type->kind) {
+                            case RTK_UINT:
+                            case RTK_CHAR:
+                                break;
+
+                            case RTK_INT:
+                            case RTK_BOOL:
+                                rt->kind = RTK_INT; break;
+
+                            default: assert(false);
+                        }
+                        break;
+                    }
+
+                    case BO_MODULO: {
+                        switch (inner_ti1.type->kind) {
+                            case RTK_UINT:
+                            case RTK_CHAR:
+                                break;
+
+                            case RTK_INT:
+                            case RTK_BOOL:
+                                rt->kind = RTK_INT; break;
+
+                            default: assert(false);
+                        }
+                        switch (inner_ti2.type->kind) {
+                            case RTK_UINT:
+                            case RTK_CHAR:
+                            case RTK_INT:
+                            case RTK_BOOL:
+                                break;
+
+                            default: assert(false);
+                        }
+                        break;
+                    }
+
+                    case BO_BOOL_OR:
+                    case BO_BOOL_AND:
+                    {
+                        rt->kind = RTK_BOOL;
+                        switch (inner_ti1.type->kind) {
+                            case RTK_BOOL:
+                            case RTK_CHAR:
+                            case RTK_INT:
+                            case RTK_UINT:
+                                break;
+
+                            default: assert(false);
+                        }
+                        switch (inner_ti2.type->kind) {
+                            case RTK_UINT:
+                            case RTK_CHAR:
+                            case RTK_INT:
+                            case RTK_BOOL:
+                                break;
+
+                            default: assert(false);
+                        }
+                        break;
+                    }
+
+                    case BO_NOT_EQ:
+                    case BO_EQ:
+                    case BO_LESS:
+                    case BO_LESS_OR_EQ:
+                    case BO_GREATER:
+                    case BO_GREATER_OR_EQ:
+                    {
+                        rt->kind = RTK_BOOL;
+                        bool can_cmp_num = false;
+                        switch (inner_ti1.type->kind) {
+                            case RTK_BOOL:
+                            case RTK_CHAR:
+                            case RTK_INT:
+                            case RTK_UINT:
+                                can_cmp_num = true;
+                                break;
+
+                            default: break;
+                        }
+                        switch (inner_ti2.type->kind) {
+                            case RTK_UINT:
+                            case RTK_CHAR:
+                            case RTK_INT:
+                            case RTK_BOOL:
+                                assert(can_cmp_num);
+                                break;
+
+                            default: {
+                                assert(resolved_type_eq(inner_ti1.type, inner_ti2.type));
+                                break;
+                            }
+                        }
+                        break;
+                    }
+
+                    default: assert(false);
+                }
+                type_resolver->packages->types[node->id.val] = (TypeInfo){
+                    .status = inner_ti1.status,
+                    .type = rt,
+                };
+                changed = true;
+            }
+            break;
+        }
+
+        case ANT_POSTFIX_OP: {
+            changed |= resolve_type_node(type_resolver, scope, node->node.postfix_op.left);
+            TypeInfo inner_ti = type_resolver->packages->types[node->node.postfix_op.left->id.val];
+            if (inner_ti.type) {
+                ResolvedType* rt = arena_alloc(type_resolver->arena, sizeof *rt);
+                *rt = *inner_ti.type;
+
+                switch (node->node.postfix_op.op) {
+                    case PFO_PLUS_PLUS:
+                    case PFO_MINUS_MINUS:
+                    {
+                        switch (rt->kind) {
+                            case RTK_INT:
+                            case RTK_UINT:
+                            case RTK_CHAR:
+                                break;
+
+                            case RTK_BOOL: rt->kind = RTK_INT; break;
+
+                            case RTK_POINTER:
+                            case RTK_MUT_POINTER:
+                                break;
+
+                            default: assert(false);
+                        }
+                        break;
+                    }
+
+                    default: assert(false);
+                }
+                type_resolver->packages->types[node->id.val] = (TypeInfo){
+                    .status = inner_ti.status,
+                    .type = rt,
+                };
+                changed = true;
+            }
+            break;
+        }
+
+        case ANT_TUPLE: {
+            LLNode_ASTNode* curr = node->node.tuple.exprs.head;
+            bool resolved = true;
+            while (curr) {
+                changed |= resolve_type_node(type_resolver, scope, &curr->data);
+
+                if (!type_resolver->packages->types[curr->data.id.val].type) {
+                    resolved = false;
+                }
+                
+                curr = curr->next;
+            }
+
+            if (resolved) {
+                if (node->node.tuple.exprs.length == 1) {
+                    type_resolver->packages->types[node->id.val] = type_resolver->packages->types[node->node.tuple.exprs.head->data.id.val];
+                    changed = true;
+                } else {
+                    assert(false);
+                }
+            }
             break;
         }
 
@@ -1024,7 +1358,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
             bool resolved = true;
             if (type_resolver->packages->types[node->node.while_.cond->id.val].type) {
-                assert(type_resolver->packages->types[node->node.while_.cond->id.val].type->kind = RTK_BOOL);
+                assert(type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_BOOL);
             } else {
                 resolved = false;
             }
@@ -1600,6 +1934,12 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         case ANT_COUNT: assert(false);
 
         default: printf("TODO: ANT_%d\n", node->type); assert(false);
+    }
+
+    printf("%s\n", changed ? "true" : "false");
+    if (changed) {
+        print_astnode(*node);
+        printf("\n\n");
     }
 
     return changed;

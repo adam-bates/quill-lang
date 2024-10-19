@@ -8,3 +8,5 @@ package std;
 struct Result<T> {
 	bool is_ok,
 }
+
+void assert(bool expr);

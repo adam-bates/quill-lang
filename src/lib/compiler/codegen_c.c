@@ -182,7 +182,7 @@ static void _append_type(CodegenC* codegen, StringBuffer* sb, Type type) {
 
         case TK_POINTER: {
             _append_type(codegen, sb, *type.type.mut_ptr.of);
-            strbuf_append_chars(sb, " const*"); // does this always work?
+            strbuf_append_chars(sb, "*");
             break;
         }
 
@@ -734,6 +734,14 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
             String op;
             switch (node->node.unary_op.op) {
+                case UO_NUM_NEGATE: op = c_str("-"); break;
+                case UO_BOOL_NEGATE: op = c_str("!"); break;
+
+                case UO_PLUS_PLUS: op = c_str("++"); break;
+                case UO_MINUS_MINUS: op = c_str("--"); break;
+
+                case UO_PTR_DEREF: op = c_str("*"); break;
+
                 case UO_PTR_REF: {
                     op = c_str("&");
                     // break;
@@ -794,13 +802,45 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
             if (!already_done) {
                 ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
-                    .type = ICNT_UNARY,
-                    .node.unary = {
-                        .op = op,
-                        .expr = expr,
+                    .type = ICNT_RAW_WRAP,
+                    .node.raw_wrap = {
+                        .pre = op,
+                        .wrapped = expr,
+                        .post = c_str(""),
                     },
                 });
             }
+            break;
+        }
+
+        case ANT_POSTFIX_OP: {
+            LL_IR_C_Node expr_ll = {0};
+            fill_nodes(codegen, &expr_ll, node->node.postfix_op.left, ftype, stage, false);
+            assert(expr_ll.length == 1);
+
+            IR_C_Node* expr = &expr_ll.head->data;
+
+            bool already_done = false;
+
+            String op;
+            switch (node->node.postfix_op.op) {
+                case PFO_PLUS_PLUS: op = c_str("++"); break;
+                case PFO_MINUS_MINUS: op = c_str("--"); break;
+                
+                default: printf("TODO: postfix op [%d]\n", node->node.postfix_op.op); assert(false);
+            }
+
+            if (!already_done) {
+                ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                    .type = ICNT_RAW_WRAP,
+                    .node.raw_wrap = {
+                        .pre = c_str(""),
+                        .wrapped = expr,
+                        .post = op,
+                    },
+                });
+            }
+
             break;
         }
 
@@ -937,12 +977,25 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
             String op;
             switch (node->node.binary_op.op) {
+                case BO_BIT_OR: op = c_str("|"); break;
+                case BO_BIT_AND: op = c_str("&"); break;
+                case BO_BIT_XOR: op = c_str("^"); break;
+
                 case BO_ADD: op = c_str("+"); break;
                 case BO_SUBTRACT: op = c_str("-"); break;
                 case BO_MULTIPLY: op = c_str("*"); break;
                 case BO_DIVIDE: op = c_str("/"); break;
+                case BO_MODULO: op = c_str("%"); break;
 
+                case BO_BOOL_OR: op = c_str("||"); break;
+                case BO_BOOL_AND: op = c_str("&&"); break;
+
+                case BO_EQ: op = c_str("=="); break;
+                case BO_NOT_EQ: op = c_str("!="); break;
+
+                case BO_GREATER: op = c_str(">"); break;
                 case BO_GREATER_OR_EQ: op = c_str(">="); break;
+                case BO_LESS: op = c_str("<"); break;
                 case BO_LESS_OR_EQ: op = c_str("<="); break;
 
                 default: printf("TODO: binary op [%d]\n", node->node.assignment.op); assert(false);
@@ -1348,6 +1401,30 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             break;
         }
 
+        case ANT_TUPLE: {
+            LL_IR_C_Node exprs = {0};
+            LLNode_ASTNode* curr = node->node.tuple.exprs.head;
+            while (curr) {
+                fill_nodes(codegen, &exprs, &curr->data, ftype, stage, false);
+                curr = curr->next;
+            }
+
+            if (exprs.length == 1) {
+                ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                    .type = ICNT_RAW_WRAP,
+                    .node.raw_wrap = {
+                        .pre = c_str("("),
+                        .wrapped = &exprs.head->data,
+                        .post = c_str(")"),
+                    },
+                });
+            } else {
+                assert(false); // TODO: how to handle tuples in c ?
+            }
+
+            break;
+        }
+
         default: {
             printf("TODO: transform (%d) [", node->type);
                 print_astnode(*node);
@@ -1527,12 +1604,6 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
                 }
             }
             strbuf_append_char(sb, '}');
-            break;
-        }
-
-        case ICNT_UNARY: {
-            strbuf_append_str(sb, node->node.unary.op);
-            append_ir_node(sb, node->node.unary.expr, indent);
             break;
         }
 

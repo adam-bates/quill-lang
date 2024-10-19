@@ -82,6 +82,7 @@ ASTNode* find_decl_by_name(ASTNodeFileRoot root, String name) {
             case ANT_FILE_SEPARATOR: break;
             case ANT_UNARY_OP: break;
             case ANT_BINARY_OP: break;
+            case ANT_POSTFIX_OP: break;
             case ANT_LITERAL: break;
             case ANT_TUPLE: break;
             case ANT_VAR_REF: break;
@@ -1061,7 +1062,11 @@ void print_astnode(ASTNode const node) {
         case ANT_GET_FIELD: {
             assert(node.node.get_field.root);
             print_astnode(*node.node.get_field.root);
-            printf(".");
+            if (node.node.get_field.is_ptr_deref) {
+                printf("->");
+            } else {
+                printf(".");
+            }
             print_string(node.node.get_field.name);
             break;
         }
@@ -1110,6 +1115,9 @@ void print_astnode(ASTNode const node) {
                 case UO_PTR_REF:     printf("&"); break;
                 case UO_PTR_DEREF:   printf("*"); break;
 
+                case UO_PLUS_PLUS:   printf("++"); break;
+                case UO_MINUS_MINUS: printf("--"); break;
+
                 default: printf("<unary_op:?>");
             }
 
@@ -1151,12 +1159,44 @@ void print_astnode(ASTNode const node) {
             print_astnode(*node.node.binary_op.lhs);
 
             switch (node.node.binary_op.op) {
-                case BO_MULTIPLY: printf(" * "); break;
+                case BO_BIT_OR: printf(" | "); break;
+                case BO_BIT_AND: printf(" & "); break;
+                case BO_BIT_XOR: printf(" ^ "); break;
 
-                default: printf("<unary_op:%d>", node.node.binary_op.op);
+                case BO_ADD: printf(" + "); break;
+                case BO_SUBTRACT: printf(" - "); break;
+                case BO_MULTIPLY: printf(" * "); break;
+                case BO_DIVIDE: printf(" / "); break;
+                case BO_MODULO: printf(" %% "); break;
+
+                case BO_BOOL_OR: printf(" || "); break;
+                case BO_BOOL_AND: printf(" && "); break;
+
+                case BO_EQ: printf(" == "); break;
+                case BO_NOT_EQ: printf(" != "); break;
+
+                case BO_LESS: printf(" < "); break;
+                case BO_LESS_OR_EQ: printf(" <= "); break;
+                case BO_GREATER: printf(" > "); break;
+                case BO_GREATER_OR_EQ: printf(" >= "); break;
+
+                default: printf("<binary_op:%d>", node.node.binary_op.op);
             }
 
             print_astnode(*node.node.binary_op.rhs);
+            break;
+        }
+
+        case ANT_POSTFIX_OP: {
+            print_astnode(*node.node.postfix_op.left);
+
+            switch (node.node.postfix_op.op) {
+                case PFO_PLUS_PLUS: printf("++"); break;
+                case PFO_MINUS_MINUS: printf("--"); break;
+
+                default: printf("<postfix_op:%d>", node.node.postfix_op.op);
+            }
+
             break;
         }
 
@@ -1172,6 +1212,77 @@ void print_astnode(ASTNode const node) {
                 curr = curr->next;
             }
 
+            break;
+        }
+
+        case ANT_WHILE: {
+            printf("while (");
+            print_astnode(*node.node.while_.cond);
+            printf(") {\n");
+            LLNode_ASTNode* curr = node.node.while_.block->stmts.head;
+            while (curr) {
+                print_tabs();
+                print_astnode(curr->data);
+                printf(";\n");
+                curr = curr->next;
+            }
+            printf("}");
+            break;
+        }
+
+        case ANT_IF: {
+            printf("if (");
+            print_astnode(*node.node.if_.cond);
+            printf(") {\n");
+            LLNode_ASTNode* curr = node.node.if_.block->stmts.head;
+            while (curr) {
+                print_tabs();
+                print_astnode(curr->data);
+                printf(";\n");
+                curr = curr->next;
+            }
+            printf("}");
+            if (node.node.if_.else_) {
+                printf(" else ");
+                print_astnode(*node.node.if_.else_);
+            }
+            break;
+        }
+
+        case ANT_STATEMENT_BLOCK: {
+            printf("{\n");
+            LLNode_ASTNode* curr = node.node.statement_block.stmts.head;
+            while (curr) {
+                print_tabs();
+                print_astnode(curr->data);
+                printf(";\n");
+                curr = curr->next;
+            }
+            printf("{");
+            break;
+        }
+
+        case ANT_TUPLE: {
+            printf("(");
+            LLNode_ASTNode* curr = node.node.tuple.exprs.head;
+            while (curr) {
+                print_astnode(curr->data);
+                curr = curr->next;
+                if (curr) {
+                    printf(", ");
+                }
+            }
+            printf(")");
+            break;
+        }
+
+        case ANT_CRASH: {
+            printf("CRASH");
+            if (node.node.crash.maybe_expr) {
+                printf(" ");
+                print_astnode(*node.node.crash.maybe_expr);
+            }
+            printf(";");
             break;
         }
 

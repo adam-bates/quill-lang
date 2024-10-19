@@ -600,13 +600,23 @@ static Type* parser_parse_type_wrap(Parser* const parser, Type* type) {
 
         case TT_LEFT_BRACKET: {
             parser_advance(parser);
+            Token t = parser_peek(parser);
+            Token* explicit_size = NULL;
+            if (t.type != TT_RIGHT_BRACKET) {
+                assert(t.type == TT_LITERAL_NUMBER || t.type == TT_LITERAL_CHAR || t.type == TT_TRUE || t.type == TT_FALSE);
+                explicit_size = parser->tokens.array + parser->cursor_current;
+                parser_advance(parser);
+            }
             assert(parser_consume(parser, TT_RIGHT_BRACKET, "Exptected ']'"));
 
             Type* wrapped = arena_alloc(parser->arena, sizeof *wrapped);
             *wrapped = (Type){
                 .id = { parser->next_type_id++ },
                 .kind = TK_ARRAY,
-                .type.array.of = type,
+                .type.array = {
+                    .explicit_size = explicit_size,
+                    .of = type,
+                },
             };
 
             return parser_parse_type_wrap(parser, wrapped);
@@ -1493,6 +1503,9 @@ static ParseResult parser_parse_unary(Parser* const parser, LL_Directive const d
         case TT_AMPERSAND: op = UO_PTR_REF; break;
         case TT_STAR:      op = UO_PTR_DEREF; break;
 
+        case TT_PLUS_PLUS: op = UO_PLUS_PLUS; break;
+        case TT_MINUS_MINUS: op = UO_MINUS_MINUS; break;
+
         default: return parseres_none();
     }
     parser_advance(parser);
@@ -1518,11 +1531,41 @@ static ParseResult parser_parse_unary(Parser* const parser, LL_Directive const d
     return parseres_ok(unary);
 }
 
+static ParseResult parser_parse_postfix(Parser* const parser, ASTNode expr) {
+    PostfixOp op;
+    switch (parser_peek(parser).type) {
+        case TT_PLUS_PLUS: op = PFO_PLUS_PLUS; break;
+        case TT_MINUS_MINUS: op = PFO_MINUS_MINUS; break;
+
+        default: return parseres_none();
+    }
+    parser_advance(parser);
+
+    ASTNode* left = arena_alloc(parser->arena, sizeof *left);
+    *left = expr;
+
+    return parseres_ok((ASTNode){
+        .id = { parser->next_node_id++ },
+        .type = ANT_POSTFIX_OP,
+        .node.postfix_op = {
+            .left = left,
+            .op = op,
+        },
+        .directives = {0},
+    });
+}
+
 static ParseResult parser_wrap_simple_expr(Parser* const parser, ParseResult expr_res) {
     if (expr_res.status != PRS_OK) {
         return expr_res;
     }
     ASTNode expr = expr_res.node;
+
+    switch (parser_peek(parser).type) {
+        case TT_PLUS_PLUS: return parser_wrap_simple_expr(parser, parser_parse_postfix(parser, expr));
+
+        default: break;
+    }
 
     ParseResult wrapped_res;
     size_t const cached_current = parser->cursor_current;
@@ -1747,14 +1790,14 @@ static ParseResult parser_parse_var_decl(Parser* const parser, LL_Directive cons
         *rhs = res.node;
     }
 
-    // if (parser_peek(parser).type != TT_SEMICOLON) {
-    //     debug_token(parser, parser_peek_prev(parser));
-    //     debug_token(parser, parser_peek(parser));
-    //     debug_token(parser, parser_peek_next(parser));
-    //     assert(rhs);
-    //     assert(rhs->type == ANT_VAR_REF);
-    //     assert(rhs->type == ANT_FUNCTION_CALL);
-    // }
+    if (parser_peek(parser).type != TT_SEMICOLON) {
+        debug_token(parser, parser_peek_prev(parser));
+        debug_token(parser, parser_peek(parser));
+        debug_token(parser, parser_peek_next(parser));
+        assert(rhs);
+        assert(rhs->type == ANT_VAR_REF);
+        assert(rhs->type == ANT_FUNCTION_CALL);
+    }
     assert(parser_consume(parser, TT_SEMICOLON, "Expected ';'."));
 
     return parseres_ok((ASTNode){
@@ -2124,7 +2167,21 @@ static ASTNodeStatementBlock parser_parse_stmt_block(Parser* const parser) {
 
     Token t = parser_peek(parser);
     while (t.type != TT_RIGHT_BRACE && t.type != TT_EOF) {
+        // ignore semicolons (empty statements)
+        while (t.type == TT_SEMICOLON || t.type == TT_ERROR) {
+            parser_advance(parser);
+            t = parser_peek(parser);
+        }
+
+        if (t.type == TT_RIGHT_BRACE || t.type == TT_EOF) {
+            break;
+        }
+
         ParseResult res = parser_parse_stmt(parser);
+        if (res.status != PRS_OK) {
+            debug_token(parser, t);
+            debug_token(parser, parser_peek(parser));
+        }
         assert(res.status == PRS_OK);
 
         ll_ast_push(parser->arena, &stmts, res.node);

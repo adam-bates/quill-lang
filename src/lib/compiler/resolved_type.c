@@ -44,6 +44,7 @@ bool resolved_type_eq(ResolvedType* a, ResolvedType* b) {
     }
 
     switch (a->kind) {
+        case RTK_BOOL:
         case RTK_CHAR:
         case RTK_UINT:
         case RTK_INT:

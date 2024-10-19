@@ -28,7 +28,6 @@ typedef enum {
     ICNT_RAW_WRAP,
     ICNT_MANY,
     ICNT_ARRAY_INIT,
-    ICNT_UNARY,
     ICNT_GET_FIELD,
     ICNT_SIZEOF_EXPR,
     ICNT_SIZEOF_TYPE,
@@ -79,11 +78,6 @@ typedef struct {
 typedef struct {
     void* _;
 } IR_C_MacroEndif;
-
-typedef struct {
-    String op;
-    struct IR_C_Node* expr;
-} IR_C_Unary;
 
 typedef struct {
     bool is_ptr;
@@ -175,7 +169,6 @@ typedef struct IR_C_Node {
         IR_C_MacroDefine define;
         IR_C_MacroInclude include;
         IR_C_MacroEndif endif;
-        IR_C_Unary unary;
         IR_C_GetField get_field;
         IR_C_SizeofExpr sizeof_expr;
         IR_C_SizeofType sizeof_type;

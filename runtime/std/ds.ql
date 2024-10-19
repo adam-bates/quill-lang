@@ -2,7 +2,7 @@ package std/ds;
 
 import libc/string;
 
-import std::String;
+import std;
 
 struct StringBuffer {
 	uint capacity,
@@ -25,11 +25,12 @@ StringBuffer strbuf_create(uint capacity) {
 }
 
 void strbuf_reset(StringBuffer mut* sb) {
-	// TODO: loop on length, set to '\0'
-
-	sb->length = 0;
-
-	CRASH "TODO";
+	uint i = 0;
+	while i < sb->length {
+        sb->bytes[i] = '\0';
+		i += 1;
+    }
+    sb->length = 0;
 }
 
 void strbuf_append_char(StringBuffer mut* sb, char c) {
@@ -43,7 +44,7 @@ void strbuf_append_char(StringBuffer mut* sb, char c) {
 
 void strbuf_append_chars(StringBuffer mut* sb, char* chars) {
     uint len = string::strlen(chars);
-	String str = .{
+	std::String str = .{
 		.bytes = chars,
 		.length = len,
 	};
@@ -51,7 +52,7 @@ void strbuf_append_chars(StringBuffer mut* sb, char* chars) {
     strbuf_append_str(sb, str);
 }
 
-void strbuf_append_str(StringBuffer mut* sb, String str) {
+void strbuf_append_str(StringBuffer mut* sb, std::String str) {
     if sb->length + str.length >= sb->capacity {
         if sb->length >= str.length {
             strbuf_grow(sb, sb->length * 2);
@@ -68,11 +69,31 @@ void strbuf_append_int(StringBuffer mut* sb, int n) {
 	CRASH "TODO";
 }
 
-void strbuf_append_uint(StringBuffer mut* sb, uint n) {
-	CRASH "TODO";
+void strbuf_append_uint(StringBuffer mut* sb, uint input) {
+    if input == 0 {
+        strbuf_append_char(sb, '0');
+        return;
+    }
+
+    uint n = input;
+    int cursor = 0;
+    char[32] digits_stack = []{0};
+    while n > 0 {
+        std::assert(cursor < 32);
+        char c = '0' + (n % 10);
+        n = (n - (n % 10)) / 10;
+        digits_stack[cursor++] = c;
+    }
+
+    while cursor >= 0 {
+        char c = digits_stack[--cursor];
+        if c {
+            strbuf_append_char(sb, c);
+        }
+    }
 }
 
-String strbuf_as_str(StringBuffer sb) {
+std::String strbuf_as_str(StringBuffer sb) {
 	return .{
 		.length = sb.length,
 		.bytes = sb.bytes,
@@ -82,7 +103,17 @@ String strbuf_as_str(StringBuffer sb) {
 ---
 
 void strbuf_grow(StringBuffer mut* sb, uint capacity) {
-	char* ptr = stdlib::realloc(sb->bytes, capacity);
+	char* ptr = stdlib::calloc(capacity, sizeof(char));
+	uint i = 0;
+	while i < sb->length {
+		ptr[i] = sb->bytes[i];
+		i += 1;
+	}
+	while i < capacity {
+		ptr[i] = '\0';
+		i += 1;
+	}
+	stdlib::free(sb->bytes);
     sb->bytes = ptr;
     sb->capacity = capacity;
 }
