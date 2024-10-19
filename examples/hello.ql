@@ -1,3 +1,4 @@
+import std;
 import std/io;
 import std/ds;
 
@@ -32,6 +33,13 @@ void main() {
 
     stdlib::free(c);
 
+    std::String str = "3, 4";
+
     char n = '2';
-    io::println(`1, {n}`);
+    io::println(`1, {n}, {str}, 5`);
+
+    bool x = false;
+    while x {
+        CRASH "unreachable";
+    }
 }

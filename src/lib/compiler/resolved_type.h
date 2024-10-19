@@ -103,6 +103,7 @@ typedef struct ResolvedType {
         void* int_;
         void* uint_;
         void* char_;
+        void* bool_;
         ResolvedTypePointer ptr;
         ResolvedTypePointer mut_ptr;
         ResolvedFunction function;
@@ -113,5 +114,8 @@ typedef struct ResolvedType {
         ResolvedTerminal terminal;
     } type;
 } ResolvedType;
+
+bool resolved_type_eq(ResolvedType* a, ResolvedType* b);
+bool resolved_struct_decl_eq(ResolvedStructDecl* a, ResolvedStructDecl* b);
 
 #endif

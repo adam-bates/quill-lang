@@ -420,6 +420,14 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                     break;
                 }
 
+                case LK_BOOL: {
+                    ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                        .type = ICNT_RAW,
+                        .node.raw.str = c_str(node->node.literal.value.lit_bool ? "true" : "false"),
+                    });
+                    break;
+                }
+
                 default: assert(false);
             }
 
@@ -531,6 +539,39 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                         *append_chars_target = (IR_C_Node){
                             .type = ICNT_RAW,
                             .node.raw.str = c_str("strbuf_append_char"),
+                        };
+
+                        LL_IR_C_Node append_chars_args = {0};
+                        ll_node_push(codegen->arena, &append_chars_args, (IR_C_Node){
+                            .type = ICNT_RAW,
+                            .node.raw.str = c_str("&sb"),
+                        });
+                        {
+                            LL_IR_C_Node expr_ll = {0};
+                            fill_nodes(codegen, &expr_ll, &curr->data, ftype, stage, false);
+                            assert(expr_ll.length == 1);
+
+                            ll_node_push(codegen->arena, &append_chars_args, expr_ll.head->data);
+                        }
+
+                        ll_node_push(codegen->arena, codegen->stmt_block, (IR_C_Node){
+                            .type = ICNT_FUNCTION_CALL,
+                            .node.function_call = {
+                                .target = append_chars_target,
+                                .args = append_chars_args,
+                            },
+                        });
+
+                        break;
+                    }
+
+                    case RTK_STRUCT_REF: {
+                        assert(resolved_type_eq(codegen->packages->types[curr->data.id.val].type, codegen->packages->string_literal_type));
+
+                        IR_C_Node* append_chars_target = arena_alloc(codegen->arena, sizeof *append_chars_target);
+                        *append_chars_target = (IR_C_Node){
+                            .type = ICNT_RAW,
+                            .node.raw.str = c_str("strbuf_append_str"),
                         };
 
                         LL_IR_C_Node append_chars_args = {0};
@@ -1230,6 +1271,31 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             break;
         }
 
+        case ANT_WHILE: {
+            LL_IR_C_Node cond_ll = {0};
+            fill_nodes(codegen, &cond_ll, node->node.while_.cond, ftype, stage, false);
+            assert(cond_ll.length == 1);
+
+            LL_IR_C_Node then = {0};
+            LLNode_ASTNode* curr = node->node.while_.block->stmts.head;
+            LL_IR_C_Node* prev_block = codegen->stmt_block;
+            codegen->stmt_block = &then;
+            while (curr) {
+                fill_nodes(codegen, &then, &curr->data, ftype, stage, false);
+                curr = curr->next;
+            }
+            codegen->stmt_block = prev_block;
+
+            ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                .type = ICNT_WHILE,
+                .node.while_ = {
+                    .cond = &cond_ll.head->data,
+                    .then = then,
+                },
+            });
+            break;
+        }
+
         case ANT_IF: {
             LL_IR_C_Node cond_ll = {0};
             fill_nodes(codegen, &cond_ll, node->node.if_.cond, ftype, stage, false);
@@ -1237,10 +1303,13 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
             LL_IR_C_Node then = {0};
             LLNode_ASTNode* curr = node->node.if_.block->stmts.head;
+            LL_IR_C_Node* prev_block = codegen->stmt_block;
+            codegen->stmt_block = &then;
             while (curr) {
                 fill_nodes(codegen, &then, &curr->data, ftype, stage, false);
                 curr = curr->next;
             }
+            codegen->stmt_block = prev_block;
 
             IR_C_Node* else_ = NULL;
             if (node->node.if_.else_) {
@@ -1259,11 +1328,6 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                     .else_ = else_,
                 },
             });
-            break;
-        }
-
-        case ANT_ELSE: {
-            assert(false);
             break;
         }
 
@@ -1637,7 +1701,26 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node) {
                 curr = curr->next;
             }
             strbuf_append_chars(sb, "    }");
-            // TODO: else
+            if (node->node.if_.else_) {
+                strbuf_append_chars(sb, "else ");
+                append_ir_node(sb, node->node.if_.else_);
+            }
+            break;
+        }
+
+        case ICNT_WHILE: {
+            strbuf_append_chars(sb, "while (");
+            append_ir_node(sb, node->node.while_.cond);
+            strbuf_append_chars(sb, ") {\n");
+            LLNode_IR_C_Node* curr = node->node.while_.then.head;
+            while (curr) {
+                strbuf_append_chars(sb, "    ");
+                strbuf_append_chars(sb, "    ");
+                append_ir_node(sb, &curr->data);
+                strbuf_append_chars(sb, ";\n");
+                curr = curr->next;
+            }
+            strbuf_append_chars(sb, "    }");
             break;
         }
 

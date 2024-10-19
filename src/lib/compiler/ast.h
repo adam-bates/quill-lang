@@ -133,7 +133,6 @@ typedef enum {
     ANT_FUNCTION_CALL,
     ANT_STATEMENT_BLOCK,
     ANT_IF,
-    ANT_ELSE,
     ANT_TRY,
     ANT_CATCH,
     ANT_BREAK,
@@ -365,13 +364,6 @@ typedef struct {
 
 typedef struct {
     struct ASTNode* target;
-    struct ASTNode* then;
-} ASTNodeElse;
-
-//
-
-typedef struct {
-    struct ASTNode* target;
 } ASTNodeTry;
 
 //
@@ -562,7 +554,7 @@ typedef struct {
     SwitchCase* cases;
     size_t cases_count;
 
-    ASTNodeElse* maybe_else;
+    struct ASTNode* maybe_else;
 } ASTNodeSwitch;
 
 //
@@ -654,7 +646,6 @@ typedef struct ASTNode {
         ASTNodeFunctionCall function_call;
         ASTNodeStatementBlock statement_block;
         ASTNodeIf if_;
-        ASTNodeElse else_;
         ASTNodeTry try_;
         ASTNodeCatch catch_;
         ASTNodeBreak break_;

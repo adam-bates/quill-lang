@@ -38,6 +38,7 @@ typedef enum {
     ICNT_INDEX,
     ICNT_STRUCT_INIT,
     ICNT_IF,
+    ICNT_WHILE,
 
     ICNT_VAR_DECL,
     ICNT_FUNCTION_HEADER_DECL,
@@ -130,6 +131,11 @@ typedef struct {
 } IR_C_If;
 
 typedef struct {
+    struct IR_C_Node* cond;
+    LL_IR_C_Node then;
+} IR_C_While;
+
+typedef struct {
     String type;
     String name;
     struct IR_C_Node* init;
@@ -179,6 +185,7 @@ typedef struct IR_C_Node {
         IR_C_Index index;
         IR_C_StructInit struct_init;
         IR_C_If if_;
+        IR_C_While while_;
         IR_C_VarDecl var_decl;
         IR_C_ArrayInit array_init;
         IR_C_FunctionHeaderDecl function_header_decl;

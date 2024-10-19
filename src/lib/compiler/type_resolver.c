@@ -944,12 +944,30 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         }
 
         case ANT_STATEMENT_BLOCK: {
-            assert(false); // TODO
             Scope block_scope = scope_create(type_resolver->arena, scope);
             LLNode_ASTNode* curr = node->node.statement_block.stmts.head;
+            bool resolved = true;
             while (curr) {
                 changed |= resolve_type_node(type_resolver, &block_scope, &curr->data);
+                if (!type_resolver->packages->types[curr->data.id.val].type) {
+                    resolved = false;
+                }
                 curr = curr->next;
+            }
+
+            if (resolved) {
+                ResolvedType* rt = arena_alloc(type_resolver->arena, sizeof *rt);
+                *rt = (ResolvedType){
+                    .src = node,
+                    .from_pkg = type_resolver->current_package,
+                    .kind = RTK_VOID,
+                    .type.void_ = NULL,
+                };
+
+                type_resolver->packages->types[node->id.val] = (TypeInfo){
+                    .status = TIS_CONFIDENT,
+                    .type = rt,
+                };
             }
 
             break;
@@ -965,8 +983,54 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 resolved = false;
             }
 
+            {
+                Scope block_scope = scope_create(type_resolver->arena, scope);
+                LLNode_ASTNode* curr = node->node.if_.block->stmts.head;
+                while (curr) {
+                    changed |= resolve_type_node(type_resolver, &block_scope, &curr->data);
+                    if (!type_resolver->packages->types[curr->data.id.val].type) {
+                        resolved = false;
+                    }
+                    curr = curr->next;
+                }
+            }
+
+            if (node->node.if_.else_) {
+                changed |= resolve_type_node(type_resolver, scope, node->node.if_.else_);
+                if (!type_resolver->packages->types[node->node.if_.else_->id.val].type) {
+                    resolved = false;
+                }
+            }
+
+            if (resolved) {
+                ResolvedType* rt = arena_alloc(type_resolver->arena, sizeof *rt);
+                *rt = (ResolvedType){
+                    .kind = RTK_VOID,
+                };
+                type_resolver->packages->types[node->id.val] = (TypeInfo){
+                    .type = rt,
+                };
+            }
+
+            break;
+        }
+
+        case ANT_TRY: assert(false); // TODO
+        case ANT_CATCH: assert(false); // TODO
+        case ANT_BREAK: assert(false); // TODO
+
+        case ANT_WHILE: {
+            changed |= resolve_type_node(type_resolver, scope, node->node.while_.cond);
+
+            bool resolved = true;
+            if (type_resolver->packages->types[node->node.while_.cond->id.val].type) {
+                assert(type_resolver->packages->types[node->node.while_.cond->id.val].type->kind = RTK_BOOL);
+            } else {
+                resolved = false;
+            }
+
             Scope block_scope = scope_create(type_resolver->arena, scope);
-            LLNode_ASTNode* curr = node->node.if_.block->stmts.head;
+            LLNode_ASTNode* curr = node->node.while_.block->stmts.head;
             while (curr) {
                 changed |= resolve_type_node(type_resolver, &block_scope, &curr->data);
                 if (!type_resolver->packages->types[curr->data.id.val].type) {
@@ -988,17 +1052,6 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             break;
         }
 
-        case ANT_ELSE: {
-            assert(false); // TODO
-            changed |= resolve_type_node(type_resolver, scope, node->node.else_.target);
-            changed |= resolve_type_node(type_resolver, scope, node->node.else_.then);
-            break;
-        }
-
-        case ANT_TRY: assert(false); // TODO
-        case ANT_CATCH: assert(false); // TODO
-        case ANT_BREAK: assert(false); // TODO
-        case ANT_WHILE: assert(false); // TODO
         case ANT_DO_WHILE: assert(false); // TODO
         case ANT_FOR: assert(false); // TODO
 
@@ -1498,6 +1551,20 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                     type->from_pkg = type_resolver->current_package;
                     type->kind = RTK_INT;
                     type->type.int_ = NULL;
+
+                    type_resolver->packages->types[node->id.val] = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = type,
+                    };
+                    break;
+                }
+
+                case LK_BOOL: {
+                    ResolvedType* type = arena_alloc(type_resolver->arena, sizeof *type);
+                    type->src = node;
+                    type->from_pkg = type_resolver->current_package;
+                    type->kind = RTK_BOOL;
+                    type->type.bool_ = NULL;
 
                     type_resolver->packages->types[node->id.val] = (TypeInfo){
                         .status = TIS_CONFIDENT,

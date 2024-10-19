@@ -92,7 +92,6 @@ ASTNode* find_decl_by_name(ASTNodeFileRoot root, String name) {
             case ANT_FUNCTION_CALL: break;
             case ANT_STATEMENT_BLOCK: break;
             case ANT_IF: break;
-            case ANT_ELSE: break;
             case ANT_TRY: break;
             case ANT_CATCH: break;
             case ANT_BREAK: break;

@@ -144,6 +144,15 @@ static void verify_node(Analyzer* analyzer, ASTNode const* const ast, size_t dep
             break;
         }
 
+        case ANT_TUPLE: {
+            LLNode_ASTNode* curr = ast->node.tuple.exprs.head;
+            while (curr) {
+                verify_node(analyzer, &curr->data, depth + 1, iter);
+                curr = curr->next;
+            }
+            break;
+        }
+
         case ANT_INDEX: {
             verify_node(analyzer, ast->node.index.root, depth + 1, iter);
             verify_node(analyzer, ast->node.index.value, depth + 1, iter);
@@ -195,12 +204,10 @@ static void verify_node(Analyzer* analyzer, ASTNode const* const ast, size_t dep
                 curr = curr->next;
             }
 
-            break;
-        }
+            if (ast->node.if_.else_) {
+                verify_node(analyzer, ast->node.if_.else_, depth + 1, iter);
+            }
 
-        case ANT_ELSE: {
-            verify_node(analyzer, ast->node.else_.target, depth + 1, iter);
-            verify_node(analyzer, ast->node.else_.then, depth + 1, iter);
             break;
         }
 
@@ -213,7 +220,21 @@ static void verify_node(Analyzer* analyzer, ASTNode const* const ast, size_t dep
         }
 
         case ANT_BREAK: assert(false); // TODO
-        case ANT_WHILE: assert(false); // TODO
+
+        case ANT_WHILE: {
+            assert(ast->node.while_.block);
+
+            verify_node(analyzer, ast->node.while_.cond, depth + 1, iter);
+
+            LLNode_ASTNode* curr = ast->node.while_.block->stmts.head;
+            while (curr) {
+                verify_node(analyzer, &curr->data, depth + 1, iter);
+                curr = curr->next;
+            }
+
+            break;
+        }
+
         case ANT_DO_WHILE: assert(false); // TODO
         case ANT_FOR: assert(false); // TODO
 

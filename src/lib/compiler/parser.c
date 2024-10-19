@@ -1113,8 +1113,31 @@ static ParseResult parser_parse_lit_number(Parser* const parser, LL_Directive co
     });
 }
 
+static ParseResult parser_parse_bool(Parser* const parser, LL_Directive const directives) {
+    Token t = parser_peek(parser);
+    if (t.type != TT_TRUE && t.type != TT_FALSE) {
+        return parseres_none();
+    }
+    parser_advance(parser);
+    bool is_true = t.type == TT_TRUE;
+
+    return parseres_ok((ASTNode){
+        .id = { parser->next_node_id++ },
+        .type = ANT_LITERAL,
+        .node.literal = {
+            .kind = LK_BOOL,
+            .value.lit_bool = is_true,
+        },
+        .directives = directives,
+    });
+}
+
 static ParseResult parser_parse_lit(Parser* const parser, LL_Directive const directives) {
     switch (parser_peek(parser).type) {
+        case TT_TRUE:
+        case TT_FALSE:
+            return parser_parse_bool(parser, directives);
+
         case TT_LITERAL_STRING: return parser_parse_lit_str(parser, directives);
         case TT_LITERAL_CHAR: return parser_parse_lit_char_s(parser, directives);
         case TT_LITERAL_NUMBER: return parser_parse_lit_number(parser, directives);
@@ -1837,6 +1860,31 @@ static ParseResult parser_parse_if(Parser* const parser, LL_Directive const dire
     });
 }
 
+static ParseResult parser_parse_while(Parser* const parser, LL_Directive const directives) {
+    if (!parser_consume(parser, TT_WHILE, "Expected 'while'")) {
+        return parseres_none();
+    }
+
+    ParseResult cond_res = parser_parse_expr(parser, (LL_Directive){0});
+    assert(cond_res.status != PRS_NONE);
+
+    ASTNode* cond = arena_alloc(parser->arena, sizeof *cond);
+    *cond = cond_res.node;
+
+    ASTNodeStatementBlock* block = arena_alloc(parser->arena, sizeof *block);
+    *block = parser_parse_stmt_block(parser);
+
+    return parseres_ok((ASTNode){
+        .id = { parser->next_node_id++ },
+        .type = ANT_WHILE,
+        .node.while_ = {
+            .cond = cond,
+            .block = block,
+        },
+        .directives = directives,
+    });
+}
+
 static ParseResult parser_parse_foreach(Parser* const parser, LL_Directive const directives) {
     if (!parser_consume(parser, TT_FOREACH, "Expected 'foreach'")) {
         return parseres_none();
@@ -2023,6 +2071,12 @@ static ParseResult parser_parse_stmt(Parser* const parser) {
         case TT_IF: {
             return parser_parse_if(parser, directives);
         }
+
+        case TT_WHILE: {
+            return parser_parse_while(parser, directives);
+        }
+
+        case TT_FOR: assert(false);
 
         case TT_FOREACH: {
             return parser_parse_foreach(parser, directives);
