@@ -534,6 +534,37 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                         break;
                     }
 
+                    case RTK_UINT: {
+                        IR_C_Node* append_chars_target = arena_alloc(codegen->arena, sizeof *append_chars_target);
+                        *append_chars_target = (IR_C_Node){
+                            .type = ICNT_RAW,
+                            .node.raw.str = c_str("strbuf_append_uint"),
+                        };
+
+                        LL_IR_C_Node append_chars_args = {0};
+                        ll_node_push(codegen->arena, &append_chars_args, (IR_C_Node){
+                            .type = ICNT_RAW,
+                            .node.raw.str = c_str("&sb"),
+                        });
+                        {
+                            LL_IR_C_Node expr_ll = {0};
+                            fill_nodes(codegen, &expr_ll, &curr->data, ftype, stage, false);
+                            assert(expr_ll.length == 1);
+
+                            ll_node_push(codegen->arena, &append_chars_args, expr_ll.head->data);
+                        }
+
+                        ll_node_push(codegen->arena, codegen->stmt_block, (IR_C_Node){
+                            .type = ICNT_FUNCTION_CALL,
+                            .node.function_call = {
+                                .target = append_chars_target,
+                                .args = append_chars_args,
+                            },
+                        });
+
+                        break;
+                    }
+
                     case RTK_CHAR: {
                         IR_C_Node* append_chars_target = arena_alloc(codegen->arena, sizeof *append_chars_target);
                         *append_chars_target = (IR_C_Node){
@@ -1052,10 +1083,18 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             assert(node->node.var_decl.lhs.type == VDLT_NAME);
             String name = node->node.var_decl.lhs.lhs.name;
 
-            if (rt->kind == RTK_ARRAY) {
+            if (node->node.var_decl.type_or_let.maybe_type && node->node.var_decl.type_or_let.maybe_type->kind == TK_ARRAY) {
                 StringBuffer sb = strbuf_create_with_capacity(codegen->arena, name.length + 2);
                 strbuf_append_str(&sb, name);
-                strbuf_append_chars(&sb, "[]");
+                strbuf_append_char(&sb, '[');
+                Token* explicit_size = node->node.var_decl.type_or_let.maybe_type->type.array.explicit_size;
+                if (explicit_size) {
+                    strbuf_append_str(&sb, (String){
+                        .length = explicit_size->length,
+                        .chars = explicit_size->start,
+                    });
+                }
+                strbuf_append_char(&sb, ']');
                 name = strbuf_to_str(sb);
             }
 

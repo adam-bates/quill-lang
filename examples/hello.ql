@@ -29,14 +29,16 @@ void main() {
     c[i] = '\n'; i += 1;
     c[i] = '\0';
 
+    // prints "Hello, world!"
     stdio::fwrite(c, sz, len, stdio::stdout);
-
     stdlib::free(c);
 
-    std::String str = "3, 4";
-
     char n = '2';
-    io::println(`1, {n}, {str}, 5`);
+    std::String str = "3, 4";
+    uint number = 1337;
+
+    // prints: "1, 2, 3, 4, 5 ... 1337 :)"
+    io::println(`1, {n}, {str}, 5 ... {number} :)`);
 
     bool x = false;
     while x {

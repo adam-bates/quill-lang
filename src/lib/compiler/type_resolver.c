@@ -860,12 +860,6 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
             TypeInfo inner_ti1 = type_resolver->packages->types[node->node.binary_op.lhs->id.val];
             TypeInfo inner_ti2 = type_resolver->packages->types[node->node.binary_op.rhs->id.val];
-
-                printf("\n\n------\n");
-                print_astnode(*node);
-                printf("\n%s, %s\n", inner_ti1.type ? "true" : "false", inner_ti2.type ? "true" : "false");
-                printf("------\n\n\n");
-
             if (inner_ti1.type && inner_ti2.type) {
                 ResolvedType* rt = arena_alloc(type_resolver->arena, sizeof *rt);
                 *rt = *inner_ti1.type;
@@ -1312,7 +1306,14 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
             bool resolved = true;
             if (type_resolver->packages->types[node->node.if_.cond->id.val].type) {
-                assert(type_resolver->packages->types[node->node.if_.cond->id.val].type->kind = RTK_BOOL);
+                assert(
+                    type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_BOOL
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_UINT
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_INT
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_CHAR
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_POINTER
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_MUT_POINTER
+                );
             } else {
                 resolved = false;
             }
@@ -1358,7 +1359,14 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
             bool resolved = true;
             if (type_resolver->packages->types[node->node.while_.cond->id.val].type) {
-                assert(type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_BOOL);
+                assert(
+                    type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_BOOL
+                    || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_INT
+                    || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_UINT
+                    || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_CHAR
+                    || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_POINTER
+                    || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_MUT_POINTER
+                );
             } else {
                 resolved = false;
             }
@@ -1934,12 +1942,6 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         case ANT_COUNT: assert(false);
 
         default: printf("TODO: ANT_%d\n", node->type); assert(false);
-    }
-
-    printf("%s\n", changed ? "true" : "false");
-    if (changed) {
-        print_astnode(*node);
-        printf("\n\n");
     }
 
     return changed;
