@@ -1353,9 +1353,9 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 ll_node_push(codegen->arena, codegen->stmt_block, (IR_C_Node){
                     .type = ICNT_RAW_WRAP,
                     .node.raw_wrap = {
-                        .pre = c_str("assert(false && ("),
+                        .pre = c_str("eprintln("),
                         .wrapped = &expr_ll.head->data,
-                        .post = c_str(").bytes)"),
+                        .post = c_str("); exit(1);"),
                     },
                 });
             } else {

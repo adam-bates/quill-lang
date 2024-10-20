@@ -11,7 +11,7 @@ void main() {
 
     std::Result<uint> res = conv::parse_uint(std::args.data[1]);
     if !res.is_ok {
-        CRASH `Error parser integer: {res.err}`;
+        CRASH `Error parsing integer: {res.err}`;
     }
     uint n = res.val;
 
