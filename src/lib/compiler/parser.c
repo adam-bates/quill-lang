@@ -37,7 +37,7 @@ typedef struct {
     } maybe;
 } Maybe_DirectiveType;
 
-static const size_t DIRECTIVE_MATCHES_LEN = 6;
+static const size_t DIRECTIVE_MATCHES_LEN = 8;
 static const DirectiveMatch DIRECTIVE_MATCHES[DIRECTIVE_MATCHES_LEN] = {
     { "@c_header", DT_C_HEADER },
     { "@c_restrict", DT_C_RESTRICT },
@@ -45,7 +45,8 @@ static const DirectiveMatch DIRECTIVE_MATCHES[DIRECTIVE_MATCHES_LEN] = {
     { "@ignore_unused", DT_IGNORE_UNUSED },
     { "@impl", DT_IMPL },
     { "@string_literal", DT_STRING_LITERAL },
-    // TODO
+    { "@string_template", DT_STRING_TEMPLATE },
+    { "@range_literal", DT_RANGE_LITERAL },
 };
 
 void debug_token_type(TokenType token_type) {
@@ -526,6 +527,24 @@ static LL_Directive parser_parse_directives(Parser* const parser) {
             case DT_STRING_LITERAL: {
                 Directive directive = {
                     .type = DT_STRING_LITERAL,
+                    .dir.impl = NULL,
+                };
+                ll_directive_push(parser->arena, &directives, directive);
+                break;
+            }
+
+            case DT_STRING_TEMPLATE: {
+                Directive directive = {
+                    .type = DT_STRING_TEMPLATE,
+                    .dir.impl = NULL,
+                };
+                ll_directive_push(parser->arena, &directives, directive);
+                break;
+            }
+
+            case DT_RANGE_LITERAL: {
+                Directive directive = {
+                    .type = DT_RANGE_LITERAL,
                     .dir.impl = NULL,
                 };
                 ll_directive_push(parser->arena, &directives, directive);
@@ -1658,7 +1677,9 @@ static ParseResult parser_parse_binary(Parser* const parser, ASTNode expr) {
     parser_advance(parser);
 
     ParseResult res = parser_parse_expr(parser, (LL_Directive){0});
-    assert(res.status == PRS_OK);
+    if (res.status != PRS_OK) {
+        return parseres_none();
+    }
 
     ASTNode* lhs = arena_alloc(parser->arena, sizeof *lhs);
     *lhs = expr;
@@ -1933,21 +1954,6 @@ static ParseResult parser_parse_foreach(Parser* const parser, LL_Directive const
         return parseres_none();
     }
 
-    bool is_foreach;
-    {
-        size_t cursor = parser->cursor_current;
-
-        is_foreach = parser->tokens.array[cursor++].type == TT_IDENTIFIER;
-
-        if (is_foreach && parser->tokens.array[cursor].type == TT_COMMA) {
-            is_foreach = is_foreach && parser->tokens.array[cursor++].type == TT_COMMA;
-            is_foreach = is_foreach && parser->tokens.array[cursor++].type == TT_IDENTIFIER;
-            assert(false); // TODO: support `idx, var` in foreach loop
-        }
-
-        is_foreach = is_foreach && parser->tokens.array[cursor++].type == TT_IN;
-    }
-
     Token var_t = parser_peek(parser);
     assert(parser_consume(parser, TT_IDENTIFIER, "Expected variable"));
 
@@ -1966,7 +1972,7 @@ static ParseResult parser_parse_foreach(Parser* const parser, LL_Directive const
 
     assert(parser_consume(parser, TT_IN, "Expected 'in'"));
 
-    ParseResult iter_res = parser_parse_simple_expr(parser, (LL_Directive){0});
+    ParseResult iter_res = parser_parse_expr(parser, (LL_Directive){0});
     assert(iter_res.status == PRS_OK);
 
     ASTNode* iter = arena_alloc(parser->arena, sizeof *iter);

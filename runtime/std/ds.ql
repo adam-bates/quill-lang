@@ -5,7 +5,7 @@ import libc/string;
 
 import std;
 
-struct StringBuffer {
+@string_template struct StringBuffer {
 	uint capacity,
 	uint length,
 	char* bytes,
@@ -67,12 +67,12 @@ void strbuf_append_str(StringBuffer mut* sb, std::String str) {
 }
 
 void strbuf_append_int(StringBuffer mut* sb, int n) {
-    if (n == 0) {
+    if n == 0 {
         strbuf_append_char(sb, '0');
         return;
     }
 
-    if (n < 0) {
+    if n < 0 {
         strbuf_append_char(sb, '-');
     }
 

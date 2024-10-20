@@ -26,7 +26,7 @@ example-fizzbuzz: clean build
 	&& cd ./.bin \
 	&& gcc -std=c99 -o main -I./tmp ./tmp/*.c  \
 	&& clear \
-	&& ./main \
+	&& ./main 50 \
 	&& cd ..
 
 setup:

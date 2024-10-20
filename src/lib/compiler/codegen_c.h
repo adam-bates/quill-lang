@@ -12,10 +12,12 @@ typedef enum {
     BT_VARS,
 } BlockType;
 
-typedef struct {
+typedef struct LL_IR_C_Node {
     size_t length;
     struct LLNode_IR_C_Node* head;
     struct LLNode_IR_C_Node* tail;
+
+    struct LL_IR_C_Node* to_defer;
 } LL_IR_C_Node;
 
 typedef enum {
@@ -38,6 +40,7 @@ typedef enum {
     ICNT_STRUCT_INIT,
     ICNT_IF,
     ICNT_WHILE,
+    ICNT_FOR,
 
     ICNT_VAR_DECL,
     ICNT_FUNCTION_HEADER_DECL,
@@ -130,6 +133,13 @@ typedef struct {
 } IR_C_While;
 
 typedef struct {
+    struct IR_C_Node* init;
+    struct IR_C_Node* cond;
+    struct IR_C_Node* step;
+    LL_IR_C_Node then;
+} IR_C_For;
+
+typedef struct {
     String type;
     String name;
     struct IR_C_Node* init;
@@ -179,6 +189,7 @@ typedef struct IR_C_Node {
         IR_C_StructInit struct_init;
         IR_C_If if_;
         IR_C_While while_;
+        IR_C_For for_;
         IR_C_VarDecl var_decl;
         IR_C_ArrayInit array_init;
         IR_C_FunctionHeaderDecl function_header_decl;

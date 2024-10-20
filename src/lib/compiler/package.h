@@ -37,6 +37,8 @@ typedef struct {
     TypeInfo* types;
 
     ResolvedType* string_literal_type;
+    ResolvedType* string_template_type;
+    ResolvedType* range_literal_type;
 } Packages;
 
 Packages packages_create(Arena* arena);

@@ -703,6 +703,8 @@ typedef enum {
     DT_IGNORE_UNUSED,
     DT_IMPL,
     DT_STRING_LITERAL,
+    DT_STRING_TEMPLATE,
+    DT_RANGE_LITERAL,
 } DirectiveType;
 
 typedef struct {

@@ -453,6 +453,9 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
                 assert(rt->type.namespace_->ast->type == ANT_FILE_ROOT);
 
                 ASTNode* node = find_decl_by_name(rt->type.namespace_->ast->node.file_root, static_path->name);
+                if (!node) {
+                    printf("Couldn't find \"%s\" in \"%s\"\n", arena_strcpy(type_resolver->arena, static_path->name).chars, package_path_to_str(type_resolver->arena, rt->type.namespace_->full_name).chars);
+                }
                 assert(node);
 
                 ResolvedType* tmp = packages_type_by_node(type_resolver->packages, node->id)->type;
@@ -1136,6 +1139,10 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                             type_resolver->packages->types[node->node.var_decl.initializer->id.val] = type_resolver->packages->types[node->id.val];
                         }
                     }
+                } else {
+                    if (changed && str_eq(node->node.var_decl.lhs.lhs.name, c_str("args"))) {
+                        assert(type_resolver->packages->types[node->id.val].type);
+                    }
                 }
             }
 
@@ -1353,6 +1360,42 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         case ANT_TRY: assert(false); // TODO
         case ANT_CATCH: assert(false); // TODO
         case ANT_BREAK: assert(false); // TODO
+
+        case ANT_FOREACH: {
+            changed |= resolve_type_node(type_resolver, scope, node->node.foreach.iterable);
+
+            bool resolved = true;
+            if (type_resolver->packages->types[node->node.foreach.iterable->id.val].type) {
+                assert(resolved_type_eq(
+                    type_resolver->packages->types[node->node.foreach.iterable->id.val].type,
+                    type_resolver->packages->range_literal_type
+                ));
+            } else {
+                resolved = false;
+            }
+
+            Scope block_scope = scope_create(type_resolver->arena, scope);
+            LLNode_ASTNode* curr = node->node.foreach.block->stmts.head;
+            while (curr) {
+                changed |= resolve_type_node(type_resolver, &block_scope, &curr->data);
+                if (!type_resolver->packages->types[curr->data.id.val].type) {
+                    resolved = false;
+                }
+                curr = curr->next;
+            }
+
+            if (resolved) {
+                ResolvedType* rt = arena_alloc(type_resolver->arena, sizeof *rt);
+                *rt = (ResolvedType){
+                    .kind = RTK_VOID,
+                };
+                type_resolver->packages->types[node->id.val] = (TypeInfo){
+                    .type = rt,
+                };
+            }
+
+            break;
+        }
 
         case ANT_WHILE: {
             changed |= resolve_type_node(type_resolver, scope, node->node.while_.cond);
@@ -1703,16 +1746,24 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 LLNode_Directive* curr = node->directives.head;
                 while (curr) {
                     if (curr->data.type == DT_STRING_LITERAL) {
-                        // assert(i == 2);
-
+                        assert(node->node.struct_decl.fields.length >= 2);
                         assert(fields[0].type->kind == RTK_UINT);
-                        // assert(str_eq(fields[0].name, c_str("length")));
-
                         assert(fields[1].type->kind == RTK_POINTER);
                         assert(fields[1].type->type.ptr.of->kind == RTK_CHAR);
-                        // assert(str_eq(fields[1].name, c_str("bytes")));
-
                         type_resolver->packages->string_literal_type = resolved_type;
+                    } else if (curr->data.type == DT_STRING_TEMPLATE) {
+                        assert(node->node.struct_decl.fields.length >= 3);
+                        assert(fields[0].type->kind == RTK_UINT);
+                        assert(fields[1].type->kind == RTK_UINT);
+                        assert(fields[2].type->kind == RTK_POINTER);
+                        assert(fields[2].type->type.ptr.of->kind == RTK_CHAR);
+                        type_resolver->packages->string_template_type = resolved_type;
+                    } else if (curr->data.type == DT_RANGE_LITERAL) {
+                        assert(node->node.struct_decl.fields.length >= 3);
+                        assert(fields[0].type->kind == RTK_INT);
+                        assert(fields[1].type->kind == RTK_INT);
+                        assert(fields[2].type->kind == RTK_BOOL);
+                        type_resolver->packages->range_literal_type = resolved_type;
                     }
                     curr = curr->next;
                 }
@@ -1935,6 +1986,38 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 changed = true;
             } 
 
+            break;
+        }
+
+        case ANT_RANGE: {
+            changed |= resolve_type_node(type_resolver, scope, node->node.range.lhs);
+            changed |= resolve_type_node(type_resolver, scope, node->node.range.rhs);
+
+            ResolvedType* lhs = type_resolver->packages->types[node->node.range.lhs->id.val].type;
+            ResolvedType* rhs = type_resolver->packages->types[node->node.range.rhs->id.val].type;
+
+            if (lhs) {
+                assert(lhs->kind == RTK_INT || lhs->kind == RTK_UINT || lhs->kind == RTK_CHAR);
+            }
+
+            if (rhs) {
+                assert(rhs->kind == RTK_INT || rhs->kind == RTK_UINT || rhs->kind == RTK_CHAR);
+            }
+
+            if (lhs && rhs) {
+                type_resolver->packages->types[node->id.val] = (TypeInfo){
+                    .status = TIS_CONFIDENT,
+                    .type = type_resolver->packages->range_literal_type,
+                };
+            }
+
+            break;
+        }
+
+        case ANT_DEFER: {
+            changed |= resolve_type_node(type_resolver, scope, node->node.defer.stmt);
+
+            type_resolver->packages->types[node->id.val] = type_resolver->packages->types[node->node.defer.stmt->id.val];
             break;
         }
 

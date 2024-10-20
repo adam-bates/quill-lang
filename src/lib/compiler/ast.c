@@ -668,6 +668,10 @@ static void print_directives(LL_Directive directives) {
             case DT_IMPL: printf("@impl "); break;
 
             case DT_STRING_LITERAL: printf("@string_literal "); break;
+
+            case DT_STRING_TEMPLATE: printf("@string_template "); break;
+
+            case DT_RANGE_LITERAL: printf("@range_literal "); break;
         }
 
         curr = curr->next;
@@ -1283,6 +1287,43 @@ void print_astnode(ASTNode const node) {
                 print_astnode(*node.node.crash.maybe_expr);
             }
             printf(";");
+            break;
+        }
+
+        case ANT_RANGE: {
+            print_astnode(*node.node.range.lhs);
+            printf("..");
+            if (node.node.range.inclusive) {
+                printf("=");
+            }
+            print_astnode(*node.node.range.rhs);
+            break;
+        }
+        
+        case ANT_FOREACH: {
+            printf("foreach ");
+
+            assert(node.node.foreach.var.type == VDLT_NAME);
+            print_string(node.node.foreach.var.lhs.name);
+
+            printf(" in ");
+            print_astnode(*node.node.foreach.iterable);
+            printf(" {\n");
+
+            LLNode_ASTNode* curr = node.node.foreach.block->stmts.head;
+            while (curr) {
+                print_tabs();
+                print_astnode(curr->data);
+                printf(";\n");
+                curr = curr->next;
+            }
+            printf("}");
+            break;
+        }
+
+        case ANT_DEFER: {
+            printf("defer ");
+            print_astnode(*node.node.defer.stmt);
             break;
         }
 
