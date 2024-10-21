@@ -8,6 +8,8 @@ import libc/stdlib;
 static let sz = sizeof(char);
 
 void main() {
+    io::println("Hello, World");
+
     uint len = 15;
 
     uint mut i = 0;
@@ -29,7 +31,7 @@ void main() {
     c[i] = '\n'; i += 1;
     c[i] = '\0';
 
-    // prints "Hello, world!"
+    // prints "Hello, world!" again
     stdio::fwrite(c, sz, len, stdio::stdout);
     stdlib::free(c);
 
