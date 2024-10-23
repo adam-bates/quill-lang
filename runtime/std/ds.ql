@@ -25,6 +25,10 @@ StringBuffer strbuf_create(uint capacity) {
 	};
 }
 
+void strbuf_free(StringBuffer sb) {
+	stdlib::free(sb.bytes);
+}
+
 void strbuf_reset(StringBuffer mut* sb) {
 	uint i = 0;
 	while i < sb->length {

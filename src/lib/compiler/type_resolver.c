@@ -1362,6 +1362,9 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         case ANT_BREAK: assert(false); // TODO
 
         case ANT_FOREACH: {
+            assert(type_resolver->packages->range_literal_type);
+            assert(type_resolver->packages->range_literal_type->kind = RTK_STRUCT_DECL);
+
             changed |= resolve_type_node(type_resolver, scope, node->node.foreach.iterable);
 
             bool resolved = true;
@@ -1375,6 +1378,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             }
 
             Scope block_scope = scope_create(type_resolver->arena, scope);
+            scope_set(&block_scope, node->node.foreach.var.lhs.name, type_resolver->packages->range_literal_type->type.struct_decl.fields[0].type);
             LLNode_ASTNode* curr = node->node.foreach.block->stmts.head;
             while (curr) {
                 changed |= resolve_type_node(type_resolver, &block_scope, &curr->data);
