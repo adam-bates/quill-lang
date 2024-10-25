@@ -18,7 +18,7 @@ Result<uint> parse_uint(String str) {
 		if c <= '0' || '9' <= c {
 			return .{
 				.is_ok = false,
-				.err = "Non-digit found",
+				.err = `Non-digit character: '{c}'`,
 			};
 		}
 
