@@ -1,9 +1,8 @@
 package std/ds;
 
+import std;
 import libc/stdlib;
 import libc/string;
-
-import std;
 
 @string_template struct StringBuffer {
 	uint capacity,

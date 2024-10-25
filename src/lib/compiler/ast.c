@@ -584,8 +584,12 @@ static void print_tabs(void) {
     }
 }
 
-static void print_string(String const str) {
+void print_string(String const str) {
     printf("%s", arena_strcpy(arena, str).chars);
+}
+
+void println_string(String const str) {
+    printf("%s\n", arena_strcpy(arena, str).chars);
 }
 
 static void print_static_path(StaticPath const* path) {
@@ -752,6 +756,11 @@ static void print_type(Type const* type) {
 
         default: printf("<type:%d>", type->kind); return;
     }
+}
+
+void println_astnode(ASTNode const node) {
+    print_astnode(node);
+    printf("\n");
 }
 
 void print_astnode(ASTNode const node) {

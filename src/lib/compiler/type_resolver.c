@@ -17,106 +17,34 @@ typedef struct {
     Arena* arena;
     size_t capacity;
     size_t length;
-    PackagePath* dependents;
-    PackagePath* dependencies;
+    size_t* dependent_idxs;
+    size_t* dependency_idxs;
 } AdjacencyList;
 
 static AdjacencyList adjacency_list_create(Arena* arena, size_t capacity) {
-    PackagePath* dependents = arena_alloc(arena, sizeof(PackagePath) * capacity);
-    PackagePath* dependencies = arena_alloc(arena, sizeof(PackagePath) * capacity);
+    size_t* dependents = arena_calloc(arena, capacity, sizeof *dependents);
+    size_t* dependencies = arena_calloc(arena, capacity, sizeof *dependencies);
 
     return (AdjacencyList){
         .arena = arena,
         .capacity = capacity,
         .length = 0,
-        .dependents = dependents,
-        .dependencies = dependencies,
+        .dependent_idxs = dependents,
+        .dependency_idxs = dependencies,
     };
 }
 
-static void add_package_dependency(AdjacencyList* list, PackagePath dependent, PackagePath dependency) {
+static void add_package_dependency(AdjacencyList* list, size_t dependent_idx, size_t dependency_idx) {
     if (list->length >= list->capacity) {
         size_t prev_cap = list->capacity;
         list->capacity = list->length * 2;
-        list->dependents = arena_realloc(list->arena, list->dependents, sizeof(PackagePath) * prev_cap, sizeof(PackagePath) * list->capacity);
-        list->dependencies = arena_realloc(list->arena, list->dependencies, sizeof(PackagePath) * prev_cap, sizeof(PackagePath) * list->capacity);
+        list->dependent_idxs = arena_realloc(list->arena, list->dependent_idxs, sizeof(*list->dependent_idxs) * prev_cap, sizeof(*list->dependent_idxs) * list->capacity);
+        list->dependency_idxs = arena_realloc(list->arena, list->dependency_idxs, sizeof(*list->dependency_idxs) * prev_cap, sizeof(*list->dependency_idxs) * list->capacity);
     }
 
-    list->dependents[list->length] = dependent;
-    list->dependencies[list->length] = dependency;
+    list->dependent_idxs[list->length] = dependent_idx;
+    list->dependency_idxs[list->length] = dependency_idx;
     list->length += 1;
-}
-
-typedef struct {
-    Arena* arena;
-    size_t capacity;
-    size_t length;
-    PackagePath* array;
-} ArrayList_PackagePath;
-
-static ArrayList_PackagePath arraylist_packagepath_create(Arena* arena, size_t capacity) {
-    PackagePath* array = arena_alloc(arena, sizeof(PackagePath) * capacity);
-
-    return (ArrayList_PackagePath){
-        .arena = arena,
-        .capacity = capacity,
-        .length = 0,
-        .array = array,
-    };
-}
-
-static void arraylist_packagepath_push(ArrayList_PackagePath* list, PackagePath path) {
-    if (list->length >= list->capacity) {
-        size_t prev_cap = list->capacity;
-        list->capacity = list->length * 2;
-        list->array = arena_realloc(list->arena, list->array, sizeof(PackagePath) * prev_cap, sizeof(PackagePath) * list->capacity);
-    }
-
-    list->array[list->length] = path;
-    list->length += 1;
-}
-
-typedef enum {
-    VS_UNVISITED,
-    VS_VISITING,
-    VS_VISITED,
-} VisitState;
-
-static bool _topo_sort_dfs(AdjacencyList* list, VisitState* states, size_t n, size_t* sorted, size_t* sort_index) {
-    states[n] = VS_VISITING;
-
-    for (size_t i = 0; i < list->length; ++i) {
-        if (!package_path_eq(list->dependencies + i, list->dependents + n)) {
-            continue;
-        }
-
-        if (
-            states[i] == VS_VISITING
-            || (states[i] == VS_UNVISITED && !_topo_sort_dfs(list, states, i, sorted, sort_index))
-        ) {
-            return false;
-        }
-    }
-
-    states[n] = VS_VISITED;
-    sorted[*sort_index] = n;
-    *sort_index -= 1;
-
-    return true;
-}
-
-static bool topological_sort(AdjacencyList* list, size_t* sorted) {
-    VisitState* states = arena_calloc(list->arena, list->length, sizeof *states);
-    size_t sort_index = list->length - 1;
-
-    for (size_t i = 0; i < list->length; ++i) {
-        if (states[i] == VS_UNVISITED && !_topo_sort_dfs(list, states, i, sorted, &sort_index)) {
-            // cycle detected, can't sort
-            return false;
-        }
-    }
-
-    return true;
 }
 
 typedef bool Changed;
@@ -135,6 +63,8 @@ typedef struct {
 } Bucket;
 
 typedef struct Scope {
+    size_t scope_id;
+
     Arena* arena;
     struct Scope* parent;
 
@@ -191,7 +121,11 @@ static void bucket_push(Bucket* list, BucketItem item) {
 
 
 static Scope scope_create(Arena* arena, Scope* parent) {
+    static size_t next = 0;
+
     return (Scope){
+        .scope_id = next++,
+
         .arena = arena,
         .parent = parent,
 
@@ -200,7 +134,28 @@ static Scope scope_create(Arena* arena, Scope* parent) {
     };
 }
 
+static void scope_print_ids(Scope* scope) {
+    assert(scope);
+
+    printf("[");
+
+    Scope* curr = scope;
+    while (curr) {
+        printf("%lu", curr->scope_id);
+        curr = curr->parent;
+        if (curr) {
+            printf(" <- ");
+        }
+    }
+
+    printf("]\n");
+}
+
 static void scope_set(Scope* scope, String key, ResolvedType* value) {
+    assert(scope);
+    // printf("Set \""); print_string(key); printf("\" = RTK_%d; ", value->kind);
+    // scope_print_ids(scope);
+
     size_t idx = hash_str(key);
     Bucket* bucket = scope->lookup_buckets + idx;
     assert(bucket);
@@ -221,6 +176,10 @@ static void scope_set(Scope* scope, String key, ResolvedType* value) {
 }
 
 static ResolvedType* _scope_get(Scope* scope, String key, size_t idx) {
+    assert(scope);
+    // printf("Get \""); print_string(key); printf("\"; ");
+    // scope_print_ids(scope);
+
     Bucket* bucket = scope->lookup_buckets + idx;
 
     if (bucket) {
@@ -228,6 +187,7 @@ static ResolvedType* _scope_get(Scope* scope, String key, size_t idx) {
             BucketItem* item = bucket->array + i;
 
             if (str_eq(item->key, key)) {
+                // printf("Got RTK_%d\n", item->value->kind);
                 return item->value;
             }
         }
@@ -236,6 +196,7 @@ static ResolvedType* _scope_get(Scope* scope, String key, size_t idx) {
     if (scope->parent) {
         return _scope_get(scope->parent, key, idx);
     } else {
+        // printf("Not found\n");
         return NULL;
     }
 }
@@ -287,8 +248,8 @@ static ImportPath* expand_import_path(TypeResolver* type_resolver, ASTNodeImport
 static void resolve_file(TypeResolver* type_resolver, Scope* scope, ASTNodeFileRoot file);
 
 void resolve_types(TypeResolver* type_resolver) {
-    AdjacencyList dependencies = adjacency_list_create(type_resolver->arena, 1);
-    ArrayList_PackagePath to_resolve = arraylist_packagepath_create(type_resolver->arena, type_resolver->packages->count);
+    size_t packages_len = 0;
+    Package* packages = arena_calloc(type_resolver->arena, type_resolver->packages->count, sizeof *packages);
 
     // Understand which files depend on which other files
     for (size_t i = 0; i < type_resolver->packages->lookup_length; ++i) {
@@ -300,129 +261,181 @@ void resolve_types(TypeResolver* type_resolver) {
             assert(pkg.ast);
             assert(pkg.ast->type == ANT_FILE_ROOT);
 
-            PackagePath dependent = {0};
-            if (pkg.full_name) {
-                dependent = *pkg.full_name;
-            }
+            assert(packages_len < type_resolver->packages->count);
+            packages[packages_len++] = pkg;
+        }
+    }
+    assert(packages_len == type_resolver->packages->count);
 
-            LLNode_ASTNode* decl = pkg.ast->node.file_root.nodes.head;
-            bool has_imports = false;
-            while (decl) {
-                if (decl->data.type == ANT_IMPORT) {
-                    has_imports = true;
+    AdjacencyList dependencies = adjacency_list_create(type_resolver->arena, 1);
 
-                    type_resolver->current_package = &pkg;
-                    ImportPath* path = expand_import_path(type_resolver, &decl->data.node.import);
-                    type_resolver->current_package = NULL;
+    for (size_t i = 0; i < packages_len; ++i) {
+        Package pkg = packages[i];
+        LLNode_ASTNode* decl = pkg.ast->node.file_root.nodes.head;
+        bool has_imports = false;
+        while (decl) {
+            if (decl->data.type == ANT_IMPORT) {
+                has_imports = true;
 
-                    PackagePath* dependency = import_path_to_package_path(type_resolver->arena, path);
-                    assert(dependency);
+                type_resolver->current_package = &pkg;
+                ImportPath* path = expand_import_path(type_resolver, &decl->data.node.import);
+                type_resolver->current_package = NULL;
 
-                    Package* found = packages_resolve(type_resolver->packages, dependency);
-                    if (!found) {
-                        printf("FROM FILE: \"%s\"\n", package_path_to_str(type_resolver->arena, &dependent).chars);
-                        printf("Cannot find import [%s]\n", import_path_to_str(type_resolver->arena, path).chars);
-                        printf("Cannot find package [%s]\n", package_path_to_str(type_resolver->arena, dependency).chars);
-                        assert(false);
-                    }
+                PackagePath* dependency = import_path_to_package_path(type_resolver->arena, path);
+                assert(dependency);
 
-                    add_package_dependency(&dependencies, dependent, *dependency);
+                Package* found = packages_resolve(type_resolver->packages, dependency);
+                if (!found) {
+                    printf("FROM FILE: \"%s\"\n", pkg.full_name ? package_path_to_str(type_resolver->arena, pkg.full_name).chars : "<main>");
+                    printf("Cannot find import [%s]\n", import_path_to_str(type_resolver->arena, path).chars);
+                    printf("Cannot find package [%s]\n", package_path_to_str(type_resolver->arena, dependency).chars);
+                    assert(false);
                 }
 
-                decl = decl->next;
+                bool found_idx = false;
+                for (size_t j = 0; j < packages_len; ++j) {
+                    if (i == j) {
+                        continue;
+                    }
+
+                    if (!packages[j].full_name) {
+                        continue;
+                    }
+
+                    if (packages[j].ast->id.val == found->ast->id.val) {
+                        found_idx = true;
+                        add_package_dependency(&dependencies, i, j);
+                        break;
+                    }
+                }
+                assert(found);
             }
 
-            // will resolve files w/ no dependencies first
-            if (!has_imports) {
-                arraylist_packagepath_push(&to_resolve, dependent);
-            }
+            decl = decl->next;
         }
     }
 
-    // sort topologically so packages are only resolved after all of their dependencies
     {
-        printf("DEPENDENCIES:\n");
+        printf("Unsorted packages:\n");
+        for (size_t i = 0; i < packages_len; ++i) {
+            Package* pkg = packages + i;
+
+            printf("[%lu] %s\n", i,
+                pkg->full_name ? package_path_to_str(type_resolver->arena, pkg->full_name).chars : "<main>"
+            );
+        }
+        printf("\n");
+
+        printf("Dependencies:\n");
         for (size_t i = 0; i < dependencies.length; ++i) {
-            PackagePath p1 = dependencies.dependents[i];
-            char const* str1;
-            if (p1.name.length > 0) {
-                str1 = package_path_to_str(type_resolver->arena, &p1).chars;
-            } else {
-                str1 = "<main>";
-            }
+            assert(dependencies.dependent_idxs + i);
+            assert(dependencies.dependency_idxs + i);
 
-            PackagePath p2 = dependencies.dependencies[i];
-            char const* str2 = package_path_to_str(type_resolver->arena, &p2).chars;
+            size_t dependent_idx = dependencies.dependent_idxs[i];
+            size_t dependency_idx = dependencies.dependency_idxs[i];
 
-            printf("- [%s] depends on [%s]\n", str1, str2);
-        }
-        printf("\n");
+            assert(packages + dependent_idx);
+            assert(packages + dependency_idx);
 
-        size_t* sorted_deps = arena_calloc(dependencies.arena, dependencies.length, sizeof *sorted_deps);
-        assert(sorted_deps);
-        assert(topological_sort(&dependencies, sorted_deps));
+            Package dependent = packages[dependent_idx];
+            Package dependency = packages[dependency_idx];
 
-        PackagePath* prev = NULL;
-        for (size_t si = 0; si < dependencies.length; ++si) {
-            size_t i = sorted_deps[si];
+            assert(dependency.full_name);
 
-            PackagePath* path = dependencies.dependents + i;
-            assert(path);
-
-            if (prev && package_path_eq(prev, path)) {
-                continue;
-            }
-            prev = path;
-
-            arraylist_packagepath_push(&to_resolve, *path);
-        }
-
-        // debug print
-        printf("DEPENDENCIES:\n");
-        for (size_t si = 0; si < dependencies.length; ++si) {
-            size_t i = sorted_deps[si];
-
-            PackagePath p1 = dependencies.dependents[i];
-            char const* str1;
-            if (p1.name.length > 0) {
-                str1 = package_path_to_str(type_resolver->arena, &p1).chars;
-            } else {
-                str1 = "<main>";
-            }
-
-            PackagePath p2 = dependencies.dependencies[i];
-            char const* str2 = package_path_to_str(type_resolver->arena, &p2).chars;
-
-            printf("- [%s] depends on [%s]\n", str1, str2);
-        }
-        printf("\n");
-
-        printf("Resolve order:\n");
-        for (size_t i = 0; i < to_resolve.length; ++i) {
-            PackagePath* path = to_resolve.array + i;
-            assert(path);
-
-            char const* name = "<main>";
-            if (path->name.length > 0) {
-                name = package_path_to_str(type_resolver->arena, path).chars;
-            }
-            printf("- %s\n", name);
+            printf("- [");
+            printf("%s", dependent.full_name ? package_path_to_str(type_resolver->arena, dependent.full_name).chars : "<main>");
+            printf("] depends on [");
+            printf("%s", package_path_to_str(type_resolver->arena, dependency.full_name).chars);
+            printf("]\n");
         }
         printf("\n");
     }
 
-    for (size_t i = 0; i < to_resolve.length; ++i) {
-        PackagePath* path = to_resolve.array + i;
-        if (path->name.length == 0) {
-            path = NULL;
+    size_t to_sort_len = 0;
+    size_t* to_sort = arena_calloc(type_resolver->arena, packages_len, sizeof *to_sort);
+    for (size_t i = 0; i < packages_len; ++i) {
+        to_sort[i] = i;
+        to_sort_len += 1;
+    }
+
+    size_t resolve_order_len = 0;
+    size_t* resolve_order = arena_calloc(type_resolver->arena, packages_len, sizeof *resolve_order);
+    for (size_t i = 0; i < packages_len; ++i) {
+        bool found = false;
+        for (size_t j = 0; j < dependencies.length; ++j) {
+            if (dependencies.dependent_idxs[j] == i) {
+                found = true;
+                break;
+            }
         }
 
-        Package* pkg = packages_resolve(type_resolver->packages, path);
-        assert(pkg);
-        assert(pkg->ast->type == ANT_FILE_ROOT);
+        if (!found) {
+            resolve_order[resolve_order_len++] = i;
+            for (size_t j = 0; j < to_sort_len; ++j) {
+                if (to_sort[j] == i) {
+                    to_sort_len -= 1;
+                    for (size_t k = j; k < to_sort_len; ++k) {
+                        to_sort[k] = to_sort[k + 1];
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    while (resolve_order_len < packages_len) {
+        for (size_t i_ = 0; i_ < to_sort_len; ++i_) {
+            size_t i = to_sort[i_];
+
+            bool has_unresolved_dependencies = false;
+            for (size_t j = 0; j < dependencies.length; ++j) {
+                if (dependencies.dependent_idxs[j] == i) {
+                    for (size_t k = 0; k < to_sort_len; ++k) {
+                        if (dependencies.dependency_idxs[j] == to_sort[k]) {
+                            has_unresolved_dependencies = true;
+                            break;
+                        }
+                    }
+
+                    if (has_unresolved_dependencies) {
+                        break;
+                    }
+                }
+            }
+
+            if (!has_unresolved_dependencies) {
+                resolve_order[resolve_order_len++] = i;
+
+                to_sort_len -= 1;
+                for (size_t j = i_; j < to_sort_len; ++j) {
+                    to_sort[j] = to_sort[j + 1];
+                }
+                i_ -= 1;
+            }
+        }
+    }
+
+    {
+        printf("Resolve order:\n");
+        for (size_t i = 0; i < packages_len; ++i) {
+            size_t idx = resolve_order[i];
+
+            Package* pkg = packages + idx;
+            printf("- %s\n",
+                pkg->full_name ? package_path_to_str(type_resolver->arena, pkg->full_name).chars : "<main>"
+            );
+        }
+        printf("\n");
+    }
+
+    for (size_t i = 0; i < packages_len; ++i) {
+        size_t idx = resolve_order[i];
+
+        Package* pkg = packages + idx;
+        assert(packages_resolve(type_resolver->packages, pkg->full_name));
 
         printf("Resolving package \"%s\"...\n",
-            path ? package_path_to_str(type_resolver->arena, pkg->full_name).chars : "<main>"
+            pkg->full_name ? package_path_to_str(type_resolver->arena, pkg->full_name).chars : "<main>"
         );
 
         type_resolver->current_package = pkg;
@@ -650,13 +663,13 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
 
         case TK_MUT_POINTER: {
             ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
-            resolved_type->from_pkg = type_resolver->current_package;
-            resolved_type->kind = RTK_MUT_POINTER;
             resolved_type->type.mut_ptr.of = calc_resolved_type(type_resolver, scope, type->type.mut_ptr.of);
             *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
                 .status = TIS_CONFIDENT,
                 .type = resolved_type,
             };
+            resolved_type->from_pkg = resolved_type->type.mut_ptr.of->from_pkg;
+            resolved_type->kind = RTK_MUT_POINTER;
             return resolved_type;
         }
 
@@ -668,15 +681,15 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
 }
 
 static Changed resolve_type_type(TypeResolver* type_resolver, Scope* scope, ASTNode* node, Type* type) {
-    if (type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
-        return false;
-    }
+    bool already_known = type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT;
 
     ResolvedType* resolved_type = calc_resolved_type(type_resolver, scope, type);
     if (!resolved_type) {
         return false;
     }
-    resolved_type->from_pkg = type_resolver->current_package;
+    if (!resolved_type->from_pkg) {
+        resolved_type->from_pkg = type_resolver->current_package;
+    }
     resolved_type->src = node;
 
     type_resolver->packages->types[node->id.val] = (TypeInfo){
@@ -684,14 +697,18 @@ static Changed resolve_type_type(TypeResolver* type_resolver, Scope* scope, ASTN
         .type = resolved_type,
     };
 
-    return true;
+    *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+        .status = TIS_CONFIDENT,
+        .type = resolved_type,
+    };
+
+    return !already_known;
 }
 
 static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTNode* node) {
     Changed changed = false;
-    if (node->type != ANT_FUNCTION_DECL && type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
-        return changed;
-    }
+    bool already_known = type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT;
+
     switch (node->type) {
         case ANT_FILE_ROOT: assert(false);
         case ANT_PACKAGE: {
@@ -1136,7 +1153,12 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                         if (!type_resolver->packages->types[node->node.var_decl.initializer->id.val].type
                             && node->node.var_decl.initializer->type == ANT_STRUCT_INIT
                         ) {
-                            type_resolver->packages->types[node->node.var_decl.initializer->id.val] = type_resolver->packages->types[node->id.val];
+                            TypeInfo* ti = packages_type_by_type(type_resolver->packages, node->node.var_decl.type_or_let.maybe_type->id);
+                            if (ti && ti->type) {
+                                type_resolver->packages->types[node->node.var_decl.initializer->id.val] = *ti;
+                            } else {
+                                type_resolver->packages->types[node->node.var_decl.initializer->id.val] = type_resolver->packages->types[node->id.val];
+                            }
                         }
                     }
                 } else {
@@ -1363,7 +1385,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
         case ANT_FOREACH: {
             assert(type_resolver->packages->range_literal_type);
-            assert(type_resolver->packages->range_literal_type->kind = RTK_STRUCT_DECL);
+            assert(type_resolver->packages->range_literal_type->kind == RTK_STRUCT_DECL);
 
             changed |= resolve_type_node(type_resolver, scope, node->node.foreach.iterable);
 
@@ -1378,7 +1400,12 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             }
 
             Scope block_scope = scope_create(type_resolver->arena, scope);
-            scope_set(&block_scope, node->node.foreach.var.lhs.name, type_resolver->packages->range_literal_type->type.struct_decl.fields[0].type);
+            ResolvedType* i_rt = arena_alloc(type_resolver->arena, sizeof *i_rt);
+            i_rt->kind = type_resolver->packages->range_literal_type->type.struct_decl.fields[0].type->kind;
+            i_rt->type = type_resolver->packages->range_literal_type->type.struct_decl.fields[0].type->type;
+            i_rt->src = node;
+            i_rt->from_pkg = type_resolver->current_package;
+            scope_set(&block_scope, node->node.foreach.var.lhs.name, i_rt);
             LLNode_ASTNode* curr = node->node.foreach.block->stmts.head;
             while (curr) {
                 changed |= resolve_type_node(type_resolver, &block_scope, &curr->data);
@@ -1391,6 +1418,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             if (resolved) {
                 ResolvedType* rt = arena_alloc(type_resolver->arena, sizeof *rt);
                 *rt = (ResolvedType){
+                    .from_pkg = type_resolver->current_package,
                     .kind = RTK_VOID,
                 };
                 type_resolver->packages->types[node->id.val] = (TypeInfo){
@@ -1431,6 +1459,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             if (resolved) {
                 ResolvedType* rt = arena_alloc(type_resolver->arena, sizeof *rt);
                 *rt = (ResolvedType){
+                    .from_pkg = type_resolver->current_package,
                     .kind = RTK_VOID,
                 };
                 type_resolver->packages->types[node->id.val] = (TypeInfo){
@@ -1841,7 +1870,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         }
 
         case ANT_FUNCTION_DECL: {
-            if (type_resolver->packages->types[node->id.val].status != TIS_CONFIDENT) {
+            // if (type_resolver->packages->types[node->id.val].status != TIS_CONFIDENT) {
                 ResolvedFunctionParam* params = arena_calloc(type_resolver->arena, node->node.function_decl.header.params.length, sizeof *params);
                 LLNode_FnParam* param = node->node.function_decl.header.params.head;
                 size_t i = 0;
@@ -1850,6 +1879,10 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                     if (!param_type) {
                         break;
                     }
+                    *packages_type_by_type(type_resolver->packages, param->data.type.id) = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = param_type,
+                    };
                     params[i] = (ResolvedFunctionParam){
                         .type = param_type,
                         .name = param->data.name,
@@ -1862,10 +1895,14 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                     break;
                 }
 
-                ResolvedType* return_type = calc_resolved_type(type_resolver, scope, (Type*)&node->node.function_decl.header.return_type);
+                ResolvedType* return_type = calc_resolved_type(type_resolver, scope, &node->node.function_decl.header.return_type);
                 if (!return_type) {
                     break;
                 }
+                *packages_type_by_type(type_resolver->packages, node->node.function_decl.header.return_type.id) = (TypeInfo){
+                    .status = TIS_CONFIDENT,
+                    .type = return_type,
+                };
 
                 ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
                 *resolved_type = (ResolvedType){
@@ -1887,11 +1924,11 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
                 // TODO: handle cross-checking forward decl.
                 scope_set(scope, node->node.function_header_decl.name, resolved_type);
-            }
+            // }
 
             ResolvedType* fn_type = type_resolver->packages->types[node->id.val].type;
             assert(fn_type);
-            assert(fn_type->kind = RTK_FUNCTION);
+            assert(fn_type->kind == RTK_FUNCTION);
 
             type_resolver->current_function = &fn_type->type.function;
 
@@ -1905,9 +1942,9 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
             LLNode_ASTNode* curr = node->node.function_decl.stmts.head;
             while (curr) {
-                if (type_resolver->packages->types[curr->data.id.val].status != TIS_CONFIDENT) {
+                // if (type_resolver->packages->types[curr->data.id.val].status != TIS_CONFIDENT) {
                     changed |= resolve_type_node(type_resolver, &block_scope, &curr->data);
-                }
+                // }
                 curr = curr->next;
             }
 
@@ -2031,7 +2068,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         default: printf("TODO: ANT_%d\n", node->type); assert(false);
     }
 
-    return changed;
+    return changed && !already_known;
 }
 
 static void resolve_file(TypeResolver* type_resolver, Scope* scope, ASTNodeFileRoot file) {

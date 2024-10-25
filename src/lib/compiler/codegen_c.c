@@ -22,6 +22,29 @@ typedef enum {
     TS_COUNT
 } TransformStage;
 
+static DirectiveCHeader* get_c_header(Package* package) {
+    if (!package || !package->ast) {
+        return NULL;
+    }
+    assert(package->ast->type == ANT_FILE_ROOT);
+
+    LLNode_ASTNode* n_curr = package->ast->node.file_root.nodes.head;
+    while (n_curr) {
+        if (n_curr->data.type == ANT_PACKAGE) {
+            LLNode_Directive* d_curr = n_curr->data.directives.head;
+            while (d_curr) {
+                if (d_curr->data.type == DT_C_HEADER) {
+                    return &d_curr->data.dir.c_header;
+                }
+                d_curr = d_curr->next;
+            }
+        }
+        n_curr = n_curr->next;
+    }
+
+    return NULL;
+}
+
 static size_t unique_id(void) {
     static size_t next_id = 0;
     return next_id++;
@@ -31,6 +54,26 @@ String unique_var_name(Arena* arena) {
     StringBuffer sb = strbuf_create(arena);
     strbuf_append_chars(&sb, "ql_GEN_");
     strbuf_append_uint(&sb, unique_id());
+    return strbuf_to_str(sb);
+}
+
+String user_var_name(Arena* arena, String name, Package* pkg) {
+    if (!pkg || get_c_header(pkg)) {
+        return name;
+    }
+    
+    StringBuffer sb = strbuf_create(arena);
+    PackagePath* path = pkg->full_name;
+    if (!path) {
+        strbuf_append_chars(&sb, "main_");
+    } else {
+        while (path) {
+            strbuf_append_str(&sb, path->name);
+            strbuf_append_char(&sb, '_');
+            path = path->child;
+        }
+    }
+    strbuf_append_str(&sb, name);
     return strbuf_to_str(sb);
 }
 
@@ -62,26 +105,6 @@ static void ll_node_push(Arena* const arena, LL_IR_C_Node* const ll, IR_C_Node c
     }
 
     ll->length += 1;
-}
-
-static DirectiveCHeader* get_c_header(Package* package) {
-    assert(package->ast->type == ANT_FILE_ROOT);
-
-    LLNode_ASTNode* n_curr = package->ast->node.file_root.nodes.head;
-    while (n_curr) {
-        if (n_curr->data.type == ANT_PACKAGE) {
-            LLNode_Directive* d_curr = n_curr->data.directives.head;
-            while (d_curr) {
-                if (d_curr->data.type == DT_C_HEADER) {
-                    return &d_curr->data.dir.c_header;
-                }
-                d_curr = d_curr->next;
-            }
-        }
-        n_curr = n_curr->next;
-    }
-
-    return NULL;
 }
 
 static void _append_file_path(StringBuffer* sb, PackagePath* package_path) {
@@ -118,7 +141,7 @@ static String gen_header_file_path(Arena* arena, PackagePath* package_path) {
     return strbuf_to_str(sb);
 }
 
-static void _append_type(CodegenC* codegen, StringBuffer* sb, Type type) {
+static void _append_type(CodegenC* codegen, StringBuffer* sb, Type type, Package* from_pkg) {
     switch (type.kind) {
         case TK_BUILT_IN: {
             switch (type.type.built_in) {
@@ -177,10 +200,11 @@ static void _append_type(CodegenC* codegen, StringBuffer* sb, Type type) {
                 curr = curr->child;
             }
 
-            strbuf_append_str(sb, curr->name);
+            String name = user_var_name(codegen->arena, curr->name, from_pkg);
+            strbuf_append_str(sb, name);
 
             if (type.type.static_path.generic_types.length > 0) {
-                strbuf_append_chars(sb, "__");
+                strbuf_append_chars(sb, "_");
                 strbuf_append_uint(sb, type.type.static_path.impl_version);
             }
 
@@ -193,19 +217,20 @@ static void _append_type(CodegenC* codegen, StringBuffer* sb, Type type) {
         }
 
         case TK_POINTER: {
-            _append_type(codegen, sb, *type.type.mut_ptr.of);
+            _append_type(codegen, sb, *type.type.mut_ptr.of, from_pkg);
             strbuf_append_chars(sb, "*");
             break;
         }
 
         case TK_MUT_POINTER: {
-            _append_type(codegen, sb, *type.type.mut_ptr.of);
+            _append_type(codegen, sb, *type.type.mut_ptr.of, from_pkg);
             strbuf_append_char(sb, '*');
             break;
         }
 
         case TK_ARRAY: {
-            assert(false);
+            _append_type(codegen, sb, *type.type.array.of, from_pkg);
+            // strbuf_append_chars(sb, "[]");
             break;
         }
 
@@ -219,6 +244,9 @@ static void _append_type(CodegenC* codegen, StringBuffer* sb, Type type) {
 }
 
 static void _append_type_resolved(CodegenC* codegen, StringBuffer* sb, ResolvedType* type) {
+    assert(codegen);
+    assert(sb);
+    assert(type);
     switch (type->kind) {
         case RTK_NAMESPACE: assert(false);
 
@@ -251,15 +279,17 @@ static void _append_type_resolved(CodegenC* codegen, StringBuffer* sb, ResolvedT
         }
 
         case RTK_STRUCT_DECL: {
-            strbuf_append_str(sb, type->type.struct_decl.name);
+            String name = user_var_name(codegen->arena, type->type.struct_decl.name, type->from_pkg);
+            strbuf_append_str(sb, name);
             assert(type->type.struct_decl.generic_params.length == 0); // otherwise should be RTK_STRUCT_REF
             break;
         }
 
         case RTK_STRUCT_REF: {
-            strbuf_append_str(sb, type->type.struct_ref.decl.name);
+            String name = user_var_name(codegen->arena, type->type.struct_ref.decl.name, type->from_pkg);
+            strbuf_append_str(sb, name);
             if (type->type.struct_ref.generic_args.length > 0) {
-                strbuf_append_chars(sb, "__");
+                strbuf_append_chars(sb, "_");
                 strbuf_append_uint(sb, type->type.struct_ref.impl_version);
             }
             break;
@@ -295,9 +325,9 @@ static String gen_type_resolved(CodegenC* codegen, ResolvedType* type) {
     return strbuf_to_str(sb);
 }
 
-static String gen_type(CodegenC* codegen, Type type) {
+static String gen_type(CodegenC* codegen, Type type, Package* from_pkg) {
     StringBuffer sb = strbuf_create(codegen->arena);
-    _append_type(codegen, &sb, type);
+    _append_type(codegen, &sb, type, from_pkg);
     return strbuf_to_str(sb);
 }
 
@@ -305,6 +335,8 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
 static void _fn_header_decl(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, FileType ftype) {
     ResolvedType* type = codegen->packages->types[node->id.val].type;
+    assert(type);
+    assert(type->from_pkg);
 
     Strings params = {
         .length = 0,
@@ -315,7 +347,7 @@ static void _fn_header_decl(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* n
 
         LLNode_FnParam* curr = node->node.function_header_decl.params.head;
         while (curr) {
-            strbuf_append_str(&sb, gen_type(codegen, curr->data.type));
+            strbuf_append_str(&sb, gen_type(codegen, curr->data.type, type->from_pkg));
             strbuf_append_char(&sb, ' ');
             strbuf_append_str(&sb, curr->data.name);
 
@@ -331,7 +363,7 @@ static void _fn_header_decl(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* n
     ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
         .type = ICNT_FUNCTION_HEADER_DECL,
         .node.function_decl = {
-            .return_type = gen_type(codegen, node->node.function_header_decl.return_type),
+            .return_type = gen_type(codegen, node->node.function_header_decl.return_type, type->from_pkg),
             .name = name,
             .params = params,
         },
@@ -398,7 +430,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                     StringBuffer sb = strbuf_create(codegen->arena);
                     strbuf_append_chars(&sb, "((");
                     {
-                        String str_struct_name = *str_type->src->node.struct_decl.maybe_name;
+                        String str_struct_name = user_var_name(codegen->arena, *str_type->src->node.struct_decl.maybe_name, str_type->from_pkg);
                         strbuf_append_str(&sb, str_struct_name);
                     }
                     strbuf_append_chars(&sb, "){");
@@ -459,6 +491,8 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
         }
 
         case ANT_TEMPLATE_STRING: {
+            codegen->needs_string_template = true;
+
             String var_name = unique_var_name(codegen->arena);
             String var_ptr;
             {
@@ -473,7 +507,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 IR_C_Node* sb_init_target = arena_alloc(codegen->arena, sizeof *sb_init_target);
                 *sb_init_target = (IR_C_Node){
                     .type = ICNT_RAW,
-                    .node.raw.str = c_str("strbuf_default"),
+                    .node.raw.str = c_str("std_ds_strbuf_default"),
                 };
 
                 IR_C_Node* sb_init = arena_alloc(codegen->arena, sizeof *sb_init);
@@ -488,7 +522,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 ll_node_push(codegen->arena, codegen->stmt_block, (IR_C_Node){
                     .type = ICNT_VAR_DECL,
                     .node.var_decl = {
-                        .type = c_str("StringBuffer"), // TODO: codegen->string_template_type
+                        .type = c_str("std_ds_StringBuffer"),
                         .name = var_name,
                         .init = sb_init,
                     },
@@ -500,7 +534,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 IR_C_Node* append_chars_target = arena_alloc(codegen->arena, sizeof *append_chars_target);
                 *append_chars_target = (IR_C_Node){
                     .type = ICNT_RAW,
-                    .node.raw.str = c_str("strbuf_append_chars"),
+                    .node.raw.str = c_str("std_ds_strbuf_append_chars"),
                 };
 
                 LL_IR_C_Node append_chars_args = {0};
@@ -543,7 +577,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                         IR_C_Node* append_chars_target = arena_alloc(codegen->arena, sizeof *append_chars_target);
                         *append_chars_target = (IR_C_Node){
                             .type = ICNT_RAW,
-                            .node.raw.str = c_str("strbuf_append_int"),
+                            .node.raw.str = c_str("std_ds_strbuf_append_int"),
                         };
 
                         LL_IR_C_Node append_chars_args = {0};
@@ -574,7 +608,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                         IR_C_Node* append_chars_target = arena_alloc(codegen->arena, sizeof *append_chars_target);
                         *append_chars_target = (IR_C_Node){
                             .type = ICNT_RAW,
-                            .node.raw.str = c_str("strbuf_append_uint"),
+                            .node.raw.str = c_str("std_ds_strbuf_append_uint"),
                         };
 
                         LL_IR_C_Node append_chars_args = {0};
@@ -605,7 +639,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                         IR_C_Node* append_chars_target = arena_alloc(codegen->arena, sizeof *append_chars_target);
                         *append_chars_target = (IR_C_Node){
                             .type = ICNT_RAW,
-                            .node.raw.str = c_str("strbuf_append_char"),
+                            .node.raw.str = c_str("std_ds_strbuf_append_char"),
                         };
 
                         LL_IR_C_Node append_chars_args = {0};
@@ -638,7 +672,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                         IR_C_Node* append_chars_target = arena_alloc(codegen->arena, sizeof *append_chars_target);
                         *append_chars_target = (IR_C_Node){
                             .type = ICNT_RAW,
-                            .node.raw.str = c_str("strbuf_append_str"),
+                            .node.raw.str = c_str("std_ds_strbuf_append_str"),
                         };
 
                         LL_IR_C_Node append_chars_args = {0};
@@ -671,7 +705,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 IR_C_Node* append_chars_target = arena_alloc(codegen->arena, sizeof *append_chars_target);
                 *append_chars_target = (IR_C_Node){
                     .type = ICNT_RAW,
-                    .node.raw.str = c_str("strbuf_append_chars"),
+                    .node.raw.str = c_str("std_ds_strbuf_append_chars"),
                 };
 
                 LL_IR_C_Node append_chars_args = {0};
@@ -713,7 +747,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 IR_C_Node* to_str_target = arena_alloc(codegen->arena, sizeof *to_str_target);
                 *to_str_target = (IR_C_Node){
                     .type = ICNT_RAW,
-                    .node.raw.str = c_str("strbuf_as_str"),
+                    .node.raw.str = c_str("std_ds_strbuf_as_str"),
                 };
 
                 LL_IR_C_Node to_str_args = {0};
@@ -736,7 +770,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 assert(codegen->stmt_block->to_defer);
 
                 StringBuffer sb = strbuf_create(codegen->arena);
-                strbuf_append_chars(&sb, "strbuf_free(");
+                strbuf_append_chars(&sb, "std_ds_strbuf_free(");
                 strbuf_append_str(&sb, var_name);
                 strbuf_append_char(&sb, ')');
 
@@ -799,10 +833,13 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             }
 
             ResolvedType* type = codegen->packages->types[node->id.val].type;
+            assert(type);
+
+            String name = user_var_name(codegen->arena, child->name, type->from_pkg);
 
             ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
                 .type = ICNT_RAW,
-                .node.raw.str = child->name,
+                .node.raw.str = name,
             });
             break;
         }
@@ -829,19 +866,13 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 case UO_PTR_REF: {
                     op = c_str("&");
                     if (node->node.unary_op.right->type == ANT_LITERAL) {
-                        static size_t id = 0;
-
+                        String var_name = unique_var_name(codegen->arena);
                         String var_ptr;
-                        String var_name;
                         {
                             StringBuffer sb = strbuf_create(codegen->arena);
-                            strbuf_append_chars(&sb, "&GEN_rval_");
-                            strbuf_append_uint(&sb, id++);
+                            strbuf_append_char(&sb, '&');
+                            strbuf_append_str(&sb, var_name);
                             var_ptr = strbuf_to_str(sb);
-                            var_name = (String){
-                                .length = var_ptr.length - 1,
-                                .chars = var_ptr.chars + 1,
-                            };
                         }
 
                         TypeBuiltIn built_in;
@@ -969,7 +1000,13 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                     .node.sizeof_expr.expr = &expr_ll.head->data,
                 });
             } else {
-                String type = gen_type(codegen, *node->node.sizeof_.sizeof_.type);
+                TypeInfo* ti = packages_type_by_type(codegen->packages, node->node.sizeof_.sizeof_.type->id);
+                Package* pkg = NULL;
+                if (ti && ti->type) {
+                    pkg = ti->type->from_pkg;
+                }
+
+                String type = gen_type(codegen, *node->node.sizeof_.sizeof_.type, pkg);
 
                 ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
                     .type = ICNT_SIZEOF_TYPE,
@@ -1150,14 +1187,20 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             assert(rt);
 
             String type;
-            // if (node->node.var_decl.type_or_let.is_let) {
+            if (node->node.var_decl.type_or_let.is_let) {
                 type = gen_type_resolved(codegen, rt);
-            // } else {
-            //     type = gen_type(codegen, *node->node.var_decl.type_or_let.maybe_type);
-            // }
+            } else {
+                ResolvedType* trt = packages_type_by_type(codegen->packages, node->node.var_decl.type_or_let.maybe_type->id)->type;
+                assert(trt);
+                type = gen_type(codegen, *node->node.var_decl.type_or_let.maybe_type, trt->from_pkg);
+            }
 
             assert(node->node.var_decl.lhs.type == VDLT_NAME);
-            String name = node->node.var_decl.lhs.lhs.name;
+            String name = user_var_name(
+                codegen->arena,
+                node->node.var_decl.lhs.lhs.name,
+                rt->from_pkg
+            );
 
             if (node->node.var_decl.type_or_let.maybe_type && node->node.var_decl.type_or_let.maybe_type->kind == TK_ARRAY) {
                 StringBuffer sb = strbuf_create_with_capacity(codegen->arena, name.length + 2);
@@ -1209,6 +1252,8 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
             if (stage == TS_FN_HEADERS) {
                 ResolvedType* type = codegen->packages->types[node->id.val].type;
+                assert(type);
+                assert(type->from_pkg);
                 Strings params = {
                     .length = 0,
                     .strings = arena_calloc(codegen->arena, node->node.function_decl.header.params.length, sizeof(String)),
@@ -1218,9 +1263,14 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
                     LLNode_FnParam* curr = node->node.function_decl.header.params.head;
                     while (curr) {
-                        strbuf_append_str(&sb, gen_type(codegen, curr->data.type));
+                        TypeInfo* curr_ti = packages_type_by_type(codegen->packages, curr->data.type.id);
+                        assert(curr_ti);
+                        assert(curr_ti->type);
+                        assert(curr_ti->type->from_pkg);
+
+                        strbuf_append_str(&sb, gen_type(codegen, curr->data.type, curr_ti->type->from_pkg));
                         strbuf_append_char(&sb, ' ');
-                        strbuf_append_str(&sb, curr->data.name);
+                        strbuf_append_str(&sb, user_var_name(codegen->arena, curr->data.name, curr_ti->type->from_pkg));
 
                         params.strings[params.length++] = strbuf_to_strcpy(sb);
                         strbuf_reset(&sb);
@@ -1229,13 +1279,25 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                     }
                 }
 
-                String return_type = gen_type(codegen, node->node.function_decl.header.return_type);
+                String return_type;
+                {
+                    TypeInfo* ti = packages_type_by_type(codegen->packages, node->node.function_decl.header.return_type.id);
+                    Package* pkg = NULL;
+                    if (ti && ti->type) {
+                        pkg = ti->type->from_pkg;
+                    }
+                    return_type = gen_type(codegen, node->node.function_decl.header.return_type, pkg);
+                }
 
                 String name;
                 if (node->node.function_decl.header.is_main) {
                     name = c_str("_main");
                 } else {
-                    name = node->node.function_decl.header.name;
+                    name = user_var_name(
+                        codegen->arena,
+                        node->node.function_decl.header.name,
+                        type->from_pkg
+                    );
                 }
 
                 ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
@@ -1254,6 +1316,8 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             }
 
             ResolvedType* type = codegen->packages->types[node->id.val].type;
+            assert(type);
+            assert(type->from_pkg);
             Strings params = {
                 .length = 0,
                 .strings = arena_calloc(codegen->arena, node->node.function_decl.header.params.length, sizeof(String)),
@@ -1263,9 +1327,14 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
                 LLNode_FnParam* curr = node->node.function_decl.header.params.head;
                 while (curr) {
-                    strbuf_append_str(&sb, gen_type(codegen, curr->data.type));
+                    TypeInfo* curr_ti = packages_type_by_type(codegen->packages, curr->data.type.id);
+                    assert(curr_ti);
+                    assert(curr_ti->type);
+                    assert(curr_ti->type->from_pkg);
+
+                    strbuf_append_str(&sb, gen_type(codegen, curr->data.type, curr_ti->type->from_pkg));
                     strbuf_append_char(&sb, ' ');
-                    strbuf_append_str(&sb, curr->data.name);
+                    strbuf_append_str(&sb, user_var_name(codegen->arena, curr->data.name, curr_ti->type->from_pkg));
 
                     params.strings[params.length++] = strbuf_to_strcpy(sb);
                     strbuf_reset(&sb);
@@ -1288,13 +1357,25 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             }
             codegen->stmt_block = NULL;
 
-            String return_type = gen_type(codegen, node->node.function_decl.header.return_type);
+            String return_type;
+            {
+                TypeInfo* ti = packages_type_by_type(codegen->packages, node->node.function_decl.header.return_type.id);
+                Package* pkg = NULL;
+                if (ti && ti->type) {
+                    pkg = ti->type->from_pkg;
+                }
+                return_type = gen_type(codegen, node->node.function_decl.header.return_type, pkg);
+            }
 
             String name;
             if (node->node.function_decl.header.is_main) {
                 name = c_str("_main");
             } else {
-                name = node->node.function_decl.header.name;
+                name = user_var_name(
+                    codegen->arena,
+                    node->node.function_decl.header.name,
+                    type->from_pkg
+                );
             }
 
             ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
@@ -1322,6 +1403,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
             ResolvedType* type = codegen->packages->types[node->id.val].type;
             assert(type);
+            assert(type->from_pkg);
 
             size_t versions = node->node.struct_decl.generic_impls.length;
             if (versions == 0) {
@@ -1348,7 +1430,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                         LLNode_Type* curr = generic_impl_types.head;
                         for (size_t i = 0; curr && i < node->node.struct_decl.generic_params.length; ++i) {
                             map.generic_names[i] = node->node.struct_decl.generic_params.array[i];
-                            map.mapped_types[i] = gen_type(codegen, curr->data);
+                            map.mapped_types[i] = gen_type(codegen, curr->data, type->from_pkg);
                             curr = curr->next;
                         }
                     }
@@ -1377,12 +1459,17 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                     }
                 }
 
-                String name = *node->node.struct_decl.maybe_name;
+                assert(node->node.struct_decl.maybe_name);
+                String name = user_var_name(
+                    codegen->arena,
+                    *node->node.struct_decl.maybe_name,
+                    type->from_pkg
+                );
 
                 if (node->node.struct_decl.generic_params.length > 0) {
                     StringBuffer sb = strbuf_create_with_capacity(codegen->arena, name.length + 3);
                     strbuf_append_str(&sb, name);
-                    strbuf_append_chars(&sb, "__");
+                    strbuf_append_chars(&sb, "_");
                     strbuf_append_uint(&sb, version);
                     name = strbuf_to_str(sb);
                 }
@@ -1493,6 +1580,10 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
         }
 
         case ANT_FOREACH: {
+            ResolvedType* rt = codegen->packages->types[node->id.val].type;
+            assert(rt);
+            assert(rt->kind == RTK_VOID);
+
             ResolvedType* iter_rt = codegen->packages->types[node->node.foreach.iterable->id.val].type;
             assert(iter_rt);
             assert(iter_rt->kind == RTK_STRUCT_DECL);
@@ -1532,16 +1623,20 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 });
             }
 
+            String var_i_name = user_var_name(
+                codegen->arena,
+                node->node.foreach.var.lhs.name,
+                rt->from_pkg
+            );
+
             IR_C_Node* for_init = arena_alloc(codegen->arena, sizeof *for_init);
             IR_C_Node* for_cond = arena_alloc(codegen->arena, sizeof *for_cond);
             IR_C_Node* for_step = arena_alloc(codegen->arena, sizeof *for_step);
 
             {
-                assert(node->node.foreach.var.type == VDLT_NAME);
-
                 StringBuffer sb = strbuf_create(codegen->arena);
                 strbuf_append_chars(&sb, "int64_t ");
-                strbuf_append_str(&sb, node->node.foreach.var.lhs.name);
+                strbuf_append_str(&sb, var_i_name);
                 strbuf_append_chars(&sb, " = ((int64_t*)&");
                 strbuf_append_str(&sb, var_range_name);
                 strbuf_append_chars(&sb, ")[0]");
@@ -1554,7 +1649,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
             {
                 StringBuffer sb = strbuf_create(codegen->arena);
-                strbuf_append_str(&sb, node->node.foreach.var.lhs.name);
+                strbuf_append_str(&sb, var_i_name);
                 strbuf_append_chars(&sb, " < ");
                 strbuf_append_str(&sb, var_max_name);
 
@@ -1567,7 +1662,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             {
                 StringBuffer sb = strbuf_create(codegen->arena);
                 strbuf_append_chars(&sb, "++");
-                strbuf_append_str(&sb, node->node.foreach.var.lhs.name);
+                strbuf_append_str(&sb, var_i_name);
 
                 *for_step = (IR_C_Node){
                     .type = ICNT_RAW,
@@ -1763,6 +1858,8 @@ static LL_IR_C_Node transform_to_nodes(CodegenC* codegen, Package* package, File
         });
     }
 
+    codegen->needs_string_template = false;
+
     for (TransformStage stage = 0; stage < TS_COUNT; ++stage) {
         assert(package->ast->type == ANT_FILE_ROOT);
         LLNode_ASTNode* curr = package->ast->node.file_root.nodes.head;
@@ -1772,15 +1869,41 @@ static LL_IR_C_Node transform_to_nodes(CodegenC* codegen, Package* package, File
         }
     }
 
+    if (codegen->needs_string_template) {
+        assert(codegen->packages->string_template_type);
+        assert(codegen->packages->string_template_type->from_pkg);
+
+        // include header if not in main
+        if (codegen->packages->string_template_type->from_pkg->full_name) {
+            LLNode_IR_C_Node* prev_head = nodes.head;
+            LLNode_IR_C_Node* new_head = arena_alloc(codegen->arena, sizeof *new_head);
+            *new_head = (LLNode_IR_C_Node){
+                .data = {
+                    .type = ICNT_MACRO_INCLUDE,
+                    .node.include = {
+                        .is_local = true,
+                        .file = gen_header_file_path(codegen->arena, codegen->packages->string_template_type->from_pkg->full_name),
+                    },
+                },
+                .next = prev_head,
+            };
+            nodes.head = new_head;
+            nodes.length += 1;
+        } else {
+            // if @string_template_literal in main, can only use string templates in main
+            assert(ftype == FT_MAIN);
+        }
+    }
+
     if (ftype == FT_MAIN) {
         StringBuffer sb = strbuf_create(codegen->arena);
-        strbuf_append_chars(&sb, "args = (Array__0){0};");
+        strbuf_append_chars(&sb, "std_args = (std_Array_0){0};");
         strbuf_append_chars(&sb, "\n    ");
-        strbuf_append_chars(&sb, "args.length = argc;");
+        strbuf_append_chars(&sb, "std_args.length = argc;");
         strbuf_append_chars(&sb, "\n    ");
-        strbuf_append_chars(&sb, "args.data = calloc(argc, sizeof *args.data);");
+        strbuf_append_chars(&sb, "std_args.data = calloc(argc, sizeof *std_args.data);");
         strbuf_append_chars(&sb, "\n    ");
-        strbuf_append_chars(&sb, "for (size_t i = 0; i < argc; ++i) { args.data[i] = (String){ strlen(argv[i]), argv[i] }; }\n");
+        strbuf_append_chars(&sb, "for (size_t i = 0; i < argc; ++i) { std_args.data[i] = (std_String){ strlen(argv[i]), argv[i] }; }\n");
 
         LL_IR_C_Node main_statements = {0};
         ll_node_push(codegen->arena, &main_statements, (IR_C_Node){

@@ -813,5 +813,9 @@ ImportPath* package_path_to_import_path(Arena* arena, PackagePath* package_path)
 bool package_path_eq(PackagePath* p1, PackagePath* p2);
 
 void print_astnode(ASTNode const node);
+void println_astnode(ASTNode const node);
+
+void print_string(String const str);
+void println_string(String const str);
 
 #endif

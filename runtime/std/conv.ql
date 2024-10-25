@@ -12,8 +12,8 @@ Result<uint> parse_uint(String str) {
 	}
 
 	uint n = 0;
-	foreach i in 0..str.length {
-		char c = str.bytes[i];
+	foreach ix in 0..str.length {
+		char c = str.bytes[ix];
 
 		if c <= '0' || '9' <= c {
 			return .{

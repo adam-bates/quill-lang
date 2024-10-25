@@ -1,5 +1,7 @@
 package std;
 
+import libc/stdlib;
+
 static Array<String> args;
 
 @string_literal struct String {
@@ -26,5 +28,12 @@ struct Result<T> {
 	bool to_inclusive,
 }
 
-void assert(bool expr);
-void exit(int code);
+void assert(bool expr) {
+	if !expr {
+		exit(1);
+	}
+}
+
+void exit(int code) {
+	stdlib::exit(code);
+}
