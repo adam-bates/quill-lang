@@ -14,7 +14,7 @@ void main() {
     }
     uint n = res.val;
 
-    ds::StringBuffer mut out = ds::strbuf_default();
+    let mut out = ds::strbuf_default();
     foreach i in 1..=n {
         defer ds::strbuf_reset(&out);
     

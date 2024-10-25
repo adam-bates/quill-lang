@@ -1166,7 +1166,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             }
 
             if (type_resolver->packages->types[node->id.val].type) {
-                type_resolver->packages->types[node->id.val].type->from_pkg = type_resolver->current_package;
+                // type_resolver->packages->types[node->id.val].type->from_pkg = type_resolver->current_package;
                 scope_set(scope, node->node.var_decl.lhs.lhs.name, type_resolver->packages->types[node->id.val].type);
             }
 
