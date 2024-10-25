@@ -500,7 +500,7 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
             ResolvedType* generic_rt = arena_alloc(type_resolver->arena, sizeof *generic_rt);
             generic_rt->kind = RTK_GENERIC;
             generic_rt->type.generic.name = rt->type.struct_decl.generic_params.strings[i];
-            generic_rt->from_pkg = type_resolver->current_package;
+            generic_rt->from_pkg = rt->from_pkg;
             scope_set(&fields_scope, rt->type.struct_decl.generic_params.strings[i], generic_rt);
         }
 
@@ -697,9 +697,12 @@ static Changed resolve_type_type(TypeResolver* type_resolver, Scope* scope, ASTN
         .type = resolved_type,
     };
 
+    ResolvedType* resolved_type2 = arena_alloc(type_resolver->arena, sizeof *resolved_type2);
+    *resolved_type2 = *resolved_type;
+
     *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
         .status = TIS_CONFIDENT,
-        .type = resolved_type,
+        .type = resolved_type2,
     };
 
     return !already_known;
@@ -1145,30 +1148,25 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             } else {
                 changed |= resolve_type_type(type_resolver, scope, node, node->node.var_decl.type_or_let.maybe_type);
 
-                if (has_init) {
-                    if (type_resolver->packages->types[node->id.val].type) {
-                        changed |= resolve_type_node(type_resolver, scope, node->node.var_decl.initializer);
-                        // assert(type.resolved_type == node.resolved_type); // TODO
+                if (has_init && type_resolver->packages->types[node->id.val].type) {
+                    changed |= resolve_type_node(type_resolver, scope, node->node.var_decl.initializer);
+                    // assert(type.resolved_type == node.resolved_type); // TODO
 
-                        if (!type_resolver->packages->types[node->node.var_decl.initializer->id.val].type
-                            && node->node.var_decl.initializer->type == ANT_STRUCT_INIT
-                        ) {
-                            TypeInfo* ti = packages_type_by_type(type_resolver->packages, node->node.var_decl.type_or_let.maybe_type->id);
-                            if (ti && ti->type) {
-                                type_resolver->packages->types[node->node.var_decl.initializer->id.val] = *ti;
-                            } else {
-                                type_resolver->packages->types[node->node.var_decl.initializer->id.val] = type_resolver->packages->types[node->id.val];
-                            }
+                    if (!type_resolver->packages->types[node->node.var_decl.initializer->id.val].type
+                        && node->node.var_decl.initializer->type == ANT_STRUCT_INIT
+                    ) {
+                        TypeInfo* ti = packages_type_by_type(type_resolver->packages, node->node.var_decl.type_or_let.maybe_type->id);
+                        if (ti && ti->type) {
+                            type_resolver->packages->types[node->node.var_decl.initializer->id.val] = *ti;
+                        } else {
+                            type_resolver->packages->types[node->node.var_decl.initializer->id.val] = type_resolver->packages->types[node->id.val];
                         }
-                    }
-                } else {
-                    if (changed && str_eq(node->node.var_decl.lhs.lhs.name, c_str("args"))) {
-                        assert(type_resolver->packages->types[node->id.val].type);
                     }
                 }
             }
 
             if (type_resolver->packages->types[node->id.val].type) {
+                type_resolver->packages->types[node->id.val].type->from_pkg = type_resolver->current_package;
                 scope_set(scope, node->node.var_decl.lhs.lhs.name, type_resolver->packages->types[node->id.val].type);
             }
 

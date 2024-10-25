@@ -833,9 +833,8 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             }
 
             ResolvedType* type = codegen->packages->types[node->id.val].type;
-            assert(type);
 
-            String name = user_var_name(codegen->arena, child->name, type->from_pkg);
+            String name = user_var_name(codegen->arena, child->name, type ? type->from_pkg : NULL);
 
             ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
                 .type = ICNT_RAW,
@@ -1488,6 +1487,9 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
         case ANT_CRASH: {
             if (node->node.crash.maybe_expr) {
+                codegen->needs_std = true;
+                codegen->needs_std_io = true;
+
                 LL_IR_C_Node expr_ll = {0};
                 fill_nodes(codegen, &expr_ll, node->node.crash.maybe_expr, ftype, stage, false);
                 assert(expr_ll.length == 1);
@@ -1495,15 +1497,17 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 ll_node_push(codegen->arena, codegen->stmt_block, (IR_C_Node){
                     .type = ICNT_RAW_WRAP,
                     .node.raw_wrap = {
-                        .pre = c_str("eprintln("),
+                        .pre = c_str("std_io_eprintln("),
                         .wrapped = &expr_ll.head->data,
-                        .post = c_str("); exit(1);"),
+                        .post = c_str("); std_exit(1);\n"),
                     },
                 });
             } else {
+                codegen->needs_std = true;
+
                 ll_node_push(codegen->arena, codegen->stmt_block, (IR_C_Node){
                     .type = ICNT_RAW,
-                    .node.raw.str = c_str("assert(false)"),
+                    .node.raw.str = c_str("std_assert(false);\n"),
                 });
             }
             break;
@@ -1858,6 +1862,8 @@ static LL_IR_C_Node transform_to_nodes(CodegenC* codegen, Package* package, File
         });
     }
 
+    codegen->needs_std = false;
+    codegen->needs_std_io = false;
     codegen->needs_string_template = false;
 
     for (TransformStage stage = 0; stage < TS_COUNT; ++stage) {
@@ -1867,6 +1873,40 @@ static LL_IR_C_Node transform_to_nodes(CodegenC* codegen, Package* package, File
             fill_nodes(codegen, &nodes, &curr->data, ftype, stage, true);
             curr = curr->next;
         }
+    }
+
+    if (codegen->needs_std) {
+        LLNode_IR_C_Node* prev_head = nodes.head;
+        LLNode_IR_C_Node* new_head = arena_alloc(codegen->arena, sizeof *new_head);
+        *new_head = (LLNode_IR_C_Node){
+            .data = {
+                .type = ICNT_MACRO_INCLUDE,
+                .node.include = {
+                    .is_local = true,
+                    .file = c_str("std.h"),
+                },
+            },
+            .next = prev_head,
+        };
+        nodes.head = new_head;
+        nodes.length += 1;
+    }
+
+    if (codegen->needs_std_io) {
+        LLNode_IR_C_Node* prev_head = nodes.head;
+        LLNode_IR_C_Node* new_head = arena_alloc(codegen->arena, sizeof *new_head);
+        *new_head = (LLNode_IR_C_Node){
+            .data = {
+                .type = ICNT_MACRO_INCLUDE,
+                .node.include = {
+                    .is_local = true,
+                    .file = c_str("std_io.h"),
+                },
+            },
+            .next = prev_head,
+        };
+        nodes.head = new_head;
+        nodes.length += 1;
     }
 
     if (codegen->needs_string_template) {

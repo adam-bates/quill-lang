@@ -230,6 +230,8 @@ typedef struct {
     LL_IR_C_Node* stmt_block;
 
     bool seen_file_separator;
+    bool needs_std;
+    bool needs_std_io;
     bool needs_string_template;
 
     BlockType prev_block;
