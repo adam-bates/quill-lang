@@ -226,6 +226,7 @@ typedef struct {
 
     IR_C ir;
 
+    Package* current_package;
     GenericImplMap* generic_map;
     LL_IR_C_Node* stmt_block;
 

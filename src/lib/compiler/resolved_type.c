@@ -50,8 +50,17 @@ bool resolved_type_eq(ResolvedType* a, ResolvedType* b) {
         case RTK_INT:
             return b->kind == a->kind;
 
-        case RTK_POINTER: return resolved_type_eq(a->type.ptr.of, b->type.ptr.of);
-        case RTK_MUT_POINTER: return resolved_type_eq(a->type.mut_ptr.of, b->type.mut_ptr.of);
+        case RTK_POINTER: switch (b->kind) {
+            case RTK_POINTER: return resolved_type_eq(a->type.ptr.of, b->type.ptr.of);
+            case RTK_MUT_POINTER: return resolved_type_eq(a->type.ptr.of, b->type.mut_ptr.of);
+            default: return false;
+        }
+
+        case RTK_MUT_POINTER: switch (b->kind) {
+            case RTK_POINTER: return resolved_type_eq(a->type.mut_ptr.of, b->type.ptr.of);
+            case RTK_MUT_POINTER: return resolved_type_eq(a->type.mut_ptr.of, b->type.mut_ptr.of);
+            default: return false;
+        }
 
         case RTK_STRUCT_REF: switch (b->kind) {
             case RTK_STRUCT_REF: return resolved_struct_decl_eq(&a->type.struct_ref.decl, &b->type.struct_ref.decl);
@@ -63,6 +72,13 @@ bool resolved_type_eq(ResolvedType* a, ResolvedType* b) {
             case RTK_STRUCT_REF: return resolved_struct_decl_eq(&a->type.struct_decl, &b->type.struct_ref.decl);
             case RTK_STRUCT_DECL: return resolved_struct_decl_eq(&a->type.struct_decl, &b->type.struct_decl);
             default: return false;
+        }
+
+        case RTK_GENERIC: {
+            if (b->kind != a->kind) {
+                return false;
+            }
+            return str_eq(a->type.generic.name, b->type.generic.name);
         }
 
         default: printf("TODO: resolved_type_eq(%d)\n", a->kind); assert(false); // TODO
