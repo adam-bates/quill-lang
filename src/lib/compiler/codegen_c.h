@@ -46,6 +46,7 @@ typedef enum {
     ICNT_FUNCTION_HEADER_DECL,
     ICNT_FUNCTION_DECL,
     ICNT_STRUCT_DECL,
+    ICNT_TYPEDEF_DECL,
 
     ICNT_COUNT
 } IR_C_NodeType;
@@ -169,6 +170,11 @@ typedef struct {
     Strings fields;
 } IR_C_StructDecl;
 
+typedef struct {
+    String type;
+    String name;
+} IR_C_TypedefDecl;
+
 typedef struct IR_C_Node {
     IR_C_NodeType type;
     union {
@@ -195,6 +201,7 @@ typedef struct IR_C_Node {
         IR_C_FunctionHeaderDecl function_header_decl;
         IR_C_FunctionDecl function_decl;
         IR_C_StructDecl struct_decl;
+        IR_C_TypedefDecl typedef_decl;
     } node;
 } IR_C_Node;
 

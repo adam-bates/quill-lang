@@ -1524,6 +1524,21 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             break;
         }
 
+        case ANT_TYPEDEF_DECL: {
+            if (root_call && (ftype == FT_C || stage != TS_TYPES)) {
+                break;
+            }
+
+            ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                .type = ICNT_TYPEDEF_DECL,
+                .node.typedef_decl = {
+                    .type = gen_type_resolved(codegen, codegen->packages->types[node->id.val].type),
+                    .name = user_var_name(codegen->arena, node->node.typedef_decl.name, codegen->current_package),
+                },
+            });
+            break;
+        }
+
         case ANT_CRASH: {
             if (node->node.crash.maybe_expr) {
                 codegen->needs_std = true;
@@ -2280,6 +2295,15 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
             indent -= 1;
             strbuf_append_chars(sb, "} ");
             strbuf_append_str(sb, node->node.struct_decl.name);
+            strbuf_append_char(sb, ';');
+            break;
+        }
+
+        case ICNT_TYPEDEF_DECL: {
+            strbuf_append_chars(sb, "typedef ");
+            strbuf_append_str(sb, node->node.typedef_decl.type);
+            strbuf_append_char(sb, ' ');
+            strbuf_append_str(sb, node->node.typedef_decl.name);
             strbuf_append_char(sb, ';');
             break;
         }

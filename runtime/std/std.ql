@@ -14,13 +14,29 @@ struct Array<T> {
 	T*   data,
 }
 
+typedef Error = String;
+
 struct Result<T> {
 	bool is_ok,
 	// union {
 		T      val,
-		String err,
+		Error err,
 	// },
 }
+
+// Result<T> res_ok<T>(T val) {
+// 	return .{
+// 		.is_ok = true,
+// 		.val = val,
+// 	};
+// }
+
+// Result<T> res_err<T>(Error err) {
+// 	return .{
+// 		.is_ok = false,
+// 		.err = err,
+// 	};
+// }
 
 @range_literal struct Range {
 	int from,
