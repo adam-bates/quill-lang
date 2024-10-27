@@ -279,6 +279,8 @@ static void _append_type_resolved(CodegenC* codegen, StringBuffer* sb, ResolvedT
         }
 
         case RTK_STRUCT_DECL: {
+            strbuf_append_chars(sb, "struct ");
+
             String name = user_var_name(codegen->arena, type->type.struct_decl.name, type->from_pkg);
             strbuf_append_str(sb, name);
             assert(type->type.struct_decl.generic_params.length == 0); // otherwise should be RTK_STRUCT_REF
@@ -286,6 +288,8 @@ static void _append_type_resolved(CodegenC* codegen, StringBuffer* sb, ResolvedT
         }
 
         case RTK_STRUCT_REF: {
+            strbuf_append_chars(sb, "struct ");
+
             String name = user_var_name(codegen->arena, type->type.struct_ref.decl.name, type->from_pkg);
             strbuf_append_str(sb, name);
             if (type->type.struct_ref.generic_args.length > 0) {
@@ -2264,7 +2268,9 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
         }
 
         case ICNT_STRUCT_DECL: {
-            strbuf_append_chars(sb, "typedef struct {\n");
+            strbuf_append_chars(sb, "typedef struct ");
+            strbuf_append_str(sb, node->node.struct_decl.name);
+            strbuf_append_chars(sb, " {\n");
             indent += 1;
             for (size_t i = 0; i < node->node.struct_decl.fields.length; ++i) {
                 for (size_t idnt = 0; idnt < indent; ++idnt) { strbuf_append_chars(sb, "    "); }
