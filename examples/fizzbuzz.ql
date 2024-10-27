@@ -4,7 +4,7 @@ import std/ds;
 import std/io;
 
 void main() {
-    let args = std::args;
+    std::Array<std::String> args = std::args;
 
     if args.length != 2 {
         CRASH "Usage: fizzbuzz [integer]";

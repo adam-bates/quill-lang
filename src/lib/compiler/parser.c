@@ -622,7 +622,9 @@ static Type* parser_parse_type_wrap(Parser* const parser, Type* type) {
             Token t = parser_peek(parser);
             Token* explicit_size = NULL;
             if (t.type != TT_RIGHT_BRACKET) {
-                assert(t.type == TT_LITERAL_NUMBER || t.type == TT_LITERAL_CHAR || t.type == TT_TRUE || t.type == TT_FALSE);
+                if (!(t.type == TT_LITERAL_NUMBER || t.type == TT_LITERAL_CHAR || t.type == TT_TRUE || t.type == TT_FALSE)) {
+                    return NULL;
+                }
                 explicit_size = parser->tokens.array + parser->cursor_current;
                 parser_advance(parser);
             }
@@ -2141,6 +2143,14 @@ static ParseResult parser_parse_stmt(Parser* const parser) {
     }
     size_t const cached_current = parser->cursor_current;
 
+    stmt_res = parser_parse_var_decl(parser, directives);
+    if (stmt_res.status == PRS_OK) {
+        // semicolon already consumed
+        // parser_consume(parser, TT_SEMICOLON, "Expected semicolon.");
+        return stmt_res;
+    }
+    parser->cursor_current = cached_current;
+
     stmt_res = parser_parse_expr(parser, directives);
     if (stmt_res.status == PRS_OK) {
         if (parser_peek(parser).type == TT_SEMICOLON) {
@@ -2152,14 +2162,6 @@ static ParseResult parser_parse_stmt(Parser* const parser) {
                 return stmt_res;
             }
         }
-    }
-    parser->cursor_current = cached_current;
-
-    stmt_res = parser_parse_var_decl(parser, directives);
-    if (stmt_res.status == PRS_OK) {
-        // semicolon already consumed
-        // parser_consume(parser, TT_SEMICOLON, "Expected semicolon.");
-        return stmt_res;
     }
     parser->cursor_current = cached_current;
 

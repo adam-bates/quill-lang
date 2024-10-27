@@ -872,6 +872,19 @@ void print_astnode(ASTNode const node) {
             String* m_name = node.node.struct_decl.maybe_name;
             if (m_name != NULL) {
                 print_string(*m_name);
+
+                if (node.node.struct_decl.generic_params.length > 0) {
+                    printf("<");
+                    for (size_t i = 0; i < node.node.struct_decl.generic_params.length; ++i) {
+                        if (i > 0) {
+                            printf(", ");
+                        }
+
+                        print_string(node.node.struct_decl.generic_params.array[i]);
+                    }
+                    printf(">");
+                }
+
                 printf(" ");
             }
 

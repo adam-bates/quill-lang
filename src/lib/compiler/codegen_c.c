@@ -298,6 +298,7 @@ static void _append_type_resolved(CodegenC* codegen, StringBuffer* sb, ResolvedT
         case RTK_GENERIC: {
             String* mapped = get_mapped_generic(codegen->generic_map, type->type.generic.name);
             if (!mapped) {
+                println_astnode(*type->src);
                 printf("Couldn't find %s\n", arena_strcpy(codegen->arena, type->type.generic.name).chars);
             }
             assert(mapped);
@@ -1449,6 +1450,9 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             for (size_t version = 0; version < versions; ++version) {
                 if (node->node.struct_decl.generic_impls.length > 0) {
                     LL_Type generic_impl_types = node->node.struct_decl.generic_impls.array[version];
+                    if (generic_impl_types.length == 0 && versions > 1) {
+                        continue;
+                    }
 
                     GenericImplMap map = {
                         .parent = root_map,
