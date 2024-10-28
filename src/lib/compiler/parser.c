@@ -596,7 +596,7 @@ static Type* parser_parse_type_wrap(Parser* const parser, Type* type) {
             parser_advance(parser);
 
             t = parser_peek(parser);
-            while (t.type != TT_GREATER && t.type != TT_EOF) {
+            while (t.type != TT_GREATER && t.type != TT_GREATER_GREATER && t.type != TT_EOF) {
                 Type* generic = parser_parse_type(parser);
                 assert(generic);
 
@@ -604,7 +604,7 @@ static Type* parser_parse_type_wrap(Parser* const parser, Type* type) {
 
                 t = parser_peek(parser);
 
-                if (t.type != TT_GREATER && t.type != TT_EOF) {
+                if (t.type != TT_GREATER && t.type != TT_GREATER_GREATER && t.type != TT_EOF) {
                     assert(parser_consume(parser, TT_COMMA, "Expected ',' between generics"));
                     t = parser_peek(parser);
                 }
@@ -612,7 +612,11 @@ static Type* parser_parse_type_wrap(Parser* const parser, Type* type) {
             if (parser_peek(parser).type == TT_COMMA) {
                 parser_advance(parser);
             }
-            assert(parser_consume(parser, TT_GREATER, "Expected '>' to close generic type"));
+            if (parser_peek(parser).type == TT_GREATER_GREATER) {
+                parser->tokens.array[parser->cursor_current].type = TT_GREATER;
+            } else {
+                assert(parser_consume(parser, TT_GREATER, "Expected '>' to close generic type"));
+            }
 
             return parser_parse_type_wrap(parser, type);
         }
@@ -671,14 +675,14 @@ static Type* parser_parse_type(Parser* const parser) {
                 parser_advance(parser);
 
                 Token t = parser_peek(parser);
-                while (t.type != TT_GREATER && t.type != TT_EOF) {
+                while (t.type != TT_GREATER && t.type != TT_GREATER_GREATER && t.type != TT_EOF) {
                     Type* generic_arg = parser_parse_type(parser);
                     assert(generic_arg);
 
                     ll_type_push(parser->arena, &type->type.static_path.generic_types, *generic_arg);
                     t = parser_peek(parser);
 
-                    if (t.type != TT_GREATER && t.type != TT_EOF) {
+                    if (t.type != TT_GREATER && t.type != TT_GREATER_GREATER && t.type != TT_EOF) {
                         assert(parser_consume(parser, TT_COMMA, "Expected ',' between generic args"));
                     }
                 }
@@ -686,7 +690,11 @@ static Type* parser_parse_type(Parser* const parser) {
                     parser_advance(parser);
                 }
 
-                assert(parser_consume(parser, TT_GREATER, "Expected '>' to close generic args"));
+                if (parser_peek(parser).type == TT_GREATER_GREATER) {
+                    parser->tokens.array[parser->cursor_current].type = TT_GREATER;
+                } else {
+                    assert(parser_consume(parser, TT_GREATER, "Expected '>' to close generic args"));
+                }
             }
 
             return parser_parse_type_wrap(parser, type);
@@ -2207,6 +2215,10 @@ static ParseResult parser_parse_fn_decl(Parser* const parser, LL_Directive const
     }
 
     Token const token = parser_peek(parser);
+    if (token.type == TT_LESS) {
+        //
+    }
+
     if (token.type != TT_IDENTIFIER) {
         return parseres_none();
     }
@@ -2215,9 +2227,11 @@ static ParseResult parser_parse_fn_decl(Parser* const parser, LL_Directive const
     if (parser_peek(parser).type != TT_LEFT_PAREN) {
         return parseres_none();
     }
-    
-    char* const cname = arena_memcpy(parser->arena, token.start, token.length + 1);
-    cname[token.length] = '\0';
+
+    String name = arena_strcpy(parser->arena, (String){
+        .length = token.length,
+        .chars = token.start,
+    });
 
     parser_consume(parser, TT_LEFT_PAREN, "Expected '('.");
 
@@ -2263,7 +2277,7 @@ static ParseResult parser_parse_fn_decl(Parser* const parser, LL_Directive const
         return parseres_none();
     }
 
-    bool is_main = strncmp(cname, "main", 4) == 0;
+    bool is_main = str_eq(name, c_str("main"));
 
     if (parser_peek(parser).type == TT_SEMICOLON) {
         parser_advance(parser);
@@ -2272,7 +2286,7 @@ static ParseResult parser_parse_fn_decl(Parser* const parser, LL_Directive const
             .type = ANT_FUNCTION_HEADER_DECL,
             .node.function_header_decl = {
                 .return_type = *type,
-                .name = c_str(cname),
+                .name = name,
                 .params = params,
                 .is_main = is_main,
             },
@@ -2286,7 +2300,7 @@ static ParseResult parser_parse_fn_decl(Parser* const parser, LL_Directive const
         .node.function_decl = {
             .header = {
                 .return_type = *type,
-                .name = c_str(cname),
+                .name = name,
                 .params = params,
                 .is_main = is_main,
             },
