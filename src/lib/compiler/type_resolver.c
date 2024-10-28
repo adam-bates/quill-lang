@@ -545,7 +545,7 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
             }
         }
 
-        if (!already_has_decl) {
+        if (!already_has_decl && t_static_path->generic_types.length > 0) {
             t_static_path->impl_version = generic_impls->length;
             rt->type.struct_ref.impl_version = generic_impls->length;
             arraylist_typells_push(generic_impls, t_static_path->generic_types);

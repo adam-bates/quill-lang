@@ -4,13 +4,13 @@ import std/ds;
 import std/io;
 
 void main() {
-    std::Array<std::String> args = std::args;
+    let args = std::args;
 
     if args.length != 2 {
         CRASH "Usage: fizzbuzz [integer]";
     }
 
-    std::Result<uint> res = conv::parse_uint(args.data[1]);
+    let res = conv::parse_uint(args.data[1]);
     if !res.is_ok {
         CRASH `Error parser integer: {res.err}`;
     }
