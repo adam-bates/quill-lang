@@ -24,8 +24,7 @@ void main() {
 /*
 uint nth_fib(uint n) {
     if n <= 1 {
-        uint x = 1;
-        return x;
+        return 1;
     }
 
     return nth_fib(n - 1) + nth_fib(n - 2);
@@ -35,8 +34,7 @@ uint nth_fib(uint n) {
 // fast
 uint nth_fib(uint n) {
     if n <= 1 {
-        uint x = 1;
-        return x;
+        return 1;
     }
 
     uint mut a = 1;

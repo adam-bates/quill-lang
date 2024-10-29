@@ -1554,7 +1554,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 changed |= resolve_type_node(type_resolver, scope, node->node.return_.maybe_expr);
 
                 if (type_resolver->packages->types[node->node.return_.maybe_expr->id.val].type) {
-                    assert(resolved_type_eq(
+                    assert(resolved_type_implict_to(
                             type_resolver->packages->types[node->node.return_.maybe_expr->id.val].type,
                             type_resolver->current_function->return_type
                     ));

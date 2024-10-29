@@ -86,3 +86,37 @@ bool resolved_type_eq(ResolvedType* a, ResolvedType* b) {
 
     return true;
 }
+
+bool resolved_type_implict_to(ResolvedType* from, ResolvedType* to) {
+    if (!from || !to) {
+        return false;
+    }
+
+    if (resolved_type_eq(from, to)) {
+        return true;
+    }
+
+    switch (to->kind) {
+        case RTK_INT:
+        case RTK_UINT:
+        case RTK_BOOL:
+        case RTK_CHAR:
+        case RTK_POINTER:
+        case RTK_MUT_POINTER:
+        {
+            switch (from->kind) {
+                case RTK_INT:
+                case RTK_UINT:
+                case RTK_BOOL:
+                case RTK_CHAR:
+                case RTK_POINTER:
+                case RTK_MUT_POINTER:
+                    return true;
+
+                default: return false;
+            }
+        }
+
+        default: return false;
+    }
+}
