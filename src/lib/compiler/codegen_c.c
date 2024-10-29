@@ -2712,6 +2712,13 @@ GeneratedFiles generate_c_code(CodegenC* codegen) {
                 },
             });
             ll_node_push(codegen->arena, &common, (IR_C_Node){
+                .type = ICNT_MACRO_INCLUDE,
+                .node.include = {
+                    .is_local = false,
+                    .file = c_str("<string.h>"),
+                },
+            });
+            ll_node_push(codegen->arena, &common, (IR_C_Node){
                 .type = ICNT_RAW,
                 .node.raw.str = c_str("typedef struct { char _; } char_;\n"),
             });
