@@ -37,6 +37,8 @@ typedef enum {
     TT_LITERAL_STRING_TEMPLATE_FULL,
 
     // keywords
+    TT_BREAK,
+    TT_CONTINUE,
     TT_CRASH,
     TT_ELSE,
     TT_ENUM,

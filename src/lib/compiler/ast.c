@@ -96,6 +96,7 @@ ASTNode* find_decl_by_name(ASTNodeFileRoot root, String name) {
             case ANT_TRY: break;
             case ANT_CATCH: break;
             case ANT_BREAK: break;
+            case ANT_CONTINUE: break;
             case ANT_WHILE: break;
             case ANT_DO_WHILE: break;
             case ANT_FOR: break;
@@ -306,9 +307,12 @@ bool directive_eq(Directive a, Directive b) {
         case DT_C_HEADER: return str_eq(a.dir.c_header.include, b.dir.c_header.include);
         case DT_C_RESTRICT: break;
         case DT_C_FILE: break;
+        case DT_C_STR: break;
         case DT_IGNORE_UNUSED: break;
         case DT_IMPL: break;
         case DT_STRING_LITERAL: break;
+        case DT_STRING_TEMPLATE: break;
+        case DT_RANGE_LITERAL: break;
     }
 
     return true;
@@ -666,6 +670,8 @@ void print_directives(LL_Directive directives) {
             case DT_C_RESTRICT: printf("@c_restrict "); break;
 
             case DT_C_FILE: printf("@c_FILE "); break;
+
+            case DT_C_STR: printf("@c_str "); break;
 
             case DT_IGNORE_UNUSED: printf("@ignore_unused "); break;
 
@@ -1381,6 +1387,16 @@ void print_astnode(ASTNode const node) {
         case ANT_DEFER: {
             printf("defer ");
             print_astnode(*node.node.defer.stmt);
+            break;
+        }
+
+        case ANT_BREAK: {
+            printf("break");
+            break;
+        }
+
+        case ANT_CONTINUE: {
+            printf("continue");
             break;
         }
 

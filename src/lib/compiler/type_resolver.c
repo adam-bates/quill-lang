@@ -1443,7 +1443,16 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
         case ANT_TRY: assert(false); // TODO
         case ANT_CATCH: assert(false); // TODO
-        case ANT_BREAK: assert(false); // TODO
+
+        case ANT_BREAK: {
+            // TODO breakable-context (continuable + switch)
+            break;
+        }
+
+        case ANT_CONTINUE: {
+            // TODO continuable-context
+            break;
+        }
 
         case ANT_FOREACH: {
             assert(type_resolver->packages->range_literal_type);

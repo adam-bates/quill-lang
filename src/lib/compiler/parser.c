@@ -111,6 +111,8 @@ void debug_token_type(TokenType token_type) {
         case TT_LITERAL_STRING_TEMPLATE_CONT: printf("literal_string_template_cont"); break;
         case TT_LITERAL_STRING_TEMPLATE_FULL: printf("literal_string_template_full"); break;
 
+        case TT_BREAK: printf("break"); break;
+        case TT_CONTINUE: printf("continue"); break;
         case TT_CRASH: printf("CRASH"); break;
         case TT_ELSE: printf("else"); break;
         case TT_ENUM: printf("enum"); break;
@@ -2175,6 +2177,26 @@ static ParseResult parser_parse_stmt(Parser* const parser) {
     ParseResult stmt_res;
 
     switch (current.type) {
+        case TT_BREAK: {
+            parser_advance(parser);
+            return parseres_ok((ASTNode){
+                .id = { parser->next_node_id++ },
+                .directives = directives,
+                .type = ANT_BREAK,
+                .node.break_.maybe_expr = NULL,
+            });
+        }
+
+        case TT_CONTINUE: {
+            parser_advance(parser);
+            return parseres_ok((ASTNode){
+                .id = { parser->next_node_id++ },
+                .directives = directives,
+                .type = ANT_CONTINUE,
+                .node.continue_ = NULL,
+            });
+        }
+
         case TT_RETURN: {
             stmt_res = parser_parse_return(parser, directives);
             assert(parser_consume(parser, TT_SEMICOLON, "Expected semicolon."));

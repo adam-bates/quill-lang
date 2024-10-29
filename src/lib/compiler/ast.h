@@ -138,6 +138,7 @@ typedef enum {
     ANT_TRY,
     ANT_CATCH,
     ANT_BREAK,
+    ANT_CONTINUE,
     ANT_WHILE,
     ANT_DO_WHILE,
     ANT_FOR,
@@ -672,6 +673,7 @@ typedef struct ASTNode {
         ASTNodeTry try_;
         ASTNodeCatch catch_;
         ASTNodeBreak break_;
+        void* continue_;
         ASTNodeWhile while_;
         ASTNodeDoWhile do_while;
         ASTNodeFor for_;

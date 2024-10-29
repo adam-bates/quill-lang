@@ -243,7 +243,8 @@ static void verify_node(Analyzer* analyzer, ASTNode const* const ast, size_t dep
             break;
         }
 
-        case ANT_BREAK: assert(false); // TODO
+        case ANT_BREAK: assert(!ast->node.break_.maybe_expr); break;
+        case ANT_CONTINUE: break;
 
         case ANT_WHILE: {
             assert(ast->node.while_.block);

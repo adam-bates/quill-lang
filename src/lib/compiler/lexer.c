@@ -9,8 +9,10 @@ typedef struct {
     TokenType const type;
 } KeywordMatch;
 
-static const size_t KEYWORD_MATCHES_LEN = 44;
+static const size_t KEYWORD_MATCHES_LEN = 46;
 static const KeywordMatch KEYWORD_MATCHES[KEYWORD_MATCHES_LEN] = {
+    { "break", TT_BREAK },
+    { "continue", TT_CONTINUE },
     { "CRASH", TT_CRASH },
     { "defer", TT_DEFER },
     { "else", TT_ELSE },

@@ -1152,6 +1152,22 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             break;
         }
 
+        case ANT_BREAK: {
+            ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                .type = ICNT_RAW,
+                .node.raw.str = c_str("break"),
+            });
+            break;
+        }
+
+        case ANT_CONTINUE: {
+            ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                .type = ICNT_RAW,
+                .node.raw.str = c_str("continue"),
+            });
+            break;
+        }
+
         case ANT_ASSIGNMENT: {
             LL_IR_C_Node lhs_expr_ll = {0};
             fill_nodes(codegen, &lhs_expr_ll, node->node.assignment.lhs, ftype, stage, false);
