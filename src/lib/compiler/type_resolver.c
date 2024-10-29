@@ -383,27 +383,49 @@ void resolve_types(TypeResolver* type_resolver) {
         }
     }
 
+    bool* has_unresolved_dependencies = arena_alloc(type_resolver->arena, packages_len * sizeof *has_unresolved_dependencies);
     while (resolve_order_len < packages_len) {
+        for (size_t i = 0; i < packages_len; ++i) {
+            has_unresolved_dependencies[i] = false;
+        }
+
         for (size_t i_ = 0; i_ < to_sort_len; ++i_) {
             size_t i = to_sort[i_];
 
-            bool has_unresolved_dependencies = false;
             for (size_t j = 0; j < dependencies.length; ++j) {
                 if (dependencies.dependent_idxs[j] == i) {
                     for (size_t k = 0; k < to_sort_len; ++k) {
                         if (dependencies.dependency_idxs[j] == to_sort[k]) {
-                            has_unresolved_dependencies = true;
+                            if (has_unresolved_dependencies[to_sort[k]]) {
+                                Package a = packages[i];
+                                Package b = packages[to_sort[k]];
+
+                                printf("Error: Import cycle detected!\n");
+                                printf("- [");
+                                printf("%s", package_path_to_str(type_resolver->arena, a.full_name).chars);
+                                printf("] depends on [");
+                                printf("%s", package_path_to_str(type_resolver->arena, b.full_name).chars);
+                                printf("]\n");
+                                printf("- [");
+                                printf("%s", package_path_to_str(type_resolver->arena, b.full_name).chars);
+                                printf("] depends on [");
+                                printf("%s", package_path_to_str(type_resolver->arena, a.full_name).chars);
+                                printf("]\n\n");
+
+                                assert(false);
+                            }
+                            has_unresolved_dependencies[i] = true;
                             break;
                         }
                     }
 
-                    if (has_unresolved_dependencies) {
+                    if (has_unresolved_dependencies[i]) {
                         break;
                     }
                 }
             }
 
-            if (!has_unresolved_dependencies) {
+            if (!has_unresolved_dependencies[i]) {
                 resolve_order[resolve_order_len++] = i;
 
                 to_sort_len -= 1;
