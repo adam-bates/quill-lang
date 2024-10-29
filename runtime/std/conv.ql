@@ -15,7 +15,7 @@ Result<uint> parse_uint(String str) {
 	foreach ix in 0..str.length {
 		char c = str.bytes[ix];
 
-		if c <= '0' || '9' <= c {
+		if c < '0' || '9' < c {
 			return .{
 				.is_ok = false,
 				.err = `Non-digit character: '{c}'`,

@@ -1734,7 +1734,7 @@ static ParseResult parser_parse_binary(Parser* const parser, ASTNode expr) {
         case TT_BANG_EQUAL: op = BO_NOT_EQ; break;
 
         case TT_LESS: op = BO_LESS; break;
-        case TT_LESS_EQUAL: op = BO_LESS; break;
+        case TT_LESS_EQUAL: op = BO_LESS_OR_EQ; break;
         case TT_GREATER: op = BO_GREATER; break;
         case TT_GREATER_EQUAL: op = BO_GREATER_OR_EQ; break;
 
