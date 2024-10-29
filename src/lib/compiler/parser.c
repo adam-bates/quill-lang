@@ -37,11 +37,12 @@ typedef struct {
     } maybe;
 } Maybe_DirectiveType;
 
-static const size_t DIRECTIVE_MATCHES_LEN = 8;
+static const size_t DIRECTIVE_MATCHES_LEN = 9;
 static const DirectiveMatch DIRECTIVE_MATCHES[DIRECTIVE_MATCHES_LEN] = {
     { "@c_header", DT_C_HEADER },
     { "@c_restrict", DT_C_RESTRICT },
     { "@c_FILE", DT_C_FILE },
+    { "@c_str", DT_C_STR },
     { "@ignore_unused", DT_IGNORE_UNUSED },
     { "@impl", DT_IMPL },
     { "@string_literal", DT_STRING_LITERAL },
@@ -506,6 +507,15 @@ static LL_Directive parser_parse_directives(Parser* const parser) {
                 break;
             }
 
+            case DT_C_STR: {
+                Directive directive = {
+                    .type = DT_C_STR,
+                    .dir.c_str = NULL,
+                };
+                ll_directive_push(parser->arena, &directives, directive);
+                break;
+            }
+
             case DT_IGNORE_UNUSED: {
                 Directive directive = {
                     .type = DT_IGNORE_UNUSED,
@@ -527,7 +537,7 @@ static LL_Directive parser_parse_directives(Parser* const parser) {
             case DT_STRING_LITERAL: {
                 Directive directive = {
                     .type = DT_STRING_LITERAL,
-                    .dir.impl = NULL,
+                    .dir.string_literal = NULL,
                 };
                 ll_directive_push(parser->arena, &directives, directive);
                 break;
@@ -536,7 +546,7 @@ static LL_Directive parser_parse_directives(Parser* const parser) {
             case DT_STRING_TEMPLATE: {
                 Directive directive = {
                     .type = DT_STRING_TEMPLATE,
-                    .dir.impl = NULL,
+                    .dir.string_template = NULL,
                 };
                 ll_directive_push(parser->arena, &directives, directive);
                 break;
@@ -545,7 +555,7 @@ static LL_Directive parser_parse_directives(Parser* const parser) {
             case DT_RANGE_LITERAL: {
                 Directive directive = {
                     .type = DT_RANGE_LITERAL,
-                    .dir.impl = NULL,
+                    .dir.range_literal = NULL,
                 };
                 ll_directive_push(parser->arena, &directives, directive);
                 break;
@@ -1449,7 +1459,8 @@ static ParseResult parser_parse_struct_init(Parser* const parser, LL_Directive c
 
         assert(parser_consume(parser, TT_EQUAL, "Expected '='"));
 
-        ParseResult res = parser_parse_expr(parser, (LL_Directive){0});
+        LL_Directive expr_directives = parser_parse_directives(parser);
+        ParseResult res = parser_parse_expr(parser, expr_directives);
         assert(res.status == PRS_OK);
 
         ASTNode* value = arena_alloc(parser->arena, sizeof *value);

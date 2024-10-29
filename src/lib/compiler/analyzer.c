@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdio.h>
 
 #include "./analyzer.h"
 #include "./ast.h"
@@ -29,9 +30,14 @@ static void verify_type(Analyzer* analyzer, Type const* type, size_t depth, size
                 case DT_C_HEADER: break;
 
                 // Only valid on nodes
+                case DT_C_STR: assert(false);
                 case DT_IGNORE_UNUSED: assert(false);
                 case DT_IMPL: assert(false);
                 case DT_STRING_LITERAL: assert(false);
+                case DT_STRING_TEMPLATE: assert(false);
+                case DT_RANGE_LITERAL: assert(false);
+
+                default: printf("TODO: verify DT_%d\n", curr->data.type); assert(false);
             }
             
             curr = curr->next;
@@ -61,6 +67,12 @@ static void verify_node(Analyzer* analyzer, ASTNode const* const ast, size_t dep
                     break;
                 }
 
+                case DT_C_STR: {
+                    assert(ast->type == ANT_LITERAL);
+                    assert(ast->node.literal.kind == LK_STR);
+                    break;
+                }
+
                 case DT_IGNORE_UNUSED: {
                     assert(ast->type == ANT_VAR_DECL);
                     break;
@@ -76,9 +88,21 @@ static void verify_node(Analyzer* analyzer, ASTNode const* const ast, size_t dep
                     break;
                 }
 
+                case DT_STRING_TEMPLATE: {
+                    assert(ast->type == ANT_STRUCT_DECL);
+                    break;
+                }
+
+                case DT_RANGE_LITERAL: {
+                    assert(ast->type == ANT_STRUCT_DECL);
+                    break;
+                }
+
                 // Only valid on types
                 case DT_C_RESTRICT: assert(false);
                 case DT_C_FILE: assert(false);
+
+                default: printf("TODO: verify DT_%d\n", curr->data.type); assert(false);
             }
             
             curr = curr->next;

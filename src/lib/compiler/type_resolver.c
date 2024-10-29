@@ -2038,12 +2038,43 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         case ANT_LITERAL: {
             switch (node->node.literal.kind) {
                 case LK_STR: {
-                    assert(type_resolver->packages->string_literal_type);
+                    bool is_c_str = false;
 
-                    type_resolver->packages->types[node->id.val] = (TypeInfo){
-                        .status = TIS_CONFIDENT,
-                        .type = type_resolver->packages->string_literal_type,
-                    };
+                    if (node->directives.length > 0) {
+                        LLNode_Directive* curr = node->directives.head;
+                        while (curr) {
+                            if (curr->data.type == DT_C_STR) {
+                                ResolvedType* rt_char = arena_alloc(type_resolver->arena, sizeof *rt_char);
+                                rt_char->src = node;
+                                rt_char->from_pkg = type_resolver->current_package;
+                                rt_char->kind = RTK_CHAR;
+                                rt_char->type.char_ = NULL;
+
+                                ResolvedType* rt = arena_alloc(type_resolver->arena, sizeof *rt);
+                                rt->src = node;
+                                rt->from_pkg = type_resolver->current_package;
+                                rt->kind = RTK_POINTER;
+                                rt->type.ptr.of = rt_char;
+                                type_resolver->packages->types[node->id.val] = (TypeInfo){
+                                    .status = TIS_CONFIDENT,
+                                    .type = rt,
+                                };
+
+                                is_c_str = true;
+                                break;
+                            }
+                            curr = curr->next;
+                        }
+                    }
+
+                    if (!is_c_str) {
+                        assert(type_resolver->packages->string_literal_type);
+
+                        type_resolver->packages->types[node->id.val] = (TypeInfo){
+                            .status = TIS_CONFIDENT,
+                            .type = type_resolver->packages->string_literal_type,
+                        };
+                    }
                     break;
                 }
 

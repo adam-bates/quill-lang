@@ -703,6 +703,7 @@ typedef enum {
     DT_C_HEADER,
     DT_C_RESTRICT,
     DT_C_FILE,
+    DT_C_STR,
     DT_IGNORE_UNUSED,
     DT_IMPL,
     DT_STRING_LITERAL,
@@ -716,9 +717,12 @@ typedef struct {
 
 typedef void* DirectiveCRestrict;
 typedef void* DirectiveCFile;
+typedef void* DirectiveCStr;
 typedef void* DirectiveIgnoreUnused;
 typedef void* DirectiveImpl;
 typedef void* DirectiveStringLiteral;
+typedef void* DirectiveStringTemplate;
+typedef void* DirectiveRangeLiteral;
 
 typedef struct {
     DirectiveType type;
@@ -726,9 +730,12 @@ typedef struct {
         DirectiveCHeader c_header;
         DirectiveCRestrict c_restrict;
         DirectiveCFile c_file;
+        DirectiveCStr c_str;
         DirectiveIgnoreUnused ignore_unused;
         DirectiveImpl impl;
         DirectiveStringLiteral string_literal;
+        DirectiveStringTemplate string_template;
+        DirectiveRangeLiteral range_literal;
     } dir;
 } Directive;
 
