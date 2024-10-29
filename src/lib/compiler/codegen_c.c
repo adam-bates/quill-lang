@@ -745,6 +745,37 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                             break;
                         }
 
+                        case RTK_BOOL: {
+                            IR_C_Node* append_chars_target = arena_alloc(codegen->arena, sizeof *append_chars_target);
+                            *append_chars_target = (IR_C_Node){
+                                .type = ICNT_RAW,
+                                .node.raw.str = c_str("std_ds_strbuf_append_bool"),
+                            };
+
+                            LL_IR_C_Node append_chars_args = {0};
+                            ll_node_push(codegen->arena, &append_chars_args, (IR_C_Node){
+                                .type = ICNT_RAW,
+                                .node.raw.str = var_ptr,
+                            });
+                            {
+                                LL_IR_C_Node expr_ll = {0};
+                                fill_nodes(codegen, &expr_ll, &curr->data, ftype, stage, false);
+                                assert(expr_ll.length == 1);
+
+                                ll_node_push(codegen->arena, &append_chars_args, expr_ll.head->data);
+                            }
+
+                            ll_node_push(codegen->arena, codegen->stmt_block, (IR_C_Node){
+                                .type = ICNT_FUNCTION_CALL,
+                                .node.function_call = {
+                                    .target = append_chars_target,
+                                    .args = append_chars_args,
+                                },
+                            });
+
+                            break;
+                        }
+
                         case RTK_STRUCT_REF: {
                             assert(resolved_type_eq(codegen->packages->types[curr->data.id.val].type, codegen->packages->string_literal_type));
 

@@ -106,6 +106,14 @@ void strbuf_append_uint(StringBuffer mut* sb, uint input) {
     }
 }
 
+void strbuf_append_bool(StringBuffer mut* sb, bool input) {
+	if input {
+		strbuf_append_str(sb, "true");
+	} else {
+		strbuf_append_str(sb, "false");
+	}
+}
+
 std::String strbuf_as_str(StringBuffer sb) {
 	return .{
 		.length = sb.length,

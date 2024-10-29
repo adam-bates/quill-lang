@@ -993,10 +993,19 @@ static ParseResult parser_parse_lit_str_template(Parser* const parser, LL_Direct
         case TT_LITERAL_STRING_TEMPLATE_FULL: {
             ArrayList_String str_parts = arraylist_string_create(parser->arena);
 
-            arraylist_string_push(&str_parts, (String){
-                .length = t.length,
-                .chars = t.start,
-            });
+            StringBuffer sb = strbuf_create(parser->arena);
+            for (size_t i = 0; i < t.length; ++i) {
+                if (t.start[i] == '\\') {
+                    assert(i + 1 < t.length);
+                    strbuf_append_char(&sb, t.start[i++]);
+                } else if (t.start[i] == '"') {
+                    strbuf_append_char(&sb, '\\');
+                }
+
+                strbuf_append_char(&sb, t.start[i]);
+            }
+
+            arraylist_string_push(&str_parts, strbuf_to_str(sb));
             parser_advance(parser);
 
             return parseres_ok((ASTNode){
@@ -1014,10 +1023,19 @@ static ParseResult parser_parse_lit_str_template(Parser* const parser, LL_Direct
             LL_ASTNode expr_parts = {0};
             ArrayList_String str_parts = arraylist_string_create(parser->arena);
 
-            arraylist_string_push(&str_parts, (String){
-                .length = t.length,
-                .chars = t.start,
-            });
+            StringBuffer sb = strbuf_create(parser->arena);
+            for (size_t i = 0; i < t.length; ++i) {
+                if (t.start[i] == '\\') {
+                    assert(i + 1 < t.length);
+                    strbuf_append_char(&sb, t.start[i++]);
+                } else if (t.start[i] == '"') {
+                    strbuf_append_char(&sb, '\\');
+                }
+
+                strbuf_append_char(&sb, t.start[i]);
+            }
+
+            arraylist_string_push(&str_parts, strbuf_to_strcpy(sb));
             parser_advance(parser);
 
             size_t iter;
@@ -1030,10 +1048,19 @@ static ParseResult parser_parse_lit_str_template(Parser* const parser, LL_Direct
                 t = parser_peek(parser);
                 assert(t.type == TT_LITERAL_STRING_TEMPLATE_CONT);
 
-                arraylist_string_push(&str_parts, (String){
-                    .length = t.length,
-                    .chars = t.start,
-                });
+                strbuf_reset(&sb);
+                for (size_t i = 0; i < t.length; ++i) {
+                    if (t.start[i] == '\\') {
+                        assert(i + 1 < t.length);
+                        strbuf_append_char(&sb, t.start[i++]);
+                    } else if (t.start[i] == '"') {
+                        strbuf_append_char(&sb, '\\');
+                    }
+
+                    strbuf_append_char(&sb, t.start[i]);
+                }
+
+                arraylist_string_push(&str_parts, strbuf_to_strcpy(sb));
 
                 parser_advance(parser);
 
