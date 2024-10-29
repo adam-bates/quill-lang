@@ -499,6 +499,8 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
         for (size_t i = 0; i < rt->type.struct_decl.generic_params.length; ++i) {
             ResolvedType* generic_rt = arena_alloc(type_resolver->arena, sizeof *generic_rt);
             generic_rt->kind = RTK_GENERIC;
+            generic_rt->src = rt->src;
+            generic_rt->type.generic.idx = i;
             generic_rt->type.generic.name = rt->type.struct_decl.generic_params.strings[i];
             generic_rt->from_pkg = rt->from_pkg;
             scope_set(&fields_scope, rt->type.struct_decl.generic_params.strings[i], generic_rt);
@@ -533,27 +535,60 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
     }
 
     if (rt->kind == RTK_STRUCT_REF && rt->src->type == ANT_STRUCT_DECL) {
-        // {
-        //     LLNode_Type* curr = t_static_path->generic_types.head;
-        //     while (curr) {
-        //         TypeInfo* ti = packages_type_by_type(type_resolver->packages, curr->data.id);
-        //         assert(ti);
-        //         if (!ti->type) {
-        //             print_type_static_path(*t_static_path);
-        //             printf("\n");
+        {
+            LLNode_Type* curr = t_static_path->generic_types.head;
+            while (curr) {
+                TypeInfo* ti = packages_type_by_type(type_resolver->packages, curr->data.id);
+                assert(ti);
+                if (!ti->type) {
+                    ResolvedType* rt = calc_resolved_type(type_resolver, scope, &curr->data);
+                    assert(rt);
 
-        //             ResolvedType* rt = calc_resolved_type(type_resolver, scope, &curr->data);
-        //             assert(rt);
+                    if (rt->kind == RTK_GENERIC) {
+                        print_type_static_path(*t_static_path);
+                        printf("\n");
 
-        //             ti->status = TIS_CONFIDENT;
-        //             ti->type = rt;
-                    
-        //             assert(rt->kind != RTK_GENERIC);
-        //             assert(false);
-        //         }
-        //         curr = curr->next;
-        //     }
-        // }
+                        println_astnode(*rt->src);
+
+                        // switch (rt->src->type) {
+                        //     case ANT_STRUCT_DECL: {
+                        //         for (size_t i = 0; i < rt->src->node.struct_decl.generic_impls.length; ++i) {
+                        //             size_t idx = 0;
+                        //             LLNode_Type* impl = rt->src->node.struct_decl.generic_impls.array[i].head;
+                        //             while (idx != rt->type.generic.idx && impl) {
+                        //                 impl = impl->next;
+                        //             }
+                        //             assert(idx == rt->type.generic.idx);
+                        //             assert(impl);
+
+                        //             print_type(&impl->data);
+                        //             printf("\n");
+                        //         }
+                        //         assert(false);
+                        //         break;
+                        //     }
+
+                        //     case ANT_FUNCTION_DECL: {
+                        //         assert(false);
+                        //         break;
+                        //     }
+
+                        //     default: printf("Unexpected ANT_%d\n", rt->src->type); assert(false);
+                        // }
+
+                        // TODO: all generic mappings to a shared map { GenericId: { Src, [impls] } }
+                        // the impls can be generics
+                        // in codegen, don't blindly trust impls, but resolve impls by walking the tree
+                        // keep an eye out for cycles
+                        // assert(false);
+                    }
+
+                    ti->status = TIS_CONFIDENT;
+                    ti->type = rt;
+                }
+                curr = curr->next;
+            }
+        }
         ArrayList_LL_Type* generic_impls = &rt->src->node.struct_decl.generic_impls;
 
         bool already_has_decl = false;
@@ -1806,6 +1841,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 generic_rt->from_pkg = type_resolver->current_package;
                 generic_rt->src = node;
                 generic_rt->kind = RTK_GENERIC;
+                generic_rt->type.generic.idx = i;
                 generic_rt->type.generic.name = generic_params.strings[i];
 
                 scope_set(&fields_scope, generic_params.strings[i], generic_rt);
@@ -1956,6 +1992,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                     generic_rt->from_pkg = type_resolver->current_package;
                     generic_rt->src = node;
                     generic_rt->kind = RTK_GENERIC;
+                    generic_rt->type.generic.idx = i;
                     generic_rt->type.generic.name = generic_params.strings[i];
 
                     scope_set(&signature_scope, generic_params.strings[i], generic_rt);
@@ -2232,7 +2269,7 @@ static void resolve_file(TypeResolver* type_resolver, Scope* scope, ASTNodeFileR
 
         if (requires_type) {
             if (!type_resolver->packages->types[curr->data.id.val].type) {
-                print_astnode(curr->data);
+                println_astnode(curr->data);
             }
             assert(type_resolver->packages->types[curr->data.id.val].type);
         }

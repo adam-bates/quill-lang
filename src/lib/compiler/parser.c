@@ -890,6 +890,7 @@ static ParseResult parser_parse_struct_decl(Parser* const parser, LL_Directive c
 
             if (t.type != TT_GREATER && t.type != TT_EOF) {
                 assert(parser_consume(parser, TT_COMMA, "Expected ',' between generic params"));
+                t = parser_peek(parser);
             }
         }
         if (parser_peek(parser).type == TT_COMMA) {

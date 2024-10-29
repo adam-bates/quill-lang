@@ -97,6 +97,7 @@ typedef struct {
 
 typedef struct {
     String name;
+    size_t idx;
 } ResolvedGeneric;
 
 typedef void* ResolvedTerminal;
