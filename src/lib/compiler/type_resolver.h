@@ -10,7 +10,7 @@ typedef struct {
     Packages* packages;
 
     Package* current_package;
-    ResolvedFunction* current_function;
+    ResolvedFunctionDecl* current_function;
     bool seen_separator;
 } TypeResolver;
 

@@ -4,6 +4,8 @@ import std/ds;
 import std/io;
 
 void main() {
+    int* x = null;
+
     let args = std::args;
 
     if args.length != 2 {

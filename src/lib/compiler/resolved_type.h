@@ -24,11 +24,12 @@ typedef enum {
     RTK_CHAR,
     RTK_POINTER,
     RTK_MUT_POINTER,
-    RTK_FUNCTION,
     RTK_ARRAY,
 
-    // separate struct decl vs ref because
+    // separate decl vs ref because
     // generic params vs generic args
+    RTK_FUNCTION_DECL,
+    RTK_FUNCTION_REF,
     RTK_STRUCT_DECL,
     RTK_STRUCT_REF,
 
@@ -58,10 +59,17 @@ typedef struct {
 } ResolvedFunctionParam;
 
 typedef struct {
+    Strings generic_params;
     size_t params_length;
     ResolvedFunctionParam* params;
     struct ResolvedType* return_type;
-} ResolvedFunction;
+} ResolvedFunctionDecl;
+
+typedef struct {
+    ResolvedFunctionDecl decl;
+    ResolvedTypes generic_args;
+    size_t impl_version;
+} ResolvedFunctionRef;
 
 typedef struct {
     bool has_explicit_length;
@@ -106,7 +114,8 @@ typedef struct ResolvedType {
         void* bool_;
         ResolvedTypePointer ptr;
         ResolvedTypePointer mut_ptr;
-        ResolvedFunction function;
+        ResolvedFunctionDecl function_decl;
+        ResolvedFunctionRef function_ref;
         ResolvedArray array;
         ResolvedStructDecl struct_decl;
         ResolvedStructRef struct_ref;

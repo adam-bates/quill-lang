@@ -592,7 +592,7 @@ void println_string(String const str) {
     printf("%s\n", arena_strcpy(arena, str).chars);
 }
 
-static void print_static_path(StaticPath const* path) {
+void print_static_path(StaticPath const* path) {
     if (path == NULL) {
         printf("<static_path:NULL>");
         return;
@@ -606,7 +606,7 @@ static void print_static_path(StaticPath const* path) {
     }
 }
 
-static void print_package_path(PackagePath* path) {
+void print_package_path(PackagePath* path) {
     print_string(path->name);
 
     if (path->child != NULL) {
@@ -632,7 +632,7 @@ static void _print_import_static_path(ImportStaticPath* path) {
     }
 }
 
-static void print_import_path(ImportPath* path) {
+void print_import_path(ImportPath* path) {
     switch (path->type) {
         case IPT_DIR: {
             print_string(path->import.dir.name);
@@ -653,7 +653,7 @@ static void print_import_path(ImportPath* path) {
     }
 }
 
-static void print_directives(LL_Directive directives) {
+void print_directives(LL_Directive directives) {
     LLNode_Directive* curr = directives.head;
     while (curr != NULL) {
         switch (curr->data.type) {
@@ -682,7 +682,25 @@ static void print_directives(LL_Directive directives) {
     }
 }
 
-static void print_type(Type const* type) {
+void print_type_static_path(TypeStaticPath t_path) {
+    print_static_path(t_path.path);
+
+    if (t_path.generic_types.length > 0) {
+        printf("<");
+        LLNode_Type* curr = t_path.generic_types.head;
+        while (curr) {
+            print_type(&curr->data);
+
+            curr = curr->next;
+            if (curr) {
+                printf(", ");
+            }
+        }
+        printf(">");
+    }
+}
+
+void print_type(Type const* type) {
     if (type == NULL) {
         printf("<type:NULL>");
         return;
@@ -724,21 +742,7 @@ static void print_type(Type const* type) {
         }
 
         case TK_STATIC_PATH: {
-            print_static_path(type->type.static_path.path);
-
-            if (type->type.static_path.generic_types.length > 0) {
-                printf("<");
-                LLNode_Type* curr = type->type.static_path.generic_types.head;
-                while (curr) {
-                    print_type(&curr->data);
-
-                    curr = curr->next;
-                    if (curr) {
-                        printf(", ");
-                    }
-                }
-                printf(">");
-            }
+            print_type_static_path(type->type.static_path);
             return;
         }
 
@@ -1067,6 +1071,14 @@ void print_astnode(ASTNode const node) {
                     printf("%f", node.node.literal.value.lit_float);
                     break;
                 }
+                case LK_BOOL: {
+                    printf("%s", node.node.literal.value.lit_bool ? "true" : "false");
+                    break;
+                }
+                case LK_NULL: {
+                    printf("null");
+                    break;
+                }
                 default: print_tabs(); printf("/* TODO: print_literal(%d) */", node.type);
             }
 
@@ -1104,6 +1116,29 @@ void print_astnode(ASTNode const node) {
                 printf(" ");
                 print_astnode(*node.node.return_.maybe_expr);
             }
+            break;
+        }
+
+        case ANT_STRUCT_INIT: {
+            printf(".{\n");
+
+            LLNode_StructFieldInit* field = node.node.struct_init.fields.head;
+            indent += 1;
+            while (field) {
+                print_tabs();
+                printf(".");
+                print_string(field->data.name);
+                printf(" = ");
+                print_astnode(*field->data.value);
+                printf(",\n");
+
+                field = field->next;
+            }
+            indent -= 1;
+
+            print_tabs();
+            printf("}");
+
             break;
         }
 

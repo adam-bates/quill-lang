@@ -361,7 +361,8 @@ typedef struct {
 
 typedef struct {
     struct ASTNode* function;
-
+    LL_Type generic_args;
+    size_t impl_version;
     LL_ASTNode args;
 } ASTNodeFunctionCall;
 
@@ -636,6 +637,8 @@ typedef struct {
 typedef struct {
     Type return_type;
     String name;
+    ArrayList_String generic_params;
+    ArrayList_LL_Type generic_impls;
     LL_FnParam params;
     bool is_main;
 } ASTNodeFunctionHeaderDecl;
@@ -817,5 +820,12 @@ void println_astnode(ASTNode const node);
 
 void print_string(String const str);
 void println_string(String const str);
+
+void print_static_path(StaticPath const* path);
+void print_package_path(PackagePath* path);
+void print_import_path(ImportPath* path);
+void print_directives(LL_Directive directives);
+void print_type_static_path(TypeStaticPath t_path);
+void print_type(Type const* type);
 
 #endif

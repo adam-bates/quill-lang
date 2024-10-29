@@ -183,7 +183,12 @@ static void _append_type(CodegenC* codegen, StringBuffer* sb, Type type, Package
             ) {
                 String* mapped = get_mapped_generic(codegen->generic_map, type.type.static_path.path->name);
                 if (mapped) {
-                    assert(false);
+                    // printf("TK_%d\n", type.kind);
+                    // printf("%s = %s\n",
+                    //     arena_strcpy(codegen->arena, type.type.static_path.path->name).chars,
+                    //     arena_strcpy(codegen->arena, *mapped).chars
+                    // );
+                    // assert(false);
                     strbuf_append_str(sb, *mapped);
                     break;
                 } else {
@@ -273,7 +278,12 @@ static void _append_type_resolved(CodegenC* codegen, StringBuffer* sb, ResolvedT
             break;
         }
 
-        case RTK_FUNCTION: {
+        case RTK_FUNCTION_DECL: {
+            assert(false); // TODO ?
+            break;
+        }
+
+        case RTK_FUNCTION_REF: {
             assert(false); // TODO ?
             break;
         }
@@ -488,6 +498,14 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                     ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
                         .type = ICNT_RAW,
                         .node.raw.str = c_str(node->node.literal.value.lit_bool ? "true" : "false"),
+                    });
+                    break;
+                }
+
+                case LK_NULL: {
+                    ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                        .type = ICNT_RAW,
+                        .node.raw.str = c_str("NULL"),
                     });
                     break;
                 }
@@ -1060,6 +1078,14 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             IR_C_Node* target = arena_alloc(codegen->arena, sizeof *target);
             *target = target_ll.head->data;
 
+            if (target->type == ICNT_RAW && node->node.function_call.generic_args.length > 0) {
+                StringBuffer sb = strbuf_create(codegen->arena);
+                strbuf_append_str(&sb, target->node.raw.str);
+                strbuf_append_chars(&sb, "_");
+                strbuf_append_uint(&sb, node->node.function_call.impl_version);
+                target->node.raw.str = strbuf_to_str(sb);
+            }
+            
             LL_IR_C_Node args = {0};
             {
                 LLNode_ASTNode* curr = node->node.function_call.args.head;
@@ -1285,10 +1311,161 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 break;
             }
 
+            if (node->node.function_decl.header.generic_params.length > 0 && node->node.function_decl.header.generic_impls.length == 0) {
+                break;
+            }
+
             if (stage == TS_FN_HEADERS) {
                 ResolvedType* type = codegen->packages->types[node->id.val].type;
                 assert(type);
                 assert(type->from_pkg);
+
+                size_t versions = node->node.function_decl.header.generic_impls.length;
+                if (versions == 0) {
+                    versions = 1;
+                }
+
+                if (node->node.function_decl.header.generic_params.length == 0) {
+                    assert(versions == 1);
+                }
+
+                GenericImplMap* root_map = codegen->generic_map;
+
+                for (size_t version = 0; version < versions; ++version) {
+                    if (node->node.function_decl.header.generic_impls.length > 0) {
+                        LL_Type generic_impl_types = node->node.function_decl.header.generic_impls.array[version];
+                        if (generic_impl_types.length == 0 && versions > 1) {
+                            continue;
+                        }
+
+                        GenericImplMap map = {
+                            .parent = root_map,
+                            .length = node->node.function_decl.header.generic_params.length,
+                            .generic_names = arena_calloc(codegen->arena, node->node.function_decl.header.generic_params.length, sizeof(String)),
+                            .mapped_types = arena_calloc(codegen->arena, node->node.function_decl.header.generic_params.length, sizeof(String)),
+                        };
+                        {
+                            LLNode_Type* curr = generic_impl_types.head;
+                            for (size_t i = 0; curr && i < node->node.function_decl.header.generic_params.length; ++i) {
+                                map.generic_names[i] = node->node.function_decl.header.generic_params.array[i];
+                                map.mapped_types[i] = gen_type(codegen, curr->data, type->from_pkg);
+                                curr = curr->next;
+                            }
+                        }
+                        codegen->generic_map = &map;
+                    }
+
+                    Strings params = {
+                        .length = 0,
+                        .strings = arena_calloc(codegen->arena, node->node.function_decl.header.params.length, sizeof(String)),
+                    };
+                    {
+                        StringBuffer sb = strbuf_create(codegen->arena);
+
+                        LLNode_FnParam* curr = node->node.function_decl.header.params.head;
+                        while (curr) {
+                            TypeInfo* curr_ti = packages_type_by_type(codegen->packages, curr->data.type.id);
+                            assert(curr_ti);
+                            assert(curr_ti->type);
+                            assert(curr_ti->type->from_pkg);
+
+                            strbuf_append_str(&sb, gen_type(codegen, curr->data.type, curr_ti->type->from_pkg));
+                            strbuf_append_char(&sb, ' ');
+                            strbuf_append_str(&sb, user_var_name(codegen->arena, curr->data.name, codegen->current_package));
+
+                            params.strings[params.length++] = strbuf_to_strcpy(sb);
+                            strbuf_reset(&sb);
+
+                            curr = curr->next;
+                        }
+                    }
+
+                    String return_type;
+                    {
+                        TypeInfo* ti = packages_type_by_type(codegen->packages, node->node.function_decl.header.return_type.id);
+                        Package* pkg = NULL;
+                        if (ti && ti->type) {
+                            pkg = ti->type->from_pkg;
+                        }
+                        return_type = gen_type(codegen, node->node.function_decl.header.return_type, pkg);
+                    }
+
+                    String name;
+                    if (node->node.function_decl.header.is_main) {
+                        name = c_str("_main");
+                    } else {
+                        name = user_var_name(
+                            codegen->arena,
+                            node->node.function_decl.header.name,
+                            type->from_pkg
+                        );
+                    }
+
+                    if (node->node.function_decl.header.generic_params.length > 0) {
+                        StringBuffer sb = strbuf_create_with_capacity(codegen->arena, name.length + 3);
+                        strbuf_append_str(&sb, name);
+                        strbuf_append_chars(&sb, "_");
+                        strbuf_append_uint(&sb, version);
+                        name = strbuf_to_str(sb);
+                    }
+
+                    ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                        .type = ICNT_FUNCTION_HEADER_DECL,
+                        .node.function_decl = {
+                            .return_type = return_type,
+                            .name = name,
+                            .params = params,
+                        },
+                    });
+
+                    codegen->generic_map = root_map;
+                }
+                break;
+            }
+
+            if (ftype == FT_HEADER) {
+                break;
+            }
+
+            ResolvedType* type = codegen->packages->types[node->id.val].type;
+            assert(type);
+            assert(type->from_pkg);
+
+            size_t versions = node->node.function_decl.header.generic_impls.length;
+            if (versions == 0) {
+                versions = 1;
+            }
+
+            if (node->node.function_decl.header.generic_params.length == 0) {
+                assert(versions == 1);
+            }
+
+            GenericImplMap* root_map = codegen->generic_map;
+
+            for (size_t version = 0; version < versions; ++version) {
+                if (node->node.function_decl.header.generic_impls.length > 0) {
+                    LL_Type generic_impl_types = node->node.function_decl.header.generic_impls.array[version];
+                    if (generic_impl_types.length == 0 && versions > 1) {
+                        continue;
+                    }
+
+                    GenericImplMap map = {
+                        .parent = root_map,
+                        .length = node->node.function_decl.header.generic_params.length,
+                        .generic_names = arena_calloc(codegen->arena, node->node.function_decl.header.generic_params.length, sizeof(String)),
+                        .mapped_types = arena_calloc(codegen->arena, node->node.function_decl.header.generic_params.length, sizeof(String)),
+                    };
+                    {
+                        LLNode_Type* curr = generic_impl_types.head;
+                        for (size_t i = 0; curr && i < node->node.function_decl.header.generic_params.length; ++i) {
+                            map.generic_names[i] = node->node.function_decl.header.generic_params.array[i];
+                            map.mapped_types[i] = gen_type(codegen, curr->data, type->from_pkg);
+                            curr = curr->next;
+                        }
+                    }
+                    codegen->generic_map = &map;
+                }
+
                 Strings params = {
                     .length = 0,
                     .strings = arena_calloc(codegen->arena, node->node.function_decl.header.params.length, sizeof(String)),
@@ -1314,6 +1491,20 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                     }
                 }
 
+                LL_IR_C_Node statements = {0};
+                statements.to_defer = arena_alloc(codegen->arena, sizeof *statements.to_defer);
+                *statements.to_defer = (LL_IR_C_Node){0};
+
+                codegen->stmt_block = &statements;
+                {
+                    LLNode_ASTNode* curr = node->node.function_decl.stmts.head;
+                    while (curr) {
+                        fill_nodes(codegen, &statements, &curr->data, ftype, stage, false);
+                        curr = curr->next;
+                    }
+                }
+                codegen->stmt_block = NULL;
+
                 String return_type;
                 {
                     TypeInfo* ti = packages_type_by_type(codegen->packages, node->node.function_decl.header.return_type.id);
@@ -1335,93 +1526,25 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                     );
                 }
 
+                if (node->node.function_decl.header.generic_params.length > 0) {
+                    StringBuffer sb = strbuf_create_with_capacity(codegen->arena, name.length + 3);
+                    strbuf_append_str(&sb, name);
+                    strbuf_append_chars(&sb, "_");
+                    strbuf_append_uint(&sb, version);
+                    name = strbuf_to_str(sb);
+                }
+
                 ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
-                    .type = ICNT_FUNCTION_HEADER_DECL,
+                    .type = ICNT_FUNCTION_DECL,
                     .node.function_decl = {
                         .return_type = return_type,
                         .name = name,
                         .params = params,
+                        .statements = statements,
                     },
                 });
-                break;
+                codegen->generic_map = root_map;
             }
-
-            if (ftype == FT_HEADER) {
-                break;
-            }
-
-            ResolvedType* type = codegen->packages->types[node->id.val].type;
-            assert(type);
-            assert(type->from_pkg);
-            Strings params = {
-                .length = 0,
-                .strings = arena_calloc(codegen->arena, node->node.function_decl.header.params.length, sizeof(String)),
-            };
-            {
-                StringBuffer sb = strbuf_create(codegen->arena);
-
-                LLNode_FnParam* curr = node->node.function_decl.header.params.head;
-                while (curr) {
-                    TypeInfo* curr_ti = packages_type_by_type(codegen->packages, curr->data.type.id);
-                    assert(curr_ti);
-                    assert(curr_ti->type);
-                    assert(curr_ti->type->from_pkg);
-
-                    strbuf_append_str(&sb, gen_type(codegen, curr->data.type, curr_ti->type->from_pkg));
-                    strbuf_append_char(&sb, ' ');
-                    strbuf_append_str(&sb, user_var_name(codegen->arena, curr->data.name, codegen->current_package));
-
-                    params.strings[params.length++] = strbuf_to_strcpy(sb);
-                    strbuf_reset(&sb);
-
-                    curr = curr->next;
-                }
-            }
-
-            LL_IR_C_Node statements = {0};
-            statements.to_defer = arena_alloc(codegen->arena, sizeof *statements.to_defer);
-            *statements.to_defer = (LL_IR_C_Node){0};
-
-            codegen->stmt_block = &statements;
-            {
-                LLNode_ASTNode* curr = node->node.function_decl.stmts.head;
-                while (curr) {
-                    fill_nodes(codegen, &statements, &curr->data, ftype, stage, false);
-                    curr = curr->next;
-                }
-            }
-            codegen->stmt_block = NULL;
-
-            String return_type;
-            {
-                TypeInfo* ti = packages_type_by_type(codegen->packages, node->node.function_decl.header.return_type.id);
-                Package* pkg = NULL;
-                if (ti && ti->type) {
-                    pkg = ti->type->from_pkg;
-                }
-                return_type = gen_type(codegen, node->node.function_decl.header.return_type, pkg);
-            }
-
-            String name;
-            if (node->node.function_decl.header.is_main) {
-                name = c_str("_main");
-            } else {
-                name = user_var_name(
-                    codegen->arena,
-                    node->node.function_decl.header.name,
-                    type->from_pkg
-                );
-            }
-
-            ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
-                .type = ICNT_FUNCTION_DECL,
-                .node.function_decl = {
-                    .return_type = return_type,
-                    .name = name,
-                    .params = params,
-                    .statements = statements,
-                },
-            });
             break;
         }
 
@@ -1469,6 +1592,14 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                         for (size_t i = 0; curr && i < node->node.struct_decl.generic_params.length; ++i) {
                             map.generic_names[i] = node->node.struct_decl.generic_params.array[i];
                             map.mapped_types[i] = gen_type(codegen, curr->data, type->from_pkg);
+
+                            // if (str_eq(*node->node.struct_decl.maybe_name, c_str("Result"))) {
+                            //     printf("[%lu] ", version);
+                            //     print_string(map.generic_names[i]);
+                            //     printf(" -> ");
+                            //     println_string(map.mapped_types[i]);
+                            // }
+
                             curr = curr->next;
                         }
                     }
@@ -1521,6 +1652,11 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 });
                 codegen->generic_map = root_map;
             }
+
+            // if (str_eq(*node->node.struct_decl.maybe_name, c_str("Result"))) {
+            //     assert(false);
+            // }
+
             break;
         }
 

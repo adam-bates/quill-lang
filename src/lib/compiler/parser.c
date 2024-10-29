@@ -1294,6 +1294,40 @@ static ParseResult parser_parse_get_field(Parser* const parser, ASTNode expr) {
 }
 
 static ParseResult parser_parse_fn_call(Parser* const parser, ASTNode expr) {
+    LL_Type generic_args = {0};
+
+    if (parser_peek(parser).type == TT_LESS) {
+        parser_advance(parser);
+
+        Token t = parser_peek(parser);
+        while (t.type != TT_GREATER && t.type != TT_EOF) {
+            Type* generic_arg = parser_parse_type(parser);
+            if (!generic_arg) {
+                return parseres_none();
+            }
+
+            ll_type_push(parser->arena, &generic_args, *generic_arg);
+            t = parser_peek(parser);
+
+            if (t.type != TT_GREATER && t.type != TT_GREATER_GREATER && t.type != TT_EOF) {
+                if (t.type != TT_COMMA) {
+                    return parseres_none();
+                }
+
+                assert(parser_consume(parser, TT_COMMA, "Expected ',' between generic args"));
+            }
+        }
+        if (parser_peek(parser).type == TT_COMMA) {
+            parser_advance(parser);
+        }
+
+        if (parser_peek(parser).type != TT_GREATER) {
+            return parseres_none();
+        }
+
+        assert(parser_consume(parser, TT_GREATER, "Expected '>' to close generic args"));
+    }
+
     if (parser_peek(parser).type != TT_LEFT_PAREN) {
         return parseres_none();
     }
@@ -1308,6 +1342,7 @@ static ParseResult parser_parse_fn_call(Parser* const parser, ASTNode expr) {
         .type = ANT_FUNCTION_CALL,
         .node.function_call = {
             .function = target,
+            .generic_args = generic_args,
             .args = {0},
         },
         .directives = {0},
@@ -1628,6 +1663,18 @@ static ParseResult parser_wrap_simple_expr(Parser* const parser, ParseResult exp
 
 static ParseResult parser_parse_simple_expr(Parser* const parser, LL_Directive const directives) {
     switch (parser_peek(parser).type) {
+        case TT_NULL: {
+            parser_advance(parser);
+            return parseres_ok((ASTNode){
+                .id = { parser->next_node_id++ },
+                .directives = directives,
+                .type = ANT_LITERAL,
+                .node.literal = {
+                    .kind = LK_NULL,
+                    .value.lit_null = NULL,
+                },
+            });
+        }
         case TT_SIZEOF: return parser_wrap_simple_expr(parser, parser_parse_sizeof(parser, directives));
         case TT_LEFT_PAREN: return parser_wrap_simple_expr(parser, parser_parse_tuple(parser, directives));
 
@@ -2215,14 +2262,36 @@ static ParseResult parser_parse_fn_decl(Parser* const parser, LL_Directive const
     }
 
     Token const token = parser_peek(parser);
-    if (token.type == TT_LESS) {
-        //
-    }
-
     if (token.type != TT_IDENTIFIER) {
         return parseres_none();
     }
     parser_advance(parser);
+
+    ArrayList_String generic_params = arraylist_string_create(parser->arena);
+
+    if (parser_peek(parser).type == TT_LESS) {
+        parser_advance(parser);
+
+        Token t = parser_peek(parser);
+        while (t.type != TT_GREATER && t.type != TT_EOF) {
+            assert(parser_consume(parser, TT_IDENTIFIER, "Expected identifier for generic param"));
+
+            arraylist_string_push(&generic_params, (String){
+                .length = t.length,
+                .chars = t.start,
+            });
+            t = parser_peek(parser);
+
+            if (t.type != TT_GREATER && t.type != TT_EOF) {
+                assert(parser_consume(parser, TT_COMMA, "Expected ',' between generic params"));
+            }
+        }
+        if (parser_peek(parser).type == TT_COMMA) {
+            parser_advance(parser);
+        }
+
+        assert(parser_consume(parser, TT_GREATER, "Expected '>' to close generic params"));
+    }
 
     if (parser_peek(parser).type != TT_LEFT_PAREN) {
         return parseres_none();
@@ -2277,6 +2346,11 @@ static ParseResult parser_parse_fn_decl(Parser* const parser, LL_Directive const
         return parseres_none();
     }
 
+    ArrayList_LL_Type generic_impls = {0};
+    if (generic_params.length > 0) {
+        generic_impls = arraylist_typells_create(parser->arena);
+    }
+
     bool is_main = str_eq(name, c_str("main"));
 
     if (parser_peek(parser).type == TT_SEMICOLON) {
@@ -2287,6 +2361,8 @@ static ParseResult parser_parse_fn_decl(Parser* const parser, LL_Directive const
             .node.function_header_decl = {
                 .return_type = *type,
                 .name = name,
+                .generic_params = generic_params,
+                .generic_impls = generic_impls,
                 .params = params,
                 .is_main = is_main,
             },
@@ -2301,6 +2377,8 @@ static ParseResult parser_parse_fn_decl(Parser* const parser, LL_Directive const
             .header = {
                 .return_type = *type,
                 .name = name,
+                .generic_params = generic_params,
+                .generic_impls = generic_impls,
                 .params = params,
                 .is_main = is_main,
             },

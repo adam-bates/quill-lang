@@ -533,6 +533,27 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
     }
 
     if (rt->kind == RTK_STRUCT_REF && rt->src->type == ANT_STRUCT_DECL) {
+        // {
+        //     LLNode_Type* curr = t_static_path->generic_types.head;
+        //     while (curr) {
+        //         TypeInfo* ti = packages_type_by_type(type_resolver->packages, curr->data.id);
+        //         assert(ti);
+        //         if (!ti->type) {
+        //             print_type_static_path(*t_static_path);
+        //             printf("\n");
+
+        //             ResolvedType* rt = calc_resolved_type(type_resolver, scope, &curr->data);
+        //             assert(rt);
+
+        //             ti->status = TIS_CONFIDENT;
+        //             ti->type = rt;
+                    
+        //             assert(rt->kind != RTK_GENERIC);
+        //             assert(false);
+        //         }
+        //         curr = curr->next;
+        //     }
+        // }
         ArrayList_LL_Type* generic_impls = &rt->src->node.struct_decl.generic_impls;
 
         bool already_has_decl = false;
@@ -1257,20 +1278,63 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         case ANT_FUNCTION_CALL: {
             changed |= resolve_type_node(type_resolver, scope, node->node.function_call.function);
 
-            if (
-                type_resolver->packages->types[node->id.val].status != TIS_CONFIDENT
-                && type_resolver->packages->types[node->node.function_call.function->id.val].status == TIS_CONFIDENT
-            ) {
-                ResolvedType* type = type_resolver->packages->types[node->node.function_call.function->id.val].type->type.function.return_type;
-                type_resolver->packages->types[node->id.val] = (TypeInfo){
-                    .status = TIS_CONFIDENT,
-                    .type = type,
-                };
-                changed = true;
-            }
+            ResolvedType* fn_rt = type_resolver->packages->types[node->node.function_call.function->id.val].type;
 
-            if (type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
-                assert(type_resolver->packages->types[node->node.function_call.function->id.val].type->kind == RTK_FUNCTION);
+            if (fn_rt) {
+                assert(fn_rt->kind == RTK_FUNCTION_DECL || fn_rt->kind == RTK_FUNCTION_REF);
+
+                if (node->node.function_call.generic_args.length > 0) {
+                    assert(fn_rt->kind == RTK_FUNCTION_DECL);
+                    assert(fn_rt->type.function_decl.generic_params.length > 0);
+                    assert(fn_rt->src->type == ANT_FUNCTION_DECL);
+
+                    ResolvedType* new_fn_rt = arena_alloc(type_resolver->arena, sizeof *fn_rt);
+                    *new_fn_rt = (ResolvedType){
+                        .from_pkg = fn_rt->from_pkg,
+                        .src = fn_rt->src,
+                        .kind = RTK_FUNCTION_REF,
+                        .type.function_ref = {
+                            .decl = fn_rt->type.function_decl,
+                            .generic_args = {
+                                .length = 0,
+                                .resolved_types = arena_calloc(type_resolver->arena, node->node.function_call.generic_args.length, sizeof(ResolvedType)),
+                            },
+                            .impl_version = 0,
+                        },
+                    };
+                    fn_rt = new_fn_rt;
+
+                    ArrayList_LL_Type* generic_impls = &fn_rt->src->node.function_decl.header.generic_impls;
+
+                    bool already_has_decl = false;
+                    for (size_t i = 0; i < generic_impls->length; ++i) {
+                        if (typells_eq(generic_impls->array[i], node->node.function_call.generic_args)) {
+                            already_has_decl = true;
+                            node->node.function_call.impl_version = i;
+                            fn_rt->type.function_ref.impl_version = i;
+                            break;
+                        }
+                    }
+
+                    if (!already_has_decl) {
+                        node->node.function_call.impl_version = generic_impls->length;
+                        fn_rt->type.function_ref.impl_version = generic_impls->length;
+                        arraylist_typells_push(generic_impls, node->node.function_call.generic_args);
+                    }
+                } else if (fn_rt->kind == RTK_FUNCTION_DECL) {
+                    ResolvedType* new_fn_rt = arena_alloc(type_resolver->arena, sizeof *fn_rt);
+                    *new_fn_rt = (ResolvedType){
+                        .from_pkg = fn_rt->from_pkg,
+                        .src = fn_rt->src,
+                        .kind = RTK_FUNCTION_REF,
+                        .type.function_ref = {
+                            .decl = fn_rt->type.function_decl,
+                            .generic_args = {0},
+                            .impl_version = 0,
+                        },
+                    };
+                    fn_rt = new_fn_rt;
+                }
 
                 bool confident_args = true;
                 LLNode_ASTNode* curr = node->node.function_call.args.head;
@@ -1287,7 +1351,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                     break;
                 }
 
-                ResolvedType* type = type_resolver->packages->types[node->node.function_call.function->id.val].type->type.function.return_type;
+                ResolvedType* type = fn_rt->type.function_ref.decl.return_type;
                 type_resolver->packages->types[node->id.val] = (TypeInfo){
                     .status = TIS_CONFIDENT,
                     .type = type,
@@ -1850,8 +1914,8 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             *resolved_type = (ResolvedType){
                 .from_pkg = type_resolver->current_package,
                 .src = node,
-                .kind = RTK_FUNCTION,
-                .type.function = {
+                .kind = RTK_FUNCTION_DECL,
+                .type.function_decl = {
                     .params_length = node->node.function_decl.header.params.length,
                     .params = params,
                     .return_type = return_type,
@@ -1872,11 +1936,27 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
         case ANT_FUNCTION_DECL: {
             // if (type_resolver->packages->types[node->id.val].status != TIS_CONFIDENT) {
+                Strings generic_params = {
+                    .length = node->node.function_decl.header.generic_params.length,
+                    .strings = node->node.function_decl.header.generic_params.array,
+                };
+
+                Scope signature_scope = scope_create(type_resolver->arena, scope);
+                for (size_t i = 0; i < generic_params.length; ++i) {
+                    ResolvedType* generic_rt = arena_alloc(type_resolver->arena, sizeof *generic_rt);
+                    generic_rt->from_pkg = type_resolver->current_package;
+                    generic_rt->src = node;
+                    generic_rt->kind = RTK_GENERIC;
+                    generic_rt->type.generic.name = generic_params.strings[i];
+
+                    scope_set(&signature_scope, generic_params.strings[i], generic_rt);
+                }
+
                 ResolvedFunctionParam* params = arena_calloc(type_resolver->arena, node->node.function_decl.header.params.length, sizeof *params);
                 LLNode_FnParam* param = node->node.function_decl.header.params.head;
                 size_t i = 0;
                 while (param) {
-                    ResolvedType* param_type = calc_resolved_type(type_resolver, scope, &param->data.type);
+                    ResolvedType* param_type = calc_resolved_type(type_resolver, &signature_scope, &param->data.type);
                     if (!param_type) {
                         break;
                     }
@@ -1896,7 +1976,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                     break;
                 }
 
-                ResolvedType* return_type = calc_resolved_type(type_resolver, scope, &node->node.function_decl.header.return_type);
+                ResolvedType* return_type = calc_resolved_type(type_resolver, &signature_scope, &node->node.function_decl.header.return_type);
                 if (!return_type) {
                     break;
                 }
@@ -1909,8 +1989,9 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 *resolved_type = (ResolvedType){
                     .from_pkg = type_resolver->current_package,
                     .src = node,
-                    .kind = RTK_FUNCTION,
-                    .type.function = {
+                    .kind = RTK_FUNCTION_DECL,
+                    .type.function_decl = {
+                        .generic_params = generic_params,
                         .params_length = node->node.function_decl.header.params.length,
                         .params = params,
                         .return_type = return_type,
@@ -1929,15 +2010,15 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
             ResolvedType* fn_type = type_resolver->packages->types[node->id.val].type;
             assert(fn_type);
-            assert(fn_type->kind == RTK_FUNCTION);
+            assert(fn_type->kind == RTK_FUNCTION_DECL);
 
-            type_resolver->current_function = &fn_type->type.function;
+            type_resolver->current_function = &fn_type->type.function_decl;
 
-            Scope block_scope = scope_create(type_resolver->arena, scope);
+            Scope block_scope = scope_create(type_resolver->arena, &signature_scope);
 
             // Add fn params to block scope
-            for (size_t i = 0; i < fn_type->type.function.params_length; ++i) {
-                ResolvedFunctionParam param = fn_type->type.function.params[i];
+            for (size_t i = 0; i < fn_type->type.function_decl.params_length; ++i) {
+                ResolvedFunctionParam param = fn_type->type.function_decl.params[i];
                 scope_set(&block_scope, param.name, param.type);
             }
 
@@ -2005,6 +2086,15 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                         .status = TIS_CONFIDENT,
                         .type = type,
                     };
+                    break;
+                }
+
+                case LK_NULL: {
+                    ResolvedType* type = arena_alloc(type_resolver->arena, sizeof *type);
+                    type->src = node;
+                    type->from_pkg = type_resolver->current_package;
+                    type->kind = RTK_POINTER;
+                    type->type.ptr.of = NULL;
                     break;
                 }
 
