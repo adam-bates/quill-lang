@@ -604,7 +604,7 @@ static Type* parser_parse_type_wrap(Parser* const parser, Type* type) {
         case TT_LESS: {
             // Only generics on defined types, not built-ins or wraps
             assert(type->kind == TK_STATIC_PATH);
-            assert(type->type.static_path.generic_types.length == 0);
+            assert(type->type.static_path.generic_args.length == 0);
             parser_advance(parser);
 
             t = parser_peek(parser);
@@ -612,7 +612,7 @@ static Type* parser_parse_type_wrap(Parser* const parser, Type* type) {
                 Type* generic = parser_parse_type(parser);
                 assert(generic);
 
-                ll_type_push(parser->arena, &type->type.static_path.generic_types, *generic);
+                ll_type_push(parser->arena, &type->type.static_path.generic_args, *generic);
 
                 t = parser_peek(parser);
 
@@ -680,7 +680,7 @@ static Type* parser_parse_type(Parser* const parser) {
 
             type->kind = TK_STATIC_PATH;
             type->type.static_path.path = path;
-            type->type.static_path.generic_types = (LL_Type){0};
+            type->type.static_path.generic_args = (LL_Type){0};
             type->type.static_path.impl_version = 0;
 
             if (parser_peek(parser).type == TT_LESS) {
@@ -691,7 +691,7 @@ static Type* parser_parse_type(Parser* const parser) {
                     Type* generic_arg = parser_parse_type(parser);
                     assert(generic_arg);
 
-                    ll_type_push(parser->arena, &type->type.static_path.generic_types, *generic_arg);
+                    ll_type_push(parser->arena, &type->type.static_path.generic_args, *generic_arg);
                     t = parser_peek(parser);
 
                     if (t.type != TT_GREATER && t.type != TT_GREATER_GREATER && t.type != TT_EOF) {

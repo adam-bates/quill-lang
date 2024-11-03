@@ -89,7 +89,7 @@ typedef enum {
 
 typedef struct {
     StaticPath* path;
-    LL_Type generic_types;
+    LL_Type generic_args;
     size_t impl_version;
 } TypeStaticPath;
 

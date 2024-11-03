@@ -63,7 +63,17 @@ bool resolved_type_eq(ResolvedType* a, ResolvedType* b) {
         }
 
         case RTK_STRUCT_REF: switch (b->kind) {
-            case RTK_STRUCT_REF: return resolved_struct_decl_eq(&a->type.struct_ref.decl, &b->type.struct_ref.decl);
+            case RTK_STRUCT_REF: {
+                if (a->type.struct_ref.generic_args.length != b->type.struct_ref.generic_args.length) {
+                    return false;
+                }
+                for (size_t i = 0; i < a->type.struct_ref.generic_args.length; ++i) {
+                    if (!resolved_type_eq(a->type.struct_ref.generic_args.resolved_types + i, b->type.struct_ref.generic_args.resolved_types + i)) {
+                        return false;
+                    }
+                }
+                return resolved_struct_decl_eq(&a->type.struct_ref.decl, &b->type.struct_ref.decl);
+            }
             case RTK_STRUCT_DECL: return resolved_struct_decl_eq(&a->type.struct_ref.decl, &b->type.struct_decl);
             default: return false;
         }
@@ -76,6 +86,12 @@ bool resolved_type_eq(ResolvedType* a, ResolvedType* b) {
 
         case RTK_GENERIC: {
             if (b->kind != a->kind) {
+                return false;
+            }
+            if (a->src->id.val != b->src->id.val) {
+                return false;
+            }
+            if (a->type.generic.idx != b->type.generic.idx) {
                 return false;
             }
             return str_eq(a->type.generic.name, b->type.generic.name);
@@ -118,5 +134,138 @@ bool resolved_type_implict_to(ResolvedType* from, ResolvedType* to) {
         }
 
         default: return false;
+    }
+}
+
+void print_resolved_type(ResolvedType* rt) {
+    if (!rt) {
+        printf("null");
+        return;
+    }
+
+    switch (rt->kind) {
+        case RTK_VOID: printf("void"); break;
+        case RTK_BOOL: printf("bool"); break;
+        case RTK_INT: printf("int"); break;
+        case RTK_UINT: printf("uint"); break;
+        case RTK_CHAR: printf("char"); break;
+
+        case RTK_POINTER: {
+            print_resolved_type(rt->type.ptr.of);
+            printf("*");
+            break;
+        }
+
+        case RTK_MUT_POINTER: {
+            print_resolved_type(rt->type.mut_ptr.of);
+            printf("*");
+            break;
+        }
+
+        case RTK_ARRAY: {
+            print_resolved_type(rt->type.array.of);
+            printf("[");
+            if (rt->type.array.has_explicit_length) {
+                printf("%lu", rt->type.array.explicit_length);
+            }
+            printf("]");
+            break;
+        }
+
+        case RTK_FUNCTION_DECL: {
+            print_resolved_type(rt->type.function_decl.return_type);
+            printf(" ");
+            if (rt->type.function_decl.generic_params.length > 0) {
+                printf("<");
+                for (size_t i = 0; i < rt->type.function_decl.generic_params.length; ++i) {
+                    if (i > 0) {
+                        printf(", ");
+                    }
+                    print_string(rt->type.function_decl.generic_params.strings[i]);
+                }
+                printf(">");
+            }
+            printf("(");
+            for (size_t i = 0; i < rt->type.function_decl.params_length; ++i) {
+                if (i > 0) {
+                    printf(", ");
+                }
+                print_resolved_type(rt->type.function_decl.params[i].type);
+                printf(" ");
+                print_string(rt->type.function_decl.params[i].name);
+            }
+            printf(") { ... }");
+            break;
+        }
+
+        case RTK_FUNCTION_REF: {
+            printf("<name_unknown>");
+            if (rt->type.function_ref.generic_args.length > 0) {
+                printf("<");
+                for (size_t i = 0; i < rt->type.function_ref.generic_args.length; ++i) {
+                    if (i > 0) {
+                        printf(", ");
+                    }
+                    print_resolved_type(rt->type.function_ref.generic_args.resolved_types + i);
+                }
+                printf(">");
+            }
+            break;
+        }
+
+        case RTK_STRUCT_DECL: {
+            print_string(rt->type.struct_decl.name);
+            if (rt->type.struct_decl.generic_params.length > 0) {
+                printf("<");
+                for (size_t i = 0; i < rt->type.struct_decl.generic_params.length; ++i) {
+                    if (i > 0) {
+                        printf(", ");
+                    }
+                    print_string(rt->type.struct_decl.generic_params.strings[i]);
+                }
+                printf(">");
+            }
+            printf(" {\n");
+            for (size_t i = 0; i < rt->type.struct_decl.fields_length; ++i) {
+                printf("    ");
+                print_resolved_type(rt->type.struct_decl.fields[i].type);
+                printf(" ");
+                print_string(rt->type.struct_decl.fields[i].name);
+                printf(",\n");
+            }
+            printf("}");
+            break;
+        }
+
+        case RTK_STRUCT_REF: {
+            print_string(rt->type.struct_ref.decl.name);
+            if (rt->type.struct_ref.generic_args.length > 0) {
+                printf("<");
+                for (size_t i = 0; i < rt->type.struct_ref.generic_args.length; ++i) {
+                    if (i > 0) {
+                        printf(", ");
+                    }
+                    print_resolved_type(rt->type.struct_ref.generic_args.resolved_types + i);
+                }
+                printf(">");
+            }
+            break;
+        }
+
+        case RTK_GENERIC: {
+            printf("<%lu:", rt->type.generic.idx);
+            print_string(rt->type.generic.name);
+            printf(">");
+            break;
+        }
+
+        case RTK_NAMESPACE:
+        case RTK_TERMINAL:
+        {
+            printf("RTK_%d", rt->kind);
+            return;
+        }
+
+        case RTK_COUNT: assert(false);
     }
 }

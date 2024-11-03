@@ -177,28 +177,28 @@ static void _append_type(CodegenC* codegen, StringBuffer* sb, Type type, Package
 
         case TK_STATIC_PATH: {
             if (
-                type.type.static_path.generic_types.length == 0
+                type.type.static_path.generic_args.length == 0
                 && type.type.static_path.impl_version == 0
                 && !type.type.static_path.path->child
             ) {
                 String* mapped = get_mapped_generic(codegen->generic_map, type.type.static_path.path->name);
                 if (mapped) {
-                    // printf("TK_%d\n", type.kind);
-                    // printf("%s = %s\n",
-                    //     arena_strcpy(codegen->arena, type.type.static_path.path->name).chars,
-                    //     arena_strcpy(codegen->arena, *mapped).chars
-                    // );
+                    printf("TK_%d\n", type.kind);
+                    printf("%s = %s\n\n",
+                        arena_strcpy(codegen->arena, type.type.static_path.path->name).chars,
+                        arena_strcpy(codegen->arena, *mapped).chars
+                    );
                     // assert(false);
                     strbuf_append_str(sb, *mapped);
                     break;
                 } else {
-                    // printf("searched map, none found\n");
+                    printf("searched map, none found\n");
                 }
             }
-            // printf("%lu\n", type.type.static_path.generic_types.length);
-            // printf("%lu\n", type.type.static_path.impl_version);
-            // printf("%s\n", type.type.static_path.path->child ? "has child" : "no child");
-            // printf("%s\n", arena_strcpy(codegen->arena, type.type.static_path.path->name).chars);
+            printf("%lu\n", type.type.static_path.generic_args.length);
+            printf("%lu\n", type.type.static_path.impl_version);
+            printf("%s\n", type.type.static_path.path->child ? "has child" : "no child");
+            printf("%s\n\n", arena_strcpy(codegen->arena, type.type.static_path.path->name).chars);
 
             StaticPath* curr = type.type.static_path.path;
             while (curr->child) {
@@ -208,7 +208,7 @@ static void _append_type(CodegenC* codegen, StringBuffer* sb, Type type, Package
             String name = user_var_name(codegen->arena, curr->name, from_pkg);
             strbuf_append_str(sb, name);
 
-            if (type.type.static_path.generic_types.length > 0) {
+            if (type.type.static_path.generic_args.length > 0) {
                 strbuf_append_chars(sb, "_");
                 strbuf_append_uint(sb, type.type.static_path.impl_version);
             }
@@ -303,8 +303,59 @@ static void _append_type_resolved(CodegenC* codegen, StringBuffer* sb, ResolvedT
             String name = user_var_name(codegen->arena, type->type.struct_ref.decl.name, type->from_pkg);
             strbuf_append_str(sb, name);
             if (type->type.struct_ref.generic_args.length > 0) {
+                LL_GenericImpl generic_impls = codegen->packages->generic_impls_nodes_concrete[type->type.struct_ref.decl_node_id.val];
+                assert(generic_impls.length > 0);
+
+                size_t version = 0;
+                bool found = true;
+                LLNode_GenericImpl* curr = generic_impls.head;
+                printf("Finding version for struct ref %s<...>\n", arena_strcpy(codegen->arena, type->type.struct_ref.decl.name).chars);
+                while (curr) {
+                    printf("Checking version %lu...\n", version);
+
+                    if (curr->data.length != type->type.struct_ref.generic_args.length) {
+                        printf("len %lu != len %lu\n", curr->data.length, type->type.struct_ref.generic_args.length);
+                        continue;
+                    }
+
+                    found = true;
+                    for (size_t i = 0; i < curr->data.length; ++i) {
+                        ResolvedType* rt_arg = type->type.struct_ref.generic_args.resolved_types + i;
+
+                        if (rt_arg->kind == RTK_GENERIC) {
+                            StringBuffer rt_arg_sb = strbuf_create(codegen->arena);
+                            _append_type_resolved(codegen, &rt_arg_sb, rt_arg);
+
+                            StringBuffer curr_sb = strbuf_create(codegen->arena);
+                            _append_type_resolved(codegen, &curr_sb, curr->data.resolved_types[i]);
+
+                            if (!str_eq(strbuf_to_str(rt_arg_sb), strbuf_to_str(curr_sb))) {
+                                printf("\"%s\" != \"%s\"\n",
+                                    arena_strcpy(codegen->arena, strbuf_to_str(rt_arg_sb)).chars,
+                                    arena_strcpy(codegen->arena, strbuf_to_str(curr_sb)).chars
+                                );
+                                found = false;
+                                break;
+                            }
+                        } else if (!resolved_type_eq(curr->data.resolved_types[i], type->type.struct_ref.generic_args.resolved_types + i)) {
+                            printf("RTK_%d != RTK_%d\n", curr->data.resolved_types[i]->kind, (type->type.struct_ref.generic_args.resolved_types + i)->kind);
+                            found = false;
+                            break;
+                        }
+                    }
+
+                    if (found) {
+                        break;
+                    }
+
+                    version += 1;
+                    curr = curr->next;
+                }
+                assert(found);
+                printf("Found version %lu!\n", version);
+
                 strbuf_append_chars(sb, "_");
-                strbuf_append_uint(sb, type->type.struct_ref.impl_version);
+                strbuf_append_uint(sb, version);
             }
             break;
         }
@@ -321,6 +372,12 @@ static void _append_type_resolved(CodegenC* codegen, StringBuffer* sb, ResolvedT
                 mapped = next;
                 next = get_mapped_generic(codegen->generic_map, *mapped);
             }
+            printf("RTK_%d\n", type->kind);
+            printf("<%lu:%s> = %s\n\n",
+                type->type.generic.idx,
+                arena_strcpy(codegen->arena, type->type.generic.name).chars,
+                arena_strcpy(codegen->arena, *mapped).chars
+            );
             strbuf_append_str(sb, *mapped);
             break;
         }
@@ -1383,7 +1440,9 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 break;
             }
 
-            if (node->node.function_decl.header.generic_params.length > 0 && node->node.function_decl.header.generic_impls.length == 0) {
+            LL_GenericImpl generic_impls = codegen->packages->generic_impls_nodes_concrete[node->id.val];
+
+            if (node->node.function_decl.header.generic_params.length > 0 && generic_impls.length == 0) {
                 break;
             }
 
@@ -1392,7 +1451,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 assert(type);
                 assert(type->from_pkg);
 
-                size_t versions = node->node.function_decl.header.generic_impls.length;
+                size_t versions = generic_impls.length;
                 if (versions == 0) {
                     versions = 1;
                 }
@@ -1403,10 +1462,14 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
                 GenericImplMap* root_map = codegen->generic_map;
 
+                LLNode_GenericImpl* generic_impls_curr = generic_impls.head;
                 for (size_t version = 0; version < versions; ++version) {
-                    if (node->node.function_decl.header.generic_impls.length > 0) {
-                        LL_Type generic_impl_types = node->node.function_decl.header.generic_impls.array[version];
-                        if (generic_impl_types.length == 0 && versions > 1) {
+                    if (generic_impls.length > 0) {
+                        assert(generic_impls_curr);
+
+                        GenericImpl generic_impl = generic_impls_curr->data;
+
+                        if (generic_impl.length == 0 && versions > 1) {
                             continue;
                         }
 
@@ -1417,11 +1480,11 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                             .mapped_types = arena_calloc(codegen->arena, node->node.function_decl.header.generic_params.length, sizeof(String)),
                         };
                         {
-                            LLNode_Type* curr = generic_impl_types.head;
+                            ResolvedType* curr = generic_impl.resolved_types[0];
                             for (size_t i = 0; curr && i < node->node.function_decl.header.generic_params.length; ++i) {
                                 map.generic_names[i] = node->node.function_decl.header.generic_params.array[i];
-                                map.mapped_types[i] = gen_type(codegen, curr->data, type->from_pkg);
-                                curr = curr->next;
+                                map.mapped_types[i] = gen_type_resolved(codegen, curr);
+                                curr = generic_impl.resolved_types[i + 1];
                             }
                         }
                         codegen->generic_map = &map;
@@ -1441,7 +1504,8 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                             assert(curr_ti->type);
                             assert(curr_ti->type->from_pkg);
 
-                            strbuf_append_str(&sb, gen_type(codegen, curr->data.type, curr_ti->type->from_pkg));
+                            // strbuf_append_str(&sb, gen_type(codegen, curr->data.type, curr_ti->type->from_pkg));
+                            strbuf_append_str(&sb, gen_type_resolved(codegen, curr_ti->type));
                             strbuf_append_char(&sb, ' ');
                             strbuf_append_str(&sb, user_var_name(codegen->arena, curr->data.name, codegen->current_package));
 
@@ -1455,11 +1519,11 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                     String return_type;
                     {
                         TypeInfo* ti = packages_type_by_type(codegen->packages, node->node.function_decl.header.return_type.id);
-                        Package* pkg = NULL;
-                        if (ti && ti->type) {
-                            pkg = ti->type->from_pkg;
-                        }
-                        return_type = gen_type(codegen, node->node.function_decl.header.return_type, pkg);
+                        assert(ti);
+                        assert(ti->type);
+
+                        return_type = gen_type_resolved(codegen, ti->type);
+
                     }
 
                     String name;
@@ -1491,6 +1555,9 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                     });
 
                     codegen->generic_map = root_map;
+                    if (generic_impls_curr) {
+                        generic_impls_curr = generic_impls_curr->next;
+                    }
                 }
                 break;
             }
@@ -1503,7 +1570,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             assert(type);
             assert(type->from_pkg);
 
-            size_t versions = node->node.function_decl.header.generic_impls.length;
+            size_t versions = generic_impls.length;
             if (versions == 0) {
                 versions = 1;
             }
@@ -1514,10 +1581,14 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
             GenericImplMap* root_map = codegen->generic_map;
 
+            LLNode_GenericImpl* generic_impls_curr = generic_impls.head;
             for (size_t version = 0; version < versions; ++version) {
-                if (node->node.function_decl.header.generic_impls.length > 0) {
-                    LL_Type generic_impl_types = node->node.function_decl.header.generic_impls.array[version];
-                    if (generic_impl_types.length == 0 && versions > 1) {
+                if (generic_impls.length > 0) {
+                    assert(generic_impls_curr);
+
+                    GenericImpl generic_impl = generic_impls_curr->data;
+
+                    if (generic_impl.length == 0 && versions > 1) {
                         continue;
                     }
 
@@ -1528,11 +1599,11 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                         .mapped_types = arena_calloc(codegen->arena, node->node.function_decl.header.generic_params.length, sizeof(String)),
                     };
                     {
-                        LLNode_Type* curr = generic_impl_types.head;
+                        ResolvedType* curr = generic_impl.resolved_types[0];
                         for (size_t i = 0; curr && i < node->node.function_decl.header.generic_params.length; ++i) {
                             map.generic_names[i] = node->node.function_decl.header.generic_params.array[i];
-                            map.mapped_types[i] = gen_type(codegen, curr->data, type->from_pkg);
-                            curr = curr->next;
+                            map.mapped_types[i] = gen_type_resolved(codegen, curr);
+                            curr = generic_impl.resolved_types[i + 1];
                         }
                     }
                     codegen->generic_map = &map;
@@ -1552,7 +1623,8 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                         assert(curr_ti->type);
                         assert(curr_ti->type->from_pkg);
 
-                        strbuf_append_str(&sb, gen_type(codegen, curr->data.type, curr_ti->type->from_pkg));
+                        // strbuf_append_str(&sb, gen_type(codegen, curr->data.type, curr_ti->type->from_pkg));
+                        strbuf_append_str(&sb, gen_type_resolved(codegen, curr_ti->type));
                         strbuf_append_char(&sb, ' ');
                         strbuf_append_str(&sb, user_var_name(codegen->arena, curr->data.name, codegen->current_package));
 
@@ -1580,11 +1652,10 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 String return_type;
                 {
                     TypeInfo* ti = packages_type_by_type(codegen->packages, node->node.function_decl.header.return_type.id);
-                    Package* pkg = NULL;
-                    if (ti && ti->type) {
-                        pkg = ti->type->from_pkg;
-                    }
-                    return_type = gen_type(codegen, node->node.function_decl.header.return_type, pkg);
+                    assert(ti);
+                    assert(ti->type);
+
+                    return_type = gen_type_resolved(codegen, ti->type);
                 }
 
                 String name;
@@ -1616,6 +1687,10 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                     },
                 });
                 codegen->generic_map = root_map;
+
+                if (generic_impls_curr) {
+                    generic_impls_curr = generic_impls_curr->next;
+                }
             }
             break;
         }
@@ -1625,9 +1700,10 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 break;
             }
             assert(node->node.struct_decl.maybe_name);
-            // printf("CODEGEN: %s [%lu]\n", arena_strcpy(codegen->arena, *node->node.struct_decl.maybe_name).chars, node->node.struct_decl.generic_impls.length);
 
-            if (node->node.struct_decl.generic_params.length > 0 && node->node.struct_decl.generic_impls.length == 0) {
+            LL_GenericImpl generic_impls = codegen->packages->generic_impls_nodes_concrete[node->id.val];
+
+            if (node->node.struct_decl.generic_params.length > 0 && generic_impls.length == 0) {
                 break;
             }
 
@@ -1635,7 +1711,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             assert(type);
             assert(type->from_pkg);
 
-            size_t versions = node->node.struct_decl.generic_impls.length;
+            size_t versions = generic_impls.length;
             if (versions == 0) {
                 versions = 1;
             }
@@ -1646,10 +1722,19 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
             GenericImplMap* root_map = codegen->generic_map;
 
+            LLNode_GenericImpl* generic_impls_curr = generic_impls.head;
+            printf("struct %s has %lu versions.\n",
+                arena_strcpy(codegen->arena, *node->node.struct_decl.maybe_name).chars,
+                versions
+            );
             for (size_t version = 0; version < versions; ++version) {
-                if (node->node.struct_decl.generic_impls.length > 0) {
-                    LL_Type generic_impl_types = node->node.struct_decl.generic_impls.array[version];
-                    if (generic_impl_types.length == 0 && versions > 1) {
+                if (generic_impls.length > 0) {
+                    assert(generic_impls_curr);
+
+                    GenericImpl generic_impl = generic_impls_curr->data;
+
+                    if (generic_impl.length == 0 && versions > 1) {
+                        printf("Ignoring version %lu\n", version);
                         continue;
                     }
 
@@ -1660,19 +1745,12 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                         .mapped_types = arena_calloc(codegen->arena, node->node.struct_decl.generic_params.length, sizeof(String)),
                     };
                     {
-                        LLNode_Type* curr = generic_impl_types.head;
+                        ResolvedType* curr = generic_impl.resolved_types[0];
                         for (size_t i = 0; curr && i < node->node.struct_decl.generic_params.length; ++i) {
                             map.generic_names[i] = node->node.struct_decl.generic_params.array[i];
-                            map.mapped_types[i] = gen_type(codegen, curr->data, type->from_pkg);
+                            map.mapped_types[i] = gen_type_resolved(codegen, curr);
 
-                            // if (str_eq(*node->node.struct_decl.maybe_name, c_str("Result"))) {
-                            //     printf("[%lu] ", version);
-                            //     print_string(map.generic_names[i]);
-                            //     printf(" -> ");
-                            //     println_string(map.mapped_types[i]);
-                            // }
-
-                            curr = curr->next;
+                            curr = generic_impl.resolved_types[i + 1];
                         }
                     }
                     codegen->generic_map = &map;
@@ -1688,7 +1766,19 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                     size_t i = 0;
                     LLNode_StructField* curr = node->node.struct_decl.fields.head;
                     while (curr) {
-                        strbuf_append_str(&sb, gen_type_resolved(codegen, type->type.struct_decl.fields[i].type));
+                        String type_str = gen_type_resolved(codegen, type->type.struct_decl.fields[i].type);
+
+                        printf(".%s = %s\n",
+                            arena_strcpy(codegen->arena, type->type.struct_decl.fields[i].name).chars,
+                            arena_strcpy(codegen->arena, type_str).chars
+                        );
+
+                        if (version > 0 && str_eq(type_str, c_str("struct main_Foo_0"))) {
+                            printf("RTK_%d\n", type->type.struct_decl.fields[i].type->kind);
+                            assert(false);
+                        }
+
+                        strbuf_append_str(&sb, type_str);
                         strbuf_append_char(&sb, ' ');
                         strbuf_append_str(&sb, curr->data.name);
 
@@ -1723,6 +1813,10 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                     },
                 });
                 codegen->generic_map = root_map;
+
+                if (generic_impls_curr) {
+                    generic_impls_curr = generic_impls_curr->next;
+                }
             }
 
             // if (str_eq(*node->node.struct_decl.maybe_name, c_str("Result"))) {

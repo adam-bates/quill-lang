@@ -2,38 +2,38 @@ import std;
 import std/conv;
 import std/io;
 
-// struct Foo<A, B> {
-//     A a,
-//     B b,
-// }
+struct Foo<A, B> {
+    A a,
+    B b,
+}
 
-// struct Bar<C> {
-//     Foo<C, C> foo,
-// }
+struct Bar<C> {
+    Foo<C, C> foo,
+}
 
-// Foo<T, char> f<T>(T a) {
-//     return .{
-//         .a = a,
-//         .b = 'b',
-//     };
-// }
+Foo<T, char> f<T>(T a) {
+    return .{
+        .a = a,
+        .b = 'b',
+    };
+}
 
-// Foo<bool, T> g<T>(T b) {
-//     return .{
-//         .a = true,
-//         .b = b,
-//     };
-// }
+Foo<bool, T> g<T>(T b) {
+    return .{
+        .a = true,
+        .b = b,
+    };
+}
 
 void main() {
-    // Bar<int> b1;
-    // Bar<uint> b2;
+    Bar<int> b1;
+    Bar<uint*> b2;
 
-    // f<char>('a');
-    // f<bool>(true);
+    f<char>('a');
+    f<bool>(true);
 
-    // g<char>('b');
-    // g<bool>(true);
+    g<char>('b');
+    g<bool>(true);
 
     let args = std::args;
 

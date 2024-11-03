@@ -7,7 +7,7 @@
 #include "./string_buffer.h"
 
 StringBuffer strbuf_create_with_capacity(Arena* arena, size_t const capacity) {
-    char* const ptr = arena_alloc(arena, capacity);
+    char* const ptr = arena_calloc(arena, capacity, sizeof *ptr);
 
     return (StringBuffer){
         .arena = arena,
@@ -22,7 +22,7 @@ StringBuffer strbuf_create(Arena* arena) {
 }
 
 static void strbuf_grow(StringBuffer* strbuf, size_t const capacity) {
-    char* ptr = arena_realloc(strbuf->arena, strbuf->chars, strbuf->capacity, capacity);
+    char* ptr = arena_realloc(strbuf->arena, strbuf->chars, strbuf->capacity * sizeof(char), capacity * sizeof(char));
     strbuf->chars = ptr;
     strbuf->capacity = capacity;
 }

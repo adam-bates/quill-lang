@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -72,6 +73,10 @@ int main(int const argc, char* const argv[]) {
             }
         }
     }
+
+    packages.generic_impls_nodes_length = next_node_id;
+    packages.generic_impls_nodes_raw = arena_calloc(&arena, next_node_id, sizeof *packages.generic_impls_nodes_raw);
+    packages.generic_impls_nodes_concrete = arena_calloc(&arena, next_node_id, sizeof *packages.generic_impls_nodes_concrete);
 
     packages.types_length = next_node_id + next_type_id;
     packages.types = arena_calloc(&arena, packages.types_length, sizeof *packages.types);

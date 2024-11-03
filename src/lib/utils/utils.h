@@ -8,6 +8,7 @@
 
 #include "./arena.h"
 #include "./arena_alloc.h"
+#include "./arraylist.h"
 #include "./base.h"
 #include "./error.h"
 #include "./fs.h"

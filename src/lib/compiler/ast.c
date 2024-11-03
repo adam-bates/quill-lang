@@ -295,7 +295,7 @@ bool type_static_path_eq(TypeStaticPath a, TypeStaticPath b) {
         }
     }
 
-    return typells_eq(a.generic_types, b.generic_types);
+    return typells_eq(a.generic_args, b.generic_args);
 }
 
 bool directive_eq(Directive a, Directive b) {
@@ -691,9 +691,9 @@ void print_directives(LL_Directive directives) {
 void print_type_static_path(TypeStaticPath t_path) {
     print_static_path(t_path.path);
 
-    if (t_path.generic_types.length > 0) {
+    if (t_path.generic_args.length > 0) {
         printf("<");
-        LLNode_Type* curr = t_path.generic_types.head;
+        LLNode_Type* curr = t_path.generic_args.head;
         while (curr) {
             print_type(&curr->data);
 
@@ -947,6 +947,17 @@ void print_astnode(ASTNode const node) {
             print_type(&node.node.function_header_decl.return_type);
             printf(" ");
             print_string(node.node.function_header_decl.name);
+            if (node.node.function_header_decl.generic_params.length > 0) {
+                printf("<");
+                for (size_t i = 0; i < node.node.function_header_decl.generic_params.length; ++i) {
+                    if (i > 0) {
+                        printf(", ");
+                    }
+
+                    print_string(node.node.function_header_decl.generic_params.array[i]);
+                }
+                printf(">");
+            }
             printf("(");
             {
                 LLNode_FnParam* param = node.node.function_header_decl.params.head;
@@ -971,12 +982,23 @@ void print_astnode(ASTNode const node) {
         }
 
         case ANT_FUNCTION_DECL: {
-            print_type(&node.node.function_header_decl.return_type);
+            print_type(&node.node.function_decl.header.return_type);
             printf(" ");
-            print_string(node.node.function_header_decl.name);
+            print_string(node.node.function_decl.header.name);
+            if (node.node.function_decl.header.generic_params.length > 0) {
+                printf("<");
+                for (size_t i = 0; i < node.node.function_decl.header.generic_params.length; ++i) {
+                    if (i > 0) {
+                        printf(", ");
+                    }
+
+                    print_string(node.node.function_decl.header.generic_params.array[i]);
+                }
+                printf(">");
+            }
             printf("(");
             {
-                LLNode_FnParam* param = node.node.function_header_decl.params.head;
+                LLNode_FnParam* param = node.node.function_decl.header.params.head;
                 while (param != NULL) {
                     print_type(&param->data.type);
                     printf(" ");
@@ -1027,6 +1049,18 @@ void print_astnode(ASTNode const node) {
 
         case ANT_FUNCTION_CALL: {
             print_astnode(*node.node.function_call.function);
+            if (node.node.function_call.generic_args.length > 0) {
+                printf("<");
+                LLNode_Type* curr = node.node.function_call.generic_args.head;
+                while (curr) {
+                    print_type(&curr->data);
+                    curr = curr->next;
+                    if (curr) {
+                        printf(", ");
+                    }
+                }
+                printf(">");
+            }
             printf("(");
             {
                 LLNode_ASTNode* arg = node.node.function_call.args.head;

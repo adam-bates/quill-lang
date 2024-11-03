@@ -245,6 +245,237 @@ static ImportPath* expand_import_path(TypeResolver* type_resolver, ASTNodeImport
     }
 }
 
+bool is_generic_impl_eq(GenericImpl* a, GenericImpl* b) {
+    if (a->length != b->length) {
+        return false;
+    }
+
+    for (size_t i = 0; i < a->length; ++i) {
+        ResolvedType* rta = a->resolved_types[i];
+        ResolvedType* rtb = b->resolved_types[i];
+
+        if (!resolved_type_eq(rta, rtb)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+LL_GenericImpl map_generic_impls_to_concrete(Packages* packages, LL_GenericImpl* generic_impls) {
+    LL_GenericImpl to_generic_impls = {
+        .length = 0,
+        .head = NULL,
+        .tail = NULL,
+    };
+
+    LLNode_GenericImpl* curr = generic_impls->head;
+    while (curr) {
+        GenericImpl* generic_impl = &curr->data;
+
+        bool has_generic = false;
+
+        for (size_t i = 0; i < generic_impl->length; ++i) {
+            if (generic_impl->resolved_types[i]->kind == RTK_GENERIC) {
+                has_generic = true;
+                break;
+            }
+        }
+
+        if (!has_generic) {
+            GenericImpl to_generic_impl = {
+                .length = 0,
+                .resolved_types = arena_calloc(packages->arena, generic_impl->length, sizeof(uintptr_t)),
+            };
+            for (size_t i = 0; i < generic_impl->length; ++i) {
+                to_generic_impl.resolved_types[to_generic_impl.length++] = generic_impl->resolved_types[i];
+            }
+            ll_generic_impls_push(packages->arena, &to_generic_impls, to_generic_impl);
+        } else {
+            // ArrayList<ResolvedType*>
+            ArrayList_Ptr* first = arena_alloc(packages->arena, sizeof *first);
+            *first = arraylist_ptr_create(packages->arena);
+
+            // ArrayList<ArrayList<ResolvedType*>*>
+            ArrayList_Ptr to_generic_impl_many = arraylist_ptr_create(packages->arena);
+            arraylist_ptr_push(&to_generic_impl_many, first);
+
+            for (size_t rtidx = 0; rtidx < generic_impl->length; ++rtidx) {
+                ResolvedType* rt = generic_impl->resolved_types[rtidx];
+
+                if (rt->kind == RTK_GENERIC) {
+                    size_t src_node_id = rt->src->id.val;
+                    size_t idx = rt->type.generic.idx;
+
+                    LL_GenericImpl* generic_impls = packages->generic_impls_nodes_raw + src_node_id;
+
+                    LL_GenericImpl nested_all = map_generic_impls_to_concrete(packages, generic_impls);
+
+                    // ArrayList<ResolvedType*>
+                    ArrayList_Ptr nested = arraylist_ptr_create(packages->arena);
+
+                    LLNode_GenericImpl* curr = nested_all.head;
+                    while (curr) {
+                        arraylist_ptr_push(&nested, curr->data.resolved_types[idx]);
+                        curr = curr->next;
+                    }
+
+                    for (size_t mappedidx = 0; mappedidx < nested.length; ++mappedidx) {
+                        ResolvedType* mapped = nested.data[mappedidx];
+                        if (mappedidx == 0) {
+                            for (size_t i = 0; i < to_generic_impl_many.length; ++i) {
+                                ArrayList_Ptr* to_generic_impl = to_generic_impl_many.data[i];
+                                arraylist_ptr_push(to_generic_impl, mapped);
+                            }
+                        } else {
+                            size_t len = to_generic_impl_many.length;
+                            for (size_t i = 0; i < len; ++i) {
+                                ArrayList_Ptr* to_generic_impl_ref = to_generic_impl_many.data[i];
+
+                                ArrayList_Ptr* to_generic_impl = arena_alloc(packages->arena, sizeof *to_generic_impl);
+                                *to_generic_impl = arraylist_ptr_create_with_capacity(packages->arena, to_generic_impl_ref->capacity);
+                                to_generic_impl->length = to_generic_impl_ref->length;
+                                for (size_t j = 0; j < to_generic_impl->length; ++j) {
+                                    to_generic_impl->data[j] = to_generic_impl_ref->data[j];
+                                }
+
+                                size_t last = to_generic_impl->length - 1;
+                                to_generic_impl->data[last] = mapped;
+                                arraylist_ptr_push(&to_generic_impl_many, to_generic_impl);
+                            }
+                        }
+                    }
+                } else {
+                    for (size_t i = 0; i < to_generic_impl_many.length; ++i) {
+                        ArrayList_Ptr* to_generic_impl = to_generic_impl_many.data[i];
+                        arraylist_ptr_push(to_generic_impl, rt);
+                    }
+                }
+            }
+            for (size_t to_generic_implidx = 0; to_generic_implidx < to_generic_impl_many.length; ++to_generic_implidx) {
+                ArrayList_Ptr* to_generic_impl = to_generic_impl_many.data[to_generic_implidx];
+                GenericImpl a = {
+                    .length = to_generic_impl->length,
+                    .resolved_types = (ResolvedType**)to_generic_impl->data,
+                };
+
+                bool found = false;
+                for (size_t i = 0; i < to_generic_implidx; ++i) {
+                    ArrayList_Ptr* to_generic_impl_other = to_generic_impl_many.data[i];
+
+                    GenericImpl b = {
+                        .length = to_generic_impl_other->length,
+                        .resolved_types = (ResolvedType**)to_generic_impl_other->data,
+                    };
+
+                    if (is_generic_impl_eq(&a, &b)) {
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found) {
+                    ll_generic_impls_push(packages->arena, &to_generic_impls, a);
+                }
+            }
+        }
+
+        curr = curr->next;
+    }
+
+    LL_GenericImpl out = {
+        .length = 0,
+        .head = NULL,
+        .tail = NULL,
+    };
+
+    size_t to_generic_implidx = 0;
+    curr = to_generic_impls.head;
+    while (curr) {
+        GenericImpl* to_generic_impl = &curr->data;
+
+        bool found = false;
+        size_t i = 0;
+        LLNode_GenericImpl* i_curr = to_generic_impls.head;
+        while (i_curr) {
+            if (i >= to_generic_implidx) {
+                break;
+            }
+            GenericImpl* to_generic_impl_other = &i_curr->data;
+
+            if (is_generic_impl_eq(to_generic_impl, to_generic_impl_other)) {
+                found = true;
+                break;
+            }
+
+            i += 1;
+            i_curr = i_curr->next;
+        }
+
+        if (!found) {
+            ll_generic_impls_push(packages->arena, &out, *to_generic_impl);
+        }
+
+        to_generic_implidx += 1;
+        curr = curr->next;
+    }
+
+    return out;
+}
+
+void resolve_generic_nodes(Packages* packages) {
+    for (size_t i = 0; i < packages->generic_impls_nodes_length; ++i) {
+        LL_GenericImpl* generic_impls = packages->generic_impls_nodes_raw + i;
+        if (generic_impls->length > 0) {
+            LL_GenericImpl concrete_generic_impls = map_generic_impls_to_concrete(packages, generic_impls);
+
+            packages->generic_impls_nodes_concrete[i] = concrete_generic_impls;
+
+            printf("Node [%lu]: ", i);
+            print_resolved_type(packages_type_by_node(packages, (NodeId){i})->type);
+            printf("\n");
+
+            if (concrete_generic_impls.length > 0) {
+                printf("- From:\n");
+            }
+            {
+                size_t j = 0;
+                LLNode_GenericImpl* curr = generic_impls->head;
+                while (curr) {
+                    printf("[%lu] ", j);
+                    for (size_t k = 0; k < curr->data.length; ++k) {
+                        print_resolved_type(curr->data.resolved_types[k]);
+                        printf(", ");
+                    }
+                    printf("\n");
+
+                    j += 1;
+                    curr = curr->next;
+                }
+            }
+
+            if (concrete_generic_impls.length > 0) {
+                printf("- To:\n");
+                size_t j = 0;
+                LLNode_GenericImpl* curr = concrete_generic_impls.head;
+                while (curr) {
+                    printf("[%lu] ", j);
+                    for (size_t k = 0; k < curr->data.length; ++k) {
+                        print_resolved_type(curr->data.resolved_types[k]);
+                        printf(", ");
+                    }
+                    printf("\n");
+
+                    j += 1;
+                    curr = curr->next;
+                }
+            }
+
+            printf("\n");
+        }
+    }
+}
+
 static void resolve_file(TypeResolver* type_resolver, Scope* scope, ASTNodeFileRoot file);
 
 void resolve_types(TypeResolver* type_resolver) {
@@ -466,6 +697,9 @@ void resolve_types(TypeResolver* type_resolver) {
         type_resolver->current_package = NULL;
     }
     printf("\n");
+
+    assert(type_resolver->packages->generic_impls_nodes_concrete);
+    resolve_generic_nodes(type_resolver->packages);
 }
 
 static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scope, Type* type);
@@ -534,9 +768,10 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
             .kind = RTK_STRUCT_REF,
             .type.struct_ref = {
                 .decl = rt->type.struct_decl,
+                .decl_node_id = rt->src->id,
                 .generic_args = {
                     .length = 0,
-                    .resolved_types = arena_calloc(type_resolver->arena, t_static_path->generic_types.length, sizeof(ResolvedType)),
+                    .resolved_types = arena_calloc(type_resolver->arena, t_static_path->generic_args.length, sizeof(ResolvedType)),
                 },
                 .impl_version = 0,
             },
@@ -544,12 +779,12 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
         rt = arena_alloc(type_resolver->arena, sizeof *rt);
         *rt = rt_new;
 
-        LLNode_Type* curr = t_static_path->generic_types.head;
+        LLNode_Type* curr = t_static_path->generic_args.head;
         while (curr) {
             ResolvedType* generic_arg = calc_resolved_type(type_resolver, &fields_scope, &curr->data);
             assert(generic_arg);
 
-            assert(rt->type.struct_ref.generic_args.length < t_static_path->generic_types.length);
+            assert(rt->type.struct_ref.generic_args.length < t_static_path->generic_args.length);
             rt->type.struct_ref.generic_args.resolved_types[rt->type.struct_ref.generic_args.length++] = *generic_arg;
 
             curr = curr->next;
@@ -558,64 +793,35 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
 
     if (rt->kind == RTK_STRUCT_REF && rt->src->type == ANT_STRUCT_DECL) {
         {
-            LLNode_Type* curr = t_static_path->generic_types.head;
+            ResolvedType** resolved_types = arena_calloc(type_resolver->arena, t_static_path->generic_args.length, sizeof(uintptr_t));
+
+            size_t idx = 0;
+            LLNode_Type* curr = t_static_path->generic_args.head;
             while (curr) {
                 TypeInfo* ti = packages_type_by_type(type_resolver->packages, curr->data.id);
                 assert(ti);
                 if (!ti->type) {
-                    ResolvedType* rt = calc_resolved_type(type_resolver, scope, &curr->data);
-                    assert(rt);
-
-                    if (rt->kind == RTK_GENERIC) {
-                        print_type_static_path(*t_static_path);
-                        printf("\n");
-
-                        println_astnode(*rt->src);
-
-                        // switch (rt->src->type) {
-                        //     case ANT_STRUCT_DECL: {
-                        //         for (size_t i = 0; i < rt->src->node.struct_decl.generic_impls.length; ++i) {
-                        //             size_t idx = 0;
-                        //             LLNode_Type* impl = rt->src->node.struct_decl.generic_impls.array[i].head;
-                        //             while (idx != rt->type.generic.idx && impl) {
-                        //                 impl = impl->next;
-                        //             }
-                        //             assert(idx == rt->type.generic.idx);
-                        //             assert(impl);
-
-                        //             print_type(&impl->data);
-                        //             printf("\n");
-                        //         }
-                        //         assert(false);
-                        //         break;
-                        //     }
-
-                        //     case ANT_FUNCTION_DECL: {
-                        //         assert(false);
-                        //         break;
-                        //     }
-
-                        //     default: printf("Unexpected ANT_%d\n", rt->src->type); assert(false);
-                        // }
-
-                        // TODO: all generic mappings to a shared map { GenericId: { Src, [impls] } }
-                        // the impls can be generics
-                        // in codegen, don't blindly trust impls, but resolve impls by walking the tree
-                        // keep an eye out for cycles
-                        // assert(false);
-                    }
+                    ResolvedType* arg_rt = calc_resolved_type(type_resolver, scope, &curr->data);
+                    assert(arg_rt);
+                    assert(arg_rt->src);
 
                     ti->status = TIS_CONFIDENT;
-                    ti->type = rt;
+                    ti->type = arg_rt;
                 }
+
+                resolved_types[idx] = ti->type;
+                
+                idx += 1;
                 curr = curr->next;
             }
+
+            packages_register_generic_impl(type_resolver->packages, rt->src, t_static_path->generic_args.length, resolved_types);
         }
         ArrayList_LL_Type* generic_impls = &rt->src->node.struct_decl.generic_impls;
 
         bool already_has_decl = false;
         for (size_t i = 0; i < generic_impls->length; ++i) {
-            if (typells_eq(generic_impls->array[i], t_static_path->generic_types)) {
+            if (typells_eq(generic_impls->array[i], t_static_path->generic_args)) {
                 already_has_decl = true;
                 t_static_path->impl_version = i;
                 rt->type.struct_ref.impl_version = i;
@@ -623,13 +829,13 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
             }
         }
 
-        if (!already_has_decl && t_static_path->generic_types.length > 0) {
+        if (!already_has_decl && t_static_path->generic_args.length > 0) {
             t_static_path->impl_version = generic_impls->length;
             rt->type.struct_ref.impl_version = generic_impls->length;
-            arraylist_typells_push(generic_impls, t_static_path->generic_types);
+            arraylist_typells_push(generic_impls, t_static_path->generic_args);
         }
     } else {
-        assert(t_static_path->generic_types.length == 0);
+        assert(t_static_path->generic_args.length == 0);
     }
 
     return rt;
@@ -1339,6 +1545,40 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
             if (fn_rt) {
                 assert(fn_rt->kind == RTK_FUNCTION_DECL || fn_rt->kind == RTK_FUNCTION_REF);
+                assert(fn_rt->kind == RTK_FUNCTION_DECL);
+
+                if (fn_rt->type.function_decl.generic_params.length > 0) {
+                    assert(node->node.function_call.generic_args.length <= fn_rt->type.function_decl.generic_params.length);
+
+                    if (node->node.function_call.generic_args.length < fn_rt->type.function_decl.generic_params.length) {
+                        assert(node->node.function_call.generic_args.length == 0);
+
+                        // TODO: support implicit generic args
+                        assert(false);
+                    } else {
+                        assert(node->node.function_call.generic_args.length == fn_rt->type.function_decl.generic_params.length);
+
+                        ResolvedType** resolved_types = arena_calloc(type_resolver->arena, node->node.function_call.generic_args.length, sizeof(uintptr_t));
+
+                        size_t i = 0;
+                        LLNode_Type* curr = node->node.function_call.generic_args.head;
+                        while (curr) {
+                            ResolvedType* gen_arg_rt = calc_resolved_type(type_resolver, scope, &curr->data);
+                            assert(gen_arg_rt);
+
+                            gen_arg_rt->src = node;
+
+                            resolved_types[i] = gen_arg_rt;
+
+                            i += 1;
+                            curr = curr->next;
+                        }
+
+                        packages_register_generic_impl(type_resolver->packages, fn_rt->src, node->node.function_call.generic_args.length, resolved_types);
+                    }
+                } else {
+                    assert(node->node.function_call.generic_args.length == 0);
+                }
 
                 if (node->node.function_call.generic_args.length > 0) {
                     assert(fn_rt->kind == RTK_FUNCTION_DECL);
@@ -2205,7 +2445,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         case ANT_VAR_REF: {
             TypeStaticPath t_path = {
                 .path = node->node.var_ref.path,
-                .generic_types = {0},
+                .generic_args = {0},
                 .impl_version = 0,
             };
             ResolvedType* resolved_type = calc_static_path_type(type_resolver, scope, &t_path);

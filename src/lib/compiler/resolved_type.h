@@ -91,6 +91,7 @@ typedef struct {
 
 typedef struct {
     ResolvedStructDecl decl;
+    NodeId decl_node_id;
     ResolvedTypes generic_args;
     size_t impl_version;
 } ResolvedStructRef;
@@ -128,5 +129,7 @@ typedef struct ResolvedType {
 bool resolved_type_implict_to(ResolvedType* from, ResolvedType* to);
 bool resolved_type_eq(ResolvedType* a, ResolvedType* b);
 bool resolved_struct_decl_eq(ResolvedStructDecl* a, ResolvedStructDecl* b);
+
+void print_resolved_type(ResolvedType* rt);
 
 #endif
