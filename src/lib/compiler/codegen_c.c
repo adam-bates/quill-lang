@@ -88,6 +88,10 @@ static String* get_mapped_generic(GenericImplMap* map, String generic) {
         }
     }
 
+    if (map->parent == map) {
+        return NULL;
+    }
+
     return get_mapped_generic(map->parent, generic);
 }
 
@@ -313,39 +317,40 @@ static void _append_type_resolved(CodegenC* codegen, StringBuffer* sb, ResolvedT
                 while (curr) {
                     printf("Checking version %lu...\n", version);
 
-                    if (curr->data.length != type->type.struct_ref.generic_args.length) {
+                    if (curr->data.length == type->type.struct_ref.generic_args.length) {
                         printf("len %lu != len %lu\n", curr->data.length, type->type.struct_ref.generic_args.length);
-                        continue;
-                    }
 
-                    found = true;
-                    for (size_t i = 0; i < curr->data.length; ++i) {
-                        ResolvedType* rt_arg = type->type.struct_ref.generic_args.resolved_types + i;
+                        found = true;
+                        for (size_t i = 0; i < curr->data.length; ++i) {
+                            ResolvedType* rt_arg = type->type.struct_ref.generic_args.resolved_types + i;
+                            assert(rt_arg);
+                            assert(curr->data.resolved_types + i);
+                            assert(curr->data.resolved_types[i]);
 
-                        if (rt_arg->kind == RTK_GENERIC) {
-                            StringBuffer rt_arg_sb = strbuf_create(codegen->arena);
-                            _append_type_resolved(codegen, &rt_arg_sb, rt_arg);
+                            if (rt_arg->kind == RTK_GENERIC) {
+                                StringBuffer rt_arg_sb = strbuf_create(codegen->arena);
+                                _append_type_resolved(codegen, &rt_arg_sb, rt_arg);
 
-                            StringBuffer curr_sb = strbuf_create(codegen->arena);
-                            _append_type_resolved(codegen, &curr_sb, curr->data.resolved_types[i]);
-
-                            if (!str_eq(strbuf_to_str(rt_arg_sb), strbuf_to_str(curr_sb))) {
-                                printf("\"%s\" != \"%s\"\n",
-                                    arena_strcpy(codegen->arena, strbuf_to_str(rt_arg_sb)).chars,
-                                    arena_strcpy(codegen->arena, strbuf_to_str(curr_sb)).chars
-                                );
+                                StringBuffer curr_sb = strbuf_create(codegen->arena);
+                                _append_type_resolved(codegen, &curr_sb, curr->data.resolved_types[i]);
+                                if (!str_eq(strbuf_to_str(rt_arg_sb), strbuf_to_str(curr_sb))) {
+                                    printf("\"%s\" != \"%s\"\n",
+                                        arena_strcpy(codegen->arena, strbuf_to_str(rt_arg_sb)).chars,
+                                        arena_strcpy(codegen->arena, strbuf_to_str(curr_sb)).chars
+                                    );
+                                    found = false;
+                                    break;
+                                }
+                            } else if (!resolved_type_eq(curr->data.resolved_types[i], type->type.struct_ref.generic_args.resolved_types + i)) {
+                                printf("RTK_%d != RTK_%d\n", curr->data.resolved_types[i]->kind, (type->type.struct_ref.generic_args.resolved_types + i)->kind);
                                 found = false;
                                 break;
                             }
-                        } else if (!resolved_type_eq(curr->data.resolved_types[i], type->type.struct_ref.generic_args.resolved_types + i)) {
-                            printf("RTK_%d != RTK_%d\n", curr->data.resolved_types[i]->kind, (type->type.struct_ref.generic_args.resolved_types + i)->kind);
-                            found = false;
+                        }
+
+                        if (found) {
                             break;
                         }
-                    }
-
-                    if (found) {
-                        break;
                     }
 
                     version += 1;
@@ -1728,6 +1733,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 versions
             );
             for (size_t version = 0; version < versions; ++version) {
+                printf("Version %lu\n", version);
                 if (generic_impls.length > 0) {
                     assert(generic_impls_curr);
 
@@ -1735,6 +1741,11 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
                     if (generic_impl.length == 0 && versions > 1) {
                         printf("Ignoring version %lu\n", version);
+                        codegen->generic_map = root_map;
+
+                        if (generic_impls_curr) {
+                            generic_impls_curr = generic_impls_curr->next;
+                        }
                         continue;
                     }
 
@@ -1765,7 +1776,13 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
                     size_t i = 0;
                     LLNode_StructField* curr = node->node.struct_decl.fields.head;
+                    bool ok = true;
                     while (curr) {
+                        if (type->type.struct_decl.fields[i].type->kind == RTK_GENERIC && !get_mapped_generic(codegen->generic_map, type->type.struct_decl.fields[i].type->type.generic.name)) {
+                            ok = false;
+                            break;
+                        }
+                        
                         String type_str = gen_type_resolved(codegen, type->type.struct_decl.fields[i].type);
 
                         printf(".%s = %s\n",
@@ -1787,6 +1804,14 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
                         i += 1;
                         curr = curr->next;
+                    }
+                    if (!ok) {
+                        codegen->generic_map = root_map;
+
+                        if (generic_impls_curr) {
+                            generic_impls_curr = generic_impls_curr->next;
+                        }
+                        continue;
                     }
                 }
 
