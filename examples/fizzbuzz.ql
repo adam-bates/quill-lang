@@ -9,12 +9,9 @@ void main() {
     if args.length != 2 {
         CRASH "Usage: fizzbuzz [integer]";
     }
+    let n_res = conv::parse_uint(args.data[1]);
 
-    let res = conv::parse_uint(args.data[1]);
-    if !res.is_ok {
-        CRASH `Error parser integer: {res.err}`;
-    }
-    uint n = res.val;
+    uint n = std::assert_ok<uint>(n_res);
 
     let mut out = ds::strbuf_default();
     foreach i in 1..=n {
