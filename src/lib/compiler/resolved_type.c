@@ -130,6 +130,68 @@ bool resolved_type_implict_to(ResolvedType* from, ResolvedType* to) {
         return true;
     }
 
+    if (from->kind == RTK_GENERIC || to->kind == RTK_GENERIC) {
+        switch (from->kind) {
+            case RTK_VOID:
+            case RTK_BOOL:
+            case RTK_CHAR:
+            case RTK_INT:
+            case RTK_INT8:
+            case RTK_INT16:
+            case RTK_INT32:
+            case RTK_INT64:
+            case RTK_UINT:
+            case RTK_UINT8:
+            case RTK_UINT16:
+            case RTK_UINT32:
+            case RTK_UINT64:
+            case RTK_FLOAT:
+            case RTK_FLOAT32:
+            case RTK_FLOAT64:
+            case RTK_POINTER:
+            case RTK_MUT_POINTER:
+            case RTK_ARRAY:
+            case RTK_FUNCTION_DECL:
+            case RTK_FUNCTION_REF:
+            case RTK_STRUCT_DECL:
+            case RTK_STRUCT_REF:
+            case RTK_GENERIC:
+                break;
+
+            default: false;
+        }
+
+        switch (to->kind) {
+            case RTK_VOID:
+            case RTK_BOOL:
+            case RTK_CHAR:
+            case RTK_INT:
+            case RTK_INT8:
+            case RTK_INT16:
+            case RTK_INT32:
+            case RTK_INT64:
+            case RTK_UINT:
+            case RTK_UINT8:
+            case RTK_UINT16:
+            case RTK_UINT32:
+            case RTK_UINT64:
+            case RTK_FLOAT:
+            case RTK_FLOAT32:
+            case RTK_FLOAT64:
+            case RTK_POINTER:
+            case RTK_MUT_POINTER:
+            case RTK_ARRAY:
+            case RTK_FUNCTION_DECL:
+            case RTK_FUNCTION_REF:
+            case RTK_STRUCT_DECL:
+            case RTK_STRUCT_REF:
+            case RTK_GENERIC:
+                return true;
+
+            default: false;
+        }
+     }
+
     switch (to->kind) {
         case RTK_BOOL:
         case RTK_CHAR:
@@ -209,8 +271,6 @@ bool resolved_type_implict_to(ResolvedType* from, ResolvedType* to) {
         case RTK_UINT64:
         case RTK_FLOAT:
         case RTK_FLOAT64:
-        case RTK_POINTER:
-        case RTK_MUT_POINTER:
         {
             switch (from->kind) {
                 case RTK_BOOL:
@@ -226,6 +286,40 @@ bool resolved_type_implict_to(ResolvedType* from, ResolvedType* to) {
 
                 default: return false;
             }
+        }
+
+        case RTK_POINTER: switch (from->kind) {
+            case RTK_POINTER: return resolved_type_implict_to(from->type.ptr.of, to->type.ptr.of);
+            case RTK_MUT_POINTER: return resolved_type_implict_to(from->type.ptr.of, to->type.mut_ptr.of);
+            default: return false;
+        }
+
+        case RTK_MUT_POINTER: switch (from->kind) {
+            case RTK_POINTER: return resolved_type_eq(from->type.mut_ptr.of, to->type.ptr.of);
+            case RTK_MUT_POINTER: return resolved_type_eq(from->type.mut_ptr.of, to->type.mut_ptr.of);
+            default: return false;
+        }
+
+        case RTK_STRUCT_REF: switch (from->kind) {
+            case RTK_STRUCT_REF: {
+                if (from->type.struct_ref.generic_args.length != to->type.struct_ref.generic_args.length) {
+                    return false;
+                }
+                for (size_t i = 0; i < from->type.struct_ref.generic_args.length; ++i) {
+                    if (!resolved_type_implict_to(from->type.struct_ref.generic_args.resolved_types + i, to->type.struct_ref.generic_args.resolved_types + i)) {
+                        return false;
+                    }
+                }
+                return resolved_struct_decl_eq(&to->type.struct_ref.decl, &to->type.struct_ref.decl);
+            }
+            case RTK_STRUCT_DECL: return resolved_struct_decl_eq(&from->type.struct_ref.decl, &to->type.struct_decl);
+            default: return false;
+        }
+
+        case RTK_STRUCT_DECL: switch (from->kind) {
+            case RTK_STRUCT_REF: return resolved_struct_decl_eq(&from->type.struct_decl, &to->type.struct_ref.decl);
+            case RTK_STRUCT_DECL: return resolved_struct_decl_eq(&from->type.struct_decl, &to->type.struct_decl);
+            default: return false;
         }
 
         default: return false;

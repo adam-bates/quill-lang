@@ -24,19 +24,19 @@ struct Result<T> {
 	// },
 }
 
-// Result<T> res_ok<T>(T val) {
-// 	return .{
-// 		.is_ok = true,
-// 		.val = val,
-// 	};
-// }
+Result<T> res_ok<T>(T val) {
+	return .{
+		.is_ok = true,
+		.val = val,
+	};
+}
 
-// Result<T> res_err<T>(Error err) {
-// 	return .{
-// 		.is_ok = false,
-// 		.err = err,
-// 	};
-// }
+Result<T> res_err<T>(Error err) {
+	return .{
+		.is_ok = false,
+		.err = err,
+	};
+}
 
 @range_literal struct Range {
 	int from,
@@ -48,6 +48,14 @@ void assert(bool expr) {
 	if !expr {
 		exit(1);
 	}
+}
+
+T assert_ok<T>(Result<T> res) {
+	if !res.is_ok {
+		CRASH `{res.err}`;
+	}
+
+	return res.val;
 }
 
 void exit(int code) {

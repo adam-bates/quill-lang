@@ -8,12 +8,9 @@ void main() {
     if args.length != 2 {
         CRASH "Usage: fibonacci [integer]";
     }
+    let n_res = conv::parse_uint8(args.data[1]);
 
-    let res = conv::parse_uint8(args.data[1]);
-    if !res.is_ok {
-        CRASH `Error parsing integer: {res.err}`;
-    }
-    uint8 n = res.val;
+    uint8 n = std::assert_ok<uint8>(n_res);
 
     foreach i in 0..n {
         io::println(`fib({i}) = {nth_fib(i)}`);
