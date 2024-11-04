@@ -879,10 +879,70 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
                     return resolved_type;
                 }
 
+                case TBI_CHAR: {
+                    ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+                    resolved_type->from_pkg = type_resolver->current_package;
+                    resolved_type->kind = RTK_CHAR;
+                    resolved_type->type.char_ = NULL;
+                    *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = resolved_type,
+                    };
+                    return resolved_type;
+                }
+
                 case TBI_INT: {
                     ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
                     resolved_type->from_pkg = type_resolver->current_package;
                     resolved_type->kind = RTK_INT;
+                    resolved_type->type.uint_ = NULL;
+                    *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = resolved_type,
+                    };
+                    return resolved_type;
+                }
+
+                case TBI_INT8: {
+                    ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+                    resolved_type->from_pkg = type_resolver->current_package;
+                    resolved_type->kind = RTK_INT8;
+                    resolved_type->type.uint_ = NULL;
+                    *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = resolved_type,
+                    };
+                    return resolved_type;
+                }
+
+                case TBI_INT16: {
+                    ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+                    resolved_type->from_pkg = type_resolver->current_package;
+                    resolved_type->kind = RTK_INT16;
+                    resolved_type->type.uint_ = NULL;
+                    *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = resolved_type,
+                    };
+                    return resolved_type;
+                }
+
+                case TBI_INT32: {
+                    ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+                    resolved_type->from_pkg = type_resolver->current_package;
+                    resolved_type->kind = RTK_INT32;
+                    resolved_type->type.uint_ = NULL;
+                    *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = resolved_type,
+                    };
+                    return resolved_type;
+                }
+
+                case TBI_INT64: {
+                    ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+                    resolved_type->from_pkg = type_resolver->current_package;
+                    resolved_type->kind = RTK_INT64;
                     resolved_type->type.uint_ = NULL;
                     *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
                         .status = TIS_CONFIDENT,
@@ -903,11 +963,11 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
                     return resolved_type;
                 }
 
-                case TBI_CHAR: {
+                case TBI_UINT8: {
                     ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
                     resolved_type->from_pkg = type_resolver->current_package;
-                    resolved_type->kind = RTK_CHAR;
-                    resolved_type->type.char_ = NULL;
+                    resolved_type->kind = RTK_UINT8;
+                    resolved_type->type.uint_ = NULL;
                     *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
                         .status = TIS_CONFIDENT,
                         .type = resolved_type,
@@ -915,7 +975,79 @@ static ResolvedType* calc_resolved_type(TypeResolver* type_resolver, Scope* scop
                     return resolved_type;
                 }
 
-                default: assert(false);
+                case TBI_UINT16: {
+                    ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+                    resolved_type->from_pkg = type_resolver->current_package;
+                    resolved_type->kind = RTK_UINT16;
+                    resolved_type->type.uint_ = NULL;
+                    *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = resolved_type,
+                    };
+                    return resolved_type;
+                }
+
+                case TBI_UINT32: {
+                    ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+                    resolved_type->from_pkg = type_resolver->current_package;
+                    resolved_type->kind = RTK_UINT32;
+                    resolved_type->type.uint_ = NULL;
+                    *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = resolved_type,
+                    };
+                    return resolved_type;
+                }
+
+                case TBI_UINT64: {
+                    ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+                    resolved_type->from_pkg = type_resolver->current_package;
+                    resolved_type->kind = RTK_UINT64;
+                    resolved_type->type.uint_ = NULL;
+                    *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = resolved_type,
+                    };
+                    return resolved_type;
+                }
+
+                case TBI_FLOAT: {
+                    ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+                    resolved_type->from_pkg = type_resolver->current_package;
+                    resolved_type->kind = RTK_FLOAT;
+                    resolved_type->type.uint_ = NULL;
+                    *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = resolved_type,
+                    };
+                    return resolved_type;
+                }
+
+                case TBI_FLOAT32: {
+                    ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+                    resolved_type->from_pkg = type_resolver->current_package;
+                    resolved_type->kind = RTK_FLOAT32;
+                    resolved_type->type.uint_ = NULL;
+                    *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = resolved_type,
+                    };
+                    return resolved_type;
+                }
+
+                case TBI_FLOAT64: {
+                    ResolvedType* resolved_type = arena_alloc(type_resolver->arena, sizeof *resolved_type);
+                    resolved_type->from_pkg = type_resolver->current_package;
+                    resolved_type->kind = RTK_FLOAT64;
+                    resolved_type->type.uint_ = NULL;
+                    *packages_type_by_type(type_resolver->packages, type->id) = (TypeInfo){
+                        .status = TIS_CONFIDENT,
+                        .type = resolved_type,
+                    };
+                    return resolved_type;
+                }
+
+                case TBI_COUNT: assert(false);
             }
 
             break;
@@ -1079,10 +1211,22 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 switch (node->node.unary_op.op) {
                     case UO_NUM_NEGATE: {
                         switch (rt->kind) {
-                            case RTK_INT: break;
+                            case RTK_INT:
+                            case RTK_INT8:
+                            case RTK_INT16:
+                            case RTK_INT32:
+                            case RTK_INT64:
+                            case RTK_FLOAT:
+                            case RTK_FLOAT32:
+                            case RTK_FLOAT64:
+                                break;
+                            case RTK_CHAR: rt->kind = RTK_INT16; break;
+                            case RTK_BOOL: rt->kind = RTK_INT8; break;
                             case RTK_UINT: rt->kind = RTK_INT; break;
-                            case RTK_CHAR: rt->kind = RTK_INT; break;
-                            case RTK_BOOL: rt->kind = RTK_INT; break;
+                            case RTK_UINT8: rt->kind = RTK_INT16; break;
+                            case RTK_UINT16: rt->kind = RTK_INT32; break;
+                            case RTK_UINT32: rt->kind = RTK_INT64; break;
+                            case RTK_UINT64: rt->kind = RTK_INT64; break;
 
                             default: assert(false);
                         }
@@ -1091,10 +1235,22 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
                     case UO_BOOL_NEGATE: {
                         switch (rt->kind) {
-                            case RTK_BOOL: break;
-                            case RTK_INT: rt->kind = RTK_BOOL; break;
-                            case RTK_UINT: rt->kind = RTK_BOOL; break;
-                            case RTK_CHAR: rt->kind = RTK_BOOL; break;
+                            case RTK_BOOL:
+                            case RTK_CHAR:
+                            case RTK_INT:
+                            case RTK_INT8:
+                            case RTK_INT16:
+                            case RTK_INT32:
+                            case RTK_INT64:
+                            case RTK_UINT:
+                            case RTK_UINT8:
+                            case RTK_UINT16:
+                            case RTK_UINT32:
+                            case RTK_UINT64:
+                            case RTK_FLOAT:
+                            case RTK_FLOAT32:
+                            case RTK_FLOAT64:
+                                rt->kind = RTK_BOOL; break;
 
                             case RTK_POINTER:
                             case RTK_MUT_POINTER: {
@@ -1134,12 +1290,23 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                     case UO_PLUS_PLUS:
                     case UO_MINUS_MINUS: {
                         switch (rt->kind) {
-                            case RTK_INT:
-                            case RTK_UINT:
                             case RTK_CHAR:
+                            case RTK_INT:
+                            case RTK_INT8:
+                            case RTK_INT16:
+                            case RTK_INT32:
+                            case RTK_INT64:
+                            case RTK_UINT:
+                            case RTK_UINT8:
+                            case RTK_UINT16:
+                            case RTK_UINT32:
+                            case RTK_UINT64:
+                            case RTK_FLOAT:
+                            case RTK_FLOAT32:
+                            case RTK_FLOAT64:
                                 break;
 
-                            case RTK_BOOL: rt->kind = RTK_INT; break;
+                            case RTK_BOOL: rt->kind = RTK_UINT8; break;
 
                             case RTK_POINTER:
                             case RTK_MUT_POINTER:
@@ -1177,21 +1344,48 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                     case BO_BIT_XOR:
                     {
                         switch (inner_ti2.type->kind) {
-                            case RTK_INT:
-                            case RTK_UINT:
+                            case RTK_BOOL:
                             case RTK_CHAR:
+                            case RTK_INT:
+                            case RTK_INT8:
+                            case RTK_INT16:
+                            case RTK_INT32:
+                            case RTK_INT64:
+                            case RTK_UINT:
+                            case RTK_UINT8:
+                            case RTK_UINT16:
+                            case RTK_UINT32:
+                            case RTK_UINT64:
+                            case RTK_FLOAT:
+                            case RTK_FLOAT32:
+                            case RTK_FLOAT64:
                                 break;
 
                             default: assert(false);
                         }
+                        if (inner_ti1.type->kind == inner_ti2.type->kind) {
+                            break;
+                        }
                         switch (inner_ti1.type->kind) {
-                            case RTK_INT:
-                            case RTK_UINT:
-                                break;
-
                             case RTK_BOOL:
                             case RTK_CHAR:
-                                rt->kind = RTK_INT; break;
+                                rt->kind = RTK_UINT8;
+                                break;
+
+                            case RTK_INT:
+                            case RTK_INT8:
+                            case RTK_INT16:
+                            case RTK_INT32:
+                            case RTK_INT64:
+                            case RTK_UINT:
+                            case RTK_UINT8:
+                            case RTK_UINT16:
+                            case RTK_UINT32:
+                            case RTK_UINT64:
+                            case RTK_FLOAT:
+                            case RTK_FLOAT32:
+                            case RTK_FLOAT64:
+                                break;
 
                             default: assert(false);
                         }
@@ -1202,26 +1396,46 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                     case BO_SUBTRACT:
                     {
                         switch (inner_ti1.type->kind) {
-                            case RTK_UINT:
                             case RTK_CHAR:
+                            case RTK_INT:
+                            case RTK_INT8:
+                            case RTK_INT16:
+                            case RTK_INT32:
+                            case RTK_INT64:
+                            case RTK_UINT:
+                            case RTK_UINT8:
+                            case RTK_UINT16:
+                            case RTK_UINT32:
+                            case RTK_UINT64:
+                            case RTK_FLOAT:
+                            case RTK_FLOAT32:
+                            case RTK_FLOAT64:
                             case RTK_POINTER:
                             case RTK_MUT_POINTER:
                                 break;
 
-                            case RTK_INT:
-                            case RTK_BOOL:
-                                rt->kind = RTK_INT; break;
+                            case RTK_BOOL: rt->kind = RTK_INT8; break;
 
                             default: assert(false);
                         }
                         switch (inner_ti2.type->kind) {
-                            case RTK_UINT:
                             case RTK_CHAR:
+                            case RTK_INT:
+                            case RTK_INT8:
+                            case RTK_INT16:
+                            case RTK_INT32:
+                            case RTK_INT64:
+                            case RTK_UINT:
+                            case RTK_UINT8:
+                            case RTK_UINT16:
+                            case RTK_UINT32:
+                            case RTK_UINT64:
+                            case RTK_FLOAT:
+                            case RTK_FLOAT32:
+                            case RTK_FLOAT64:
                                 break;
 
-                            case RTK_INT:
-                            case RTK_BOOL:
-                                rt->kind = RTK_INT; break;
+                            case RTK_BOOL: rt->kind = inner_ti1.type->kind; break;
 
                             default: assert(false);
                         }
@@ -1232,24 +1446,44 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                     case BO_DIVIDE:
                     {
                         switch (inner_ti1.type->kind) {
-                            case RTK_UINT:
                             case RTK_CHAR:
+                            case RTK_INT:
+                            case RTK_INT8:
+                            case RTK_INT16:
+                            case RTK_INT32:
+                            case RTK_INT64:
+                            case RTK_UINT:
+                            case RTK_UINT8:
+                            case RTK_UINT16:
+                            case RTK_UINT32:
+                            case RTK_UINT64:
+                            case RTK_FLOAT:
+                            case RTK_FLOAT32:
+                            case RTK_FLOAT64:
                                 break;
 
-                            case RTK_INT:
-                            case RTK_BOOL:
-                                rt->kind = RTK_INT; break;
+                            case RTK_BOOL: rt->kind = RTK_INT8; break;
 
                             default: assert(false);
                         }
                         switch (inner_ti2.type->kind) {
-                            case RTK_UINT:
                             case RTK_CHAR:
+                            case RTK_INT:
+                            case RTK_INT8:
+                            case RTK_INT16:
+                            case RTK_INT32:
+                            case RTK_INT64:
+                            case RTK_UINT:
+                            case RTK_UINT8:
+                            case RTK_UINT16:
+                            case RTK_UINT32:
+                            case RTK_UINT64:
+                            case RTK_FLOAT:
+                            case RTK_FLOAT32:
+                            case RTK_FLOAT64:
                                 break;
 
-                            case RTK_INT:
-                            case RTK_BOOL:
-                                rt->kind = RTK_INT; break;
+                            case RTK_BOOL: rt->kind = inner_ti1.type->kind; break;
 
                             default: assert(false);
                         }
@@ -1258,21 +1492,42 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
                     case BO_MODULO: {
                         switch (inner_ti1.type->kind) {
-                            case RTK_UINT:
                             case RTK_CHAR:
+                            case RTK_INT:
+                            case RTK_INT8:
+                            case RTK_INT16:
+                            case RTK_INT32:
+                            case RTK_INT64:
+                            case RTK_UINT:
+                            case RTK_UINT8:
+                            case RTK_UINT16:
+                            case RTK_UINT32:
+                            case RTK_UINT64:
+                            case RTK_FLOAT:
+                            case RTK_FLOAT32:
+                            case RTK_FLOAT64:
                                 break;
 
-                            case RTK_INT:
-                            case RTK_BOOL:
-                                rt->kind = RTK_INT; break;
+                            case RTK_BOOL: rt->kind = RTK_INT8; break;
 
                             default: assert(false);
                         }
                         switch (inner_ti2.type->kind) {
-                            case RTK_UINT:
+                            case RTK_BOOL:
                             case RTK_CHAR:
                             case RTK_INT:
-                            case RTK_BOOL:
+                            case RTK_INT8:
+                            case RTK_INT16:
+                            case RTK_INT32:
+                            case RTK_INT64:
+                            case RTK_UINT:
+                            case RTK_UINT8:
+                            case RTK_UINT16:
+                            case RTK_UINT32:
+                            case RTK_UINT64:
+                            case RTK_FLOAT:
+                            case RTK_FLOAT32:
+                            case RTK_FLOAT64:
                                 break;
 
                             default: assert(false);
@@ -1288,16 +1543,38 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                             case RTK_BOOL:
                             case RTK_CHAR:
                             case RTK_INT:
+                            case RTK_INT8:
+                            case RTK_INT16:
+                            case RTK_INT32:
+                            case RTK_INT64:
                             case RTK_UINT:
+                            case RTK_UINT8:
+                            case RTK_UINT16:
+                            case RTK_UINT32:
+                            case RTK_UINT64:
+                            case RTK_FLOAT:
+                            case RTK_FLOAT32:
+                            case RTK_FLOAT64:
                                 break;
 
                             default: assert(false);
                         }
                         switch (inner_ti2.type->kind) {
-                            case RTK_UINT:
+                            case RTK_BOOL:
                             case RTK_CHAR:
                             case RTK_INT:
-                            case RTK_BOOL:
+                            case RTK_INT8:
+                            case RTK_INT16:
+                            case RTK_INT32:
+                            case RTK_INT64:
+                            case RTK_UINT:
+                            case RTK_UINT8:
+                            case RTK_UINT16:
+                            case RTK_UINT32:
+                            case RTK_UINT64:
+                            case RTK_FLOAT:
+                            case RTK_FLOAT32:
+                            case RTK_FLOAT64:
                                 break;
 
                             default: assert(false);
@@ -1318,17 +1595,39 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                             case RTK_BOOL:
                             case RTK_CHAR:
                             case RTK_INT:
+                            case RTK_INT8:
+                            case RTK_INT16:
+                            case RTK_INT32:
+                            case RTK_INT64:
                             case RTK_UINT:
+                            case RTK_UINT8:
+                            case RTK_UINT16:
+                            case RTK_UINT32:
+                            case RTK_UINT64:
+                            case RTK_FLOAT:
+                            case RTK_FLOAT32:
+                            case RTK_FLOAT64:
                                 can_cmp_num = true;
                                 break;
 
                             default: break;
                         }
                         switch (inner_ti2.type->kind) {
-                            case RTK_UINT:
+                            case RTK_BOOL:
                             case RTK_CHAR:
                             case RTK_INT:
-                            case RTK_BOOL:
+                            case RTK_INT8:
+                            case RTK_INT16:
+                            case RTK_INT32:
+                            case RTK_INT64:
+                            case RTK_UINT:
+                            case RTK_UINT8:
+                            case RTK_UINT16:
+                            case RTK_UINT32:
+                            case RTK_UINT64:
+                            case RTK_FLOAT:
+                            case RTK_FLOAT32:
+                            case RTK_FLOAT64:
                                 assert(can_cmp_num);
                                 break;
 
@@ -1363,12 +1662,23 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                     case PFO_MINUS_MINUS:
                     {
                         switch (rt->kind) {
-                            case RTK_INT:
-                            case RTK_UINT:
                             case RTK_CHAR:
+                            case RTK_INT:
+                            case RTK_INT8:
+                            case RTK_INT16:
+                            case RTK_INT32:
+                            case RTK_INT64:
+                            case RTK_UINT:
+                            case RTK_UINT8:
+                            case RTK_UINT16:
+                            case RTK_UINT32:
+                            case RTK_UINT64:
+                            case RTK_FLOAT:
+                            case RTK_FLOAT32:
+                            case RTK_FLOAT64:
                                 break;
 
-                            case RTK_BOOL: rt->kind = RTK_INT; break;
+                            case RTK_BOOL: rt->kind = RTK_INT8; break;
 
                             case RTK_POINTER:
                             case RTK_MUT_POINTER:
@@ -1696,9 +2006,20 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             if (type_resolver->packages->types[node->node.if_.cond->id.val].type) {
                 assert(
                     type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_BOOL
-                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_UINT
-                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_INT
                     || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_CHAR
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_UINT
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_UINT8
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_UINT16
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_UINT32
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_UINT64
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_INT
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_INT8
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_INT16
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_INT32
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_INT64
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_FLOAT
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_FLOAT32
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_FLOAT64
                     || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_POINTER
                     || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_MUT_POINTER
                 );
@@ -1804,9 +2125,20 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             if (type_resolver->packages->types[node->node.while_.cond->id.val].type) {
                 assert(
                     type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_BOOL
-                    || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_INT
-                    || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_UINT
                     || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_CHAR
+                    || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_UINT
+                    || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_UINT8
+                    || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_UINT16
+                    || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_UINT32
+                    || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_UINT64
+                    || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_INT
+                    || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_INT8
+                    || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_INT16
+                    || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_INT32
+                    || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_INT64
+                    || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_FLOAT
+                    || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_FLOAT32
+                    || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_FLOAT64
                     || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_POINTER
                     || type_resolver->packages->types[node->node.while_.cond->id.val].type->kind == RTK_MUT_POINTER
                 );
@@ -1907,10 +2239,21 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                     default: assert(false);
                 }
                 assert(
-                    type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_INT
-                    || type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_UINT
-                    || type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_BOOL
+                    type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_BOOL
                     || type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_CHAR
+                    || type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_UINT
+                    || type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_UINT8
+                    || type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_UINT16
+                    || type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_UINT32
+                    || type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_UINT64
+                    || type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_INT
+                    || type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_INT8
+                    || type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_INT16
+                    || type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_INT32
+                    || type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_INT64
+                    || type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_FLOAT
+                    || type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_FLOAT32
+                    || type_resolver->packages->types[node->node.index.value->id.val].type->kind == RTK_FLOAT64
                 );
 
                 type_resolver->packages->types[node->id.val] = (TypeInfo){
@@ -1938,7 +2281,18 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
                 ResolvedType* rt = type_resolver->packages->types[node->node.array_init.maybe_explicit_length->id.val].type;
                 if (rt) {
-                    assert(rt->kind == RTK_INT || rt->kind == RTK_UINT);
+                    assert(
+                        rt->kind == RTK_UINT
+                        || rt->kind == RTK_UINT8
+                        || rt->kind == RTK_UINT16
+                        || rt->kind == RTK_UINT32
+                        || rt->kind == RTK_UINT64
+                        || rt->kind == RTK_INT
+                        || rt->kind == RTK_INT8
+                        || rt->kind == RTK_INT16
+                        || rt->kind == RTK_INT32
+                        || rt->kind == RTK_INT64
+                    );
                 } else {
                     resolved = false;
                 }
@@ -2468,11 +2822,35 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             ResolvedType* rhs = type_resolver->packages->types[node->node.range.rhs->id.val].type;
 
             if (lhs) {
-                assert(lhs->kind == RTK_INT || lhs->kind == RTK_UINT || lhs->kind == RTK_CHAR);
+                assert(
+                    type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_CHAR
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_UINT
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_UINT8
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_UINT16
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_UINT32
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_UINT64
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_INT
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_INT8
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_INT16
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_INT32
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_INT64
+                );
             }
 
             if (rhs) {
-                assert(rhs->kind == RTK_INT || rhs->kind == RTK_UINT || rhs->kind == RTK_CHAR);
+                 assert(
+                    type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_CHAR
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_UINT
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_UINT8
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_UINT16
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_UINT32
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_UINT64
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_INT
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_INT8
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_INT16
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_INT32
+                    || type_resolver->packages->types[node->node.if_.cond->id.val].type->kind == RTK_INT64
+                );
             }
 
             if (lhs && rhs) {

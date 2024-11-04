@@ -70,13 +70,12 @@ typedef enum {
     TT_CHAR,
     // (signed integers)
     TT_INT,   TT_INT8,  TT_INT16,
-    TT_INT32, TT_INT64, TT_INT128,
+    TT_INT32, TT_INT64,
     // (unsigned integers)
     TT_UINT,   TT_UINT8,  TT_UINT16,
-    TT_UINT32, TT_UINT64, TT_UINT128,
+    TT_UINT32, TT_UINT64,
     // (floating-point numbers)
-    TT_FLOAT,   TT_FLOAT16,  TT_FLOAT32,
-    TT_FLOAT64, TT_FLOAT128,
+    TT_FLOAT, TT_FLOAT32, TT_FLOAT64,
 
     // ephemeral
     TT_ERROR,

@@ -81,10 +81,17 @@ typedef enum {
 typedef enum {
     TBI_VOID,
     TBI_BOOL,
-    TBI_INT,
-    TBI_UINT,
     TBI_CHAR,
-    // TODO
+    // (signed integers)
+    TBI_INT,   TBI_INT8,  TBI_INT16,
+    TBI_INT32, TBI_INT64,
+    // (unsigned integers)
+    TBI_UINT,   TBI_UINT8,  TBI_UINT16,
+    TBI_UINT32, TBI_UINT64,
+    // (floating-point numbers)
+    TBI_FLOAT, TBI_FLOAT32, TBI_FLOAT64,
+
+    TBI_COUNT
 } TypeBuiltIn;
 
 typedef struct {

@@ -148,7 +148,6 @@ void debug_token_type(TokenType token_type) {
 
         case TT_INT32: printf("int32"); break;
         case TT_INT64: printf("int64"); break;
-        case TT_INT128: printf("int128"); break;
 
         case TT_UINT: printf("uint"); break;
         case TT_UINT8: printf("uint8"); break;
@@ -156,14 +155,11 @@ void debug_token_type(TokenType token_type) {
 
         case TT_UINT32: printf("uint32"); break;
         case TT_UINT64: printf("uint64"); break;
-        case TT_UINT128: printf("uint128"); break;
 
         case TT_FLOAT: printf("float"); break;
-        case TT_FLOAT16: printf("float16"); break;
         case TT_FLOAT32: printf("float32"); break;
 
         case TT_FLOAT64: printf("float64"); break;
-        case TT_FLOAT128: printf("float128"); break;
 
         case TT_ERROR: printf("<error>"); break;
         case TT_EOF: printf("<eof>"); break;
@@ -714,7 +710,6 @@ static Type* parser_parse_type(Parser* const parser) {
 
         case TT_VOID: {
             parser_advance(parser);
-
             type->kind = TK_BUILT_IN;
             type->type.built_in = TBI_VOID;
             return parser_parse_type_wrap(parser, type);
@@ -722,33 +717,106 @@ static Type* parser_parse_type(Parser* const parser) {
 
         case TT_BOOL: {
             parser_advance(parser);
-
             type->kind = TK_BUILT_IN;
             type->type.built_in = TBI_BOOL;
             return parser_parse_type_wrap(parser, type);
         }
 
+        case TT_CHAR: {
+            parser_advance(parser);
+            type->kind = TK_BUILT_IN;
+            type->type.built_in = TBI_CHAR;
+            return parser_parse_type_wrap(parser, type);
+        }
+
         case TT_INT: {
             parser_advance(parser);
-
             type->kind = TK_BUILT_IN;
             type->type.built_in = TBI_INT;
             return parser_parse_type_wrap(parser, type);
         }
 
+        case TT_INT8: {
+            parser_advance(parser);
+            type->kind = TK_BUILT_IN;
+            type->type.built_in = TBI_INT8;
+            return parser_parse_type_wrap(parser, type);
+        }
+
+        case TT_INT16: {
+            parser_advance(parser);
+            type->kind = TK_BUILT_IN;
+            type->type.built_in = TBI_INT16;
+            return parser_parse_type_wrap(parser, type);
+        }
+
+        case TT_INT32: {
+            parser_advance(parser);
+            type->kind = TK_BUILT_IN;
+            type->type.built_in = TBI_INT32;
+            return parser_parse_type_wrap(parser, type);
+        }
+
+        case TT_INT64: {
+            parser_advance(parser);
+            type->kind = TK_BUILT_IN;
+            type->type.built_in = TBI_INT64;
+            return parser_parse_type_wrap(parser, type);
+        }
+
         case TT_UINT: {
             parser_advance(parser);
-
             type->kind = TK_BUILT_IN;
             type->type.built_in = TBI_UINT;
             return parser_parse_type_wrap(parser, type);
         }
 
-        case TT_CHAR: {
+        case TT_UINT8: {
             parser_advance(parser);
-
             type->kind = TK_BUILT_IN;
-            type->type.built_in = TBI_CHAR;
+            type->type.built_in = TBI_UINT8;
+            return parser_parse_type_wrap(parser, type);
+        }
+
+        case TT_UINT16: {
+            parser_advance(parser);
+            type->kind = TK_BUILT_IN;
+            type->type.built_in = TBI_UINT16;
+            return parser_parse_type_wrap(parser, type);
+        }
+
+        case TT_UINT32: {
+            parser_advance(parser);
+            type->kind = TK_BUILT_IN;
+            type->type.built_in = TBI_UINT32;
+            return parser_parse_type_wrap(parser, type);
+        }
+
+        case TT_UINT64: {
+            parser_advance(parser);
+            type->kind = TK_BUILT_IN;
+            type->type.built_in = TBI_UINT64;
+            return parser_parse_type_wrap(parser, type);
+        }
+
+        case TT_FLOAT: {
+            parser_advance(parser);
+            type->kind = TK_BUILT_IN;
+            type->type.built_in = TBI_FLOAT;
+            return parser_parse_type_wrap(parser, type);
+        }
+
+        case TT_FLOAT32: {
+            parser_advance(parser);
+            type->kind = TK_BUILT_IN;
+            type->type.built_in = TBI_FLOAT32;
+            return parser_parse_type_wrap(parser, type);
+        }
+
+        case TT_FLOAT64: {
+            parser_advance(parser);
+            type->kind = TK_BUILT_IN;
+            type->type.built_in = TBI_FLOAT64;
             return parser_parse_type_wrap(parser, type);
         }
 

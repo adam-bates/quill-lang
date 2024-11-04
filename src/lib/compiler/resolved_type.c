@@ -44,10 +44,28 @@ bool resolved_type_eq(ResolvedType* a, ResolvedType* b) {
     }
 
     switch (a->kind) {
+        case RTK_NAMESPACE: assert(false); // TODO
+        case RTK_FUNCTION_DECL: assert(false); // TODO
+        case RTK_FUNCTION_REF: assert(false); // TODO
+        case RTK_ARRAY: assert(false); // TODO
+        case RTK_TERMINAL: assert(false); // TODO
+
+        case RTK_VOID:
         case RTK_BOOL:
         case RTK_CHAR:
-        case RTK_UINT:
         case RTK_INT:
+        case RTK_INT8:
+        case RTK_INT16:
+        case RTK_INT32:
+        case RTK_INT64:
+        case RTK_UINT:
+        case RTK_UINT8:
+        case RTK_UINT16:
+        case RTK_UINT32:
+        case RTK_UINT64:
+        case RTK_FLOAT:
+        case RTK_FLOAT32:
+        case RTK_FLOAT64:
             return b->kind == a->kind;
 
         case RTK_POINTER: switch (b->kind) {
@@ -97,7 +115,7 @@ bool resolved_type_eq(ResolvedType* a, ResolvedType* b) {
             return str_eq(a->type.generic.name, b->type.generic.name);
         }
 
-        default: printf("TODO: resolved_type_eq(%d)\n", a->kind); assert(false); // TODO
+        case RTK_COUNT: printf("TODO: resolved_type_eq(%d)\n", a->kind); assert(false); // TODO
     }
 
     return true;
@@ -113,18 +131,95 @@ bool resolved_type_implict_to(ResolvedType* from, ResolvedType* to) {
     }
 
     switch (to->kind) {
-        case RTK_INT:
-        case RTK_UINT:
         case RTK_BOOL:
         case RTK_CHAR:
+        case RTK_INT8:
+        case RTK_UINT8:
+        {
+            switch (from->kind) {
+                case RTK_BOOL:
+                case RTK_CHAR:
+                case RTK_INT:
+                case RTK_INT8:
+                case RTK_INT16:
+                case RTK_INT32:
+                case RTK_INT64:
+                case RTK_UINT:
+                case RTK_UINT8:
+                case RTK_UINT16:
+                case RTK_UINT32:
+                case RTK_UINT64:
+                case RTK_FLOAT:
+                case RTK_FLOAT32:
+                case RTK_FLOAT64:
+                    return true;
+
+                default: return false;
+            }
+        }
+
+        case RTK_INT16:
+        case RTK_UINT16:
+        {
+            switch (from->kind) {
+                case RTK_BOOL:
+                case RTK_INT:
+                case RTK_INT16:
+                case RTK_INT32:
+                case RTK_INT64:
+                case RTK_UINT:
+                case RTK_UINT16:
+                case RTK_UINT32:
+                case RTK_UINT64:
+                case RTK_FLOAT:
+                case RTK_FLOAT32:
+                case RTK_FLOAT64:
+                    return true;
+
+                default: return false;
+            }
+        }
+
+        case RTK_INT32:
+        case RTK_UINT32:
+        case RTK_FLOAT32:
+        {
+            switch (from->kind) {
+                case RTK_BOOL:
+                case RTK_INT:
+                case RTK_INT16:
+                case RTK_INT32:
+                case RTK_INT64:
+                case RTK_UINT:
+                case RTK_UINT16:
+                case RTK_UINT32:
+                case RTK_UINT64:
+                case RTK_FLOAT:
+                case RTK_FLOAT32:
+                case RTK_FLOAT64:
+                    return true;
+
+                default: return false;
+            }
+        }
+
+        case RTK_INT:
+        case RTK_INT64:
+        case RTK_UINT:
+        case RTK_UINT64:
+        case RTK_FLOAT:
+        case RTK_FLOAT64:
         case RTK_POINTER:
         case RTK_MUT_POINTER:
         {
             switch (from->kind) {
-                case RTK_INT:
-                case RTK_UINT:
                 case RTK_BOOL:
-                case RTK_CHAR:
+                case RTK_INT:
+                case RTK_INT64:
+                case RTK_UINT:
+                case RTK_UINT64:
+                case RTK_FLOAT:
+                case RTK_FLOAT64:
                 case RTK_POINTER:
                 case RTK_MUT_POINTER:
                     return true;
@@ -146,9 +241,20 @@ void print_resolved_type(ResolvedType* rt) {
     switch (rt->kind) {
         case RTK_VOID: printf("void"); break;
         case RTK_BOOL: printf("bool"); break;
-        case RTK_INT: printf("int"); break;
-        case RTK_UINT: printf("uint"); break;
         case RTK_CHAR: printf("char"); break;
+        case RTK_INT: printf("int"); break;
+        case RTK_INT8: printf("int8"); break;
+        case RTK_INT16: printf("int16"); break;
+        case RTK_INT32: printf("int32"); break;
+        case RTK_INT64: printf("int64"); break;
+        case RTK_UINT: printf("uint"); break;
+        case RTK_UINT8: printf("uint8"); break;
+        case RTK_UINT16: printf("uint16"); break;
+        case RTK_UINT32: printf("uint32"); break;
+        case RTK_UINT64: printf("uint64"); break;
+        case RTK_FLOAT: printf("float"); break;
+        case RTK_FLOAT32: printf("float32"); break;
+        case RTK_FLOAT64: printf("float64"); break;
 
         case RTK_POINTER: {
             print_resolved_type(rt->type.ptr.of);

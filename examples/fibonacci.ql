@@ -9,37 +9,25 @@ void main() {
         CRASH "Usage: fibonacci [integer]";
     }
 
-    let res = conv::parse_uint(args.data[1]);
+    let res = conv::parse_uint8(args.data[1]);
     if !res.is_ok {
         CRASH `Error parsing integer: {res.err}`;
     }
-    uint n = res.val;
+    uint8 n = res.val;
 
     foreach i in 0..n {
         io::println(`fib({i}) = {nth_fib(i)}`);
     }
 }
 
-// slow
-/*
-uint nth_fib(uint n) {
+uint64 nth_fib(uint8 n) {
     if n <= 1 {
         return 1;
     }
 
-    return nth_fib(n - 1) + nth_fib(n - 2);
-}
-*/
-
-// fast
-uint nth_fib(uint n) {
-    if n <= 1 {
-        return 1;
-    }
-
-    uint mut a = 1;
-    uint mut b = 2;
-    uint mut tmp = a;
+    uint64 mut a = 1;
+    uint64 mut b = 2;
+    uint64 mut tmp = a;
 
     foreach i in 2..n {
         tmp = a;

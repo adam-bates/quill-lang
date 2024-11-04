@@ -159,18 +159,58 @@ static void _append_type(CodegenC* codegen, StringBuffer* sb, Type type, Package
                     break;
                 }
 
+                case TBI_CHAR: {
+                    strbuf_append_chars(sb, "char");
+                    break;
+                }
+
                 case TBI_INT: {
                     strbuf_append_chars(sb, "int64_t");
                     break;
                 }
 
-                case TBI_UINT: {
-                    strbuf_append_chars(sb, "size_t");
+                case TBI_INT8: {
+                    strbuf_append_chars(sb, "int8_t");
                     break;
                 }
 
-                case TBI_CHAR: {
-                    strbuf_append_chars(sb, "char");
+                case TBI_INT16: {
+                    strbuf_append_chars(sb, "int16_t");
+                    break;
+                }
+
+                case TBI_INT32: {
+                    strbuf_append_chars(sb, "int32_t");
+                    break;
+                }
+
+                case TBI_INT64: {
+                    strbuf_append_chars(sb, "int64_t");
+                    break;
+                }
+
+                case TBI_UINT: {
+                    strbuf_append_chars(sb, "uint64_t");
+                    break;
+                }
+
+                case TBI_UINT8: {
+                    strbuf_append_chars(sb, "uint8_t");
+                    break;
+                }
+
+                case TBI_UINT16: {
+                    strbuf_append_chars(sb, "uint16_t");
+                    break;
+                }
+
+                case TBI_UINT32: {
+                    strbuf_append_chars(sb, "uint32_t");
+                    break;
+                }
+
+                case TBI_UINT64: {
+                    strbuf_append_chars(sb, "uint64_t");
                     break;
                 }
 
@@ -261,9 +301,23 @@ static void _append_type_resolved(CodegenC* codegen, StringBuffer* sb, ResolvedT
 
         case RTK_VOID: strbuf_append_chars(sb, "void"); break;
         case RTK_BOOL: strbuf_append_chars(sb, "bool"); break;
-        case RTK_INT: strbuf_append_chars(sb, "int64_t"); break;
-        case RTK_UINT: strbuf_append_chars(sb, "size_t"); break;
         case RTK_CHAR: strbuf_append_chars(sb, "char"); break;
+
+        case RTK_INT: strbuf_append_chars(sb, "int64_t"); break;
+        case RTK_INT8: strbuf_append_chars(sb, "int8_t"); break;
+        case RTK_INT16: strbuf_append_chars(sb, "int16_t"); break;
+        case RTK_INT32: strbuf_append_chars(sb, "int32_t"); break;
+        case RTK_INT64: strbuf_append_chars(sb, "int64_t"); break;
+
+        case RTK_UINT: strbuf_append_chars(sb, "uint64_t"); break;
+        case RTK_UINT8: strbuf_append_chars(sb, "uint8_t"); break;
+        case RTK_UINT16: strbuf_append_chars(sb, "uint16_t"); break;
+        case RTK_UINT32: strbuf_append_chars(sb, "uint32_t"); break;
+        case RTK_UINT64: strbuf_append_chars(sb, "uint64_t"); break;
+
+        case RTK_FLOAT: strbuf_append_chars(sb, "double"); break;
+        case RTK_FLOAT32: strbuf_append_chars(sb, "float"); break;
+        case RTK_FLOAT64: strbuf_append_chars(sb, "double"); break;
 
         case RTK_ARRAY: {
             _append_type_resolved(codegen, sb, type->type.array.of);
@@ -714,7 +768,12 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
                 } else {
                     switch (codegen->packages->types[curr->data.id.val].type->kind) {
-                        case RTK_INT: {
+                        case RTK_INT:
+                        case RTK_INT8:
+                        case RTK_INT16:
+                        case RTK_INT32:
+                        case RTK_INT64:
+                        {
                             IR_C_Node* append_chars_target = arena_alloc(codegen->arena, sizeof *append_chars_target);
                             *append_chars_target = (IR_C_Node){
                                 .type = ICNT_RAW,
@@ -731,7 +790,14 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                                 fill_nodes(codegen, &expr_ll, &curr->data, ftype, stage, false);
                                 assert(expr_ll.length == 1);
 
-                                ll_node_push(codegen->arena, &append_chars_args, expr_ll.head->data);
+                                ll_node_push(codegen->arena, &append_chars_args, (IR_C_Node){
+                                    .type = ICNT_RAW_WRAP,
+                                    .node.raw_wrap = {
+                                        .pre = c_str("(int64_t)"),
+                                        .wrapped = &expr_ll.head->data,
+                                        .post = c_str(""),
+                                    },
+                                });
                             }
 
                             ll_node_push(codegen->arena, codegen->stmt_block, (IR_C_Node){
@@ -745,7 +811,12 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                             break;
                         }
 
-                        case RTK_UINT: {
+                        case RTK_UINT:
+                        case RTK_UINT8:
+                        case RTK_UINT16:
+                        case RTK_UINT32:
+                        case RTK_UINT64:
+                        {
                             IR_C_Node* append_chars_target = arena_alloc(codegen->arena, sizeof *append_chars_target);
                             *append_chars_target = (IR_C_Node){
                                 .type = ICNT_RAW,
@@ -762,7 +833,14 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                                 fill_nodes(codegen, &expr_ll, &curr->data, ftype, stage, false);
                                 assert(expr_ll.length == 1);
 
-                                ll_node_push(codegen->arena, &append_chars_args, expr_ll.head->data);
+                                ll_node_push(codegen->arena, &append_chars_args, (IR_C_Node){
+                                    .type = ICNT_RAW_WRAP,
+                                    .node.raw_wrap = {
+                                        .pre = c_str("(uint64_t)"),
+                                        .wrapped = &expr_ll.head->data,
+                                        .post = c_str(""),
+                                    },
+                                });
                             }
 
                             ll_node_push(codegen->arena, codegen->stmt_block, (IR_C_Node){

@@ -729,21 +729,78 @@ void print_type(Type const* type) {
                     return;
                 }
 
-                case TBI_INT: {
-                    printf("int64_t");
-                    return;
-                }
-
-                case TBI_UINT: {
-                    printf("size_t");
-                    return;
-                }
-
                 case TBI_CHAR: {
                     printf("char");
                     return;
                 }
-            }
+ 
+                case TBI_INT: {
+                    printf("int");
+                    return;
+                }
+
+                case TBI_INT8: {
+                    printf("int8");
+                    return;
+                }
+
+                case TBI_INT16: {
+                    printf("int16");
+                    return;
+                }
+
+                case TBI_INT32: {
+                    printf("int32");
+                    return;
+                }
+
+                case TBI_INT64: {
+                    printf("int64");
+                    return;
+                }
+
+                case TBI_UINT: {
+                    printf("uint");
+                    return;
+                }
+
+                case TBI_UINT8: {
+                    printf("uint8");
+                    return;
+                }
+
+                case TBI_UINT16: {
+                    printf("uint16");
+                    return;
+                }
+
+                case TBI_UINT32: {
+                    printf("uint32");
+                    return;
+                }
+
+                case TBI_UINT64: {
+                    printf("uint64");
+                    return;
+                }
+
+                case TBI_FLOAT: {
+                    printf("float");
+                    return;
+                }
+
+                case TBI_FLOAT32: {
+                    printf("float32");
+                    return;
+                }
+
+                case TBI_FLOAT64: {
+                    printf("float64");
+                    return;
+                }
+
+                case TBI_COUNT: assert(false);
+           }
             return;
         }
 
