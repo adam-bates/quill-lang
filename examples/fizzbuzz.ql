@@ -7,11 +7,11 @@ void main() {
     let args = std::args;
 
     if args.length != 2 {
-        std::String prog = args.data[0];
+        let prog = args.data[0];
         CRASH `Usage: {prog} [integer]`;
     }
 
-    let res = conv::parse_uint(args.data[1]);
+    std::Result<uint> res = conv::parse_uint(args.data[1]);
 
     // instead of std::assert_ok<uint>res)
     if !res.is_ok {

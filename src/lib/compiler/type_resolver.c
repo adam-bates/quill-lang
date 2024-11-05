@@ -412,7 +412,7 @@ LL_GenericImpl map_generic_impls_to_concrete(Packages* packages, LL_GenericImpl*
             i_curr = i_curr->next;
         }
 
-        if (!found) {
+        if (!found && to_generic_impl->length > 0) {
             ll_generic_impls_push(packages->arena, &out, *to_generic_impl);
         }
 
@@ -459,6 +459,7 @@ void resolve_generic_nodes(Packages* packages) {
                 size_t j = 0;
                 LLNode_GenericImpl* curr = concrete_generic_impls.head;
                 while (curr) {
+                    assert(curr->data.length);
                     printf("[%lu] ", j);
                     for (size_t k = 0; k < curr->data.length; ++k) {
                         print_resolved_type(curr->data.resolved_types[k]);
@@ -762,7 +763,8 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
             scope_set(&fields_scope, rt->type.struct_decl.generic_params.strings[i], generic_rt);
         }
 
-        ResolvedType rt_new = {
+        ResolvedType* rt_new = arena_alloc(type_resolver->arena, sizeof *rt_new);
+        *rt_new = (ResolvedType){
             .from_pkg = rt->from_pkg,
             .src = rt->src,
             .kind = RTK_STRUCT_REF,
@@ -771,27 +773,33 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
                 .decl_node_id = rt->src->id,
                 .generic_args = {
                     .length = 0,
-                    .resolved_types = arena_calloc(type_resolver->arena, t_static_path->generic_args.length, sizeof(ResolvedType)),
+                    .resolved_types = arena_calloc(type_resolver->arena, t_static_path->generic_args.length, sizeof *rt_new->type.struct_ref.generic_args.resolved_types),
                 },
                 .impl_version = 0,
             },
         };
-        rt = arena_alloc(type_resolver->arena, sizeof *rt);
-        *rt = rt_new;
+        rt = rt_new;
+
+        assert(t_static_path->generic_args.length == rt->type.struct_ref.decl.generic_params.length);
 
         LLNode_Type* curr = t_static_path->generic_args.head;
         while (curr) {
             ResolvedType* generic_arg = calc_resolved_type(type_resolver, &fields_scope, &curr->data);
             assert(generic_arg);
 
+            // if (generic_arg->kind == RTK_GENERIC) {
+            //     assert(generic_arg->src->id.val != rt->type.struct_ref.decl_node_id.val);
+            // }
+
             assert(rt->type.struct_ref.generic_args.length < t_static_path->generic_args.length);
             rt->type.struct_ref.generic_args.resolved_types[rt->type.struct_ref.generic_args.length++] = *generic_arg;
 
             curr = curr->next;
         }
+        assert(rt->type.struct_ref.generic_args.length == t_static_path->generic_args.length);
     }
 
-    if (rt->kind == RTK_STRUCT_REF && rt->src->type == ANT_STRUCT_DECL) {
+    if (rt->kind == RTK_STRUCT_REF) {
         {
             ResolvedType** resolved_types = arena_calloc(type_resolver->arena, t_static_path->generic_args.length, sizeof(uintptr_t));
 
@@ -803,7 +811,7 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
                 if (!ti->type) {
                     ResolvedType* arg_rt = calc_resolved_type(type_resolver, scope, &curr->data);
                     assert(arg_rt);
-                    assert(arg_rt->src);
+                    // assert(arg_rt->src);
 
                     ti->status = TIS_CONFIDENT;
                     ti->type = arg_rt;
@@ -817,22 +825,24 @@ static ResolvedType* calc_static_path_type(TypeResolver* type_resolver, Scope* s
 
             packages_register_generic_impl(type_resolver->packages, rt->src, t_static_path->generic_args.length, resolved_types);
         }
-        ArrayList_LL_Type* generic_impls = &rt->src->node.struct_decl.generic_impls;
+        if (rt->src->type == ANT_STRUCT_DECL) {
+            ArrayList_LL_Type* generic_impls = &rt->src->node.struct_decl.generic_impls;
 
-        bool already_has_decl = false;
-        for (size_t i = 0; i < generic_impls->length; ++i) {
-            if (typells_eq(generic_impls->array[i], t_static_path->generic_args)) {
-                already_has_decl = true;
-                t_static_path->impl_version = i;
-                rt->type.struct_ref.impl_version = i;
-                break;
+            bool already_has_decl = false;
+            for (size_t i = 0; i < generic_impls->length; ++i) {
+                if (typells_eq(generic_impls->array[i], t_static_path->generic_args)) {
+                    already_has_decl = true;
+                    t_static_path->impl_version = i;
+                    rt->type.struct_ref.impl_version = i;
+                    break;
+                }
             }
-        }
 
-        if (!already_has_decl && t_static_path->generic_args.length > 0) {
-            t_static_path->impl_version = generic_impls->length;
-            rt->type.struct_ref.impl_version = generic_impls->length;
-            arraylist_typells_push(generic_impls, t_static_path->generic_args);
+            if (!already_has_decl && t_static_path->generic_args.length > 0) {
+                t_static_path->impl_version = generic_impls->length;
+                rt->type.struct_ref.impl_version = generic_impls->length;
+                arraylist_typells_push(generic_impls, t_static_path->generic_args);
+            }
         }
     } else {
         assert(t_static_path->generic_args.length == 0);
@@ -1774,12 +1784,14 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             if (!root.type) {
                 break;
             }
+            ResolvedStructRef* maybe_struct_ref = NULL;
             ResolvedStructDecl struct_decl;
             if (node->node.get_field.is_ptr_deref) {
                 assert(root.type->kind == RTK_POINTER || root.type->kind == RTK_MUT_POINTER);
                 if (root.type->kind == RTK_POINTER) {
                     assert(root.type->type.ptr.of->kind == RTK_STRUCT_REF || root.type->type.ptr.of->kind == RTK_STRUCT_DECL);
                     if (root.type->type.ptr.of->kind == RTK_STRUCT_REF) {
+                        maybe_struct_ref = &root.type->type.ptr.of->type.struct_ref;
                         struct_decl = root.type->type.ptr.of->type.struct_ref.decl;
                     } else {
                         struct_decl = root.type->type.ptr.of->type.struct_decl;
@@ -1787,6 +1799,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 } else {
                     assert(root.type->type.mut_ptr.of->kind == RTK_STRUCT_REF || root.type->type.mut_ptr.of->kind == RTK_STRUCT_DECL);
                     if (root.type->type.mut_ptr.of->kind == RTK_STRUCT_REF) {
+                        maybe_struct_ref = &root.type->type.mut_ptr.of->type.struct_ref;
                         struct_decl = root.type->type.mut_ptr.of->type.struct_ref.decl;
                     } else {
                         struct_decl = root.type->type.mut_ptr.of->type.struct_decl;
@@ -1795,6 +1808,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
             } else {
                 assert(root.type->kind == RTK_STRUCT_REF || root.type->kind == RTK_STRUCT_DECL);
                 if (root.type->kind == RTK_STRUCT_REF) {
+                    maybe_struct_ref = &root.type->type.struct_ref;
                     struct_decl = root.type->type.struct_ref.decl;
                 } else {
                     struct_decl = root.type->type.struct_decl;
@@ -1812,6 +1826,17 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 printf("Couldn't find %s\n", arena_strcpy(type_resolver->arena, node->node.get_field.name).chars);
             }
             assert(found);
+
+            // TODO: generalize this
+            if (found->type->kind == RTK_POINTER && found->type->type.ptr.of->kind == RTK_GENERIC) {
+                assert(maybe_struct_ref);
+                assert(maybe_struct_ref->generic_args.length == 1);
+                assert(maybe_struct_ref->generic_args.resolved_types->kind != RTK_GENERIC);
+                println_astnode(*maybe_struct_ref->generic_args.resolved_types->src);
+
+                found->type->type.ptr.of = maybe_struct_ref->generic_args.resolved_types;
+                // assert(false);
+            }
 
             type_resolver->packages->types[node->id.val] = (TypeInfo){
                 .status = root.status,

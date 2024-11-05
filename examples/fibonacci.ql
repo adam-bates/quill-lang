@@ -9,7 +9,7 @@ void main() {
 
     // parse cli arg as uint8
     if args.length != 2 {
-        std::String prog = args.data[0];
+        let prog = args.data[0];
         CRASH `Usage: {prog} [integer]`;
     }
     let res = conv::parse_uint8(args.data[1]);

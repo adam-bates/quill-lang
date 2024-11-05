@@ -6,6 +6,26 @@
 #include "./package.h"
 #include "./resolved_type.h"
 
+static void print_generic_map(Arena* arena, GenericImplMap* map) {
+    printf("-> %p", map);
+    if (!map) {
+        printf("\n");
+        return;
+    }
+    printf(" {\n");
+
+    for (size_t i = 0; i < map->length; ++i) {
+        printf("    %s: %s,\n",
+            arena_strcpy(arena, map->generic_names[i]).chars,
+            arena_strcpy(arena, map->mapped_types[i]).chars
+        );
+    }
+
+    print_generic_map(arena, map->parent);
+
+    printf("}\n");
+}
+
 typedef enum {
     FT_MAIN,
     FT_C,
@@ -372,7 +392,7 @@ static void _append_type_resolved(CodegenC* codegen, StringBuffer* sb, ResolvedT
                     printf("Checking version %lu...\n", version);
 
                     if (curr->data.length == type->type.struct_ref.generic_args.length) {
-                        printf("len %lu != len %lu\n", curr->data.length, type->type.struct_ref.generic_args.length);
+                        printf("len %lu == len %lu\n", curr->data.length, type->type.struct_ref.generic_args.length);
 
                         found = true;
                         for (size_t i = 0; i < curr->data.length; ++i) {
@@ -424,6 +444,7 @@ static void _append_type_resolved(CodegenC* codegen, StringBuffer* sb, ResolvedT
             if (!mapped) {
                 println_astnode(*type->src);
                 printf("Couldn't find %s\n", arena_strcpy(codegen->arena, type->type.generic.name).chars);
+                print_generic_map(codegen->arena, codegen->generic_map);
             }
             assert(mapped);
             String* next = get_mapped_generic(codegen->generic_map, *mapped);
@@ -583,15 +604,17 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
                         ResolvedType* str_type = codegen->packages->string_literal_type;
                         assert(str_type);
+                        assert(str_type->src);
+                        assert(str_type->src->type == ANT_STRUCT_DECL);
                         assert(str_type->src->node.struct_decl.maybe_name);
 
                         StringBuffer sb = strbuf_create(codegen->arena);
-                        strbuf_append_chars(&sb, "((");
-                        {
-                            String str_struct_name = user_var_name(codegen->arena, *str_type->src->node.struct_decl.maybe_name, str_type->from_pkg);
-                            strbuf_append_str(&sb, str_struct_name);
-                        }
-                        strbuf_append_chars(&sb, "){");
+                        strbuf_append_chars(&sb, "((std_String){");
+                        // {
+                        //     String str_struct_name = user_var_name(codegen->arena, *str_type->src->node.struct_decl.maybe_name, str_type->from_pkg);
+                        //     strbuf_append_str(&sb, str_struct_name);
+                        // }
+                        // strbuf_append_chars(&sb, "){");
                         strbuf_append_uint(&sb, value.length);
                         strbuf_append_chars(&sb, ", \"");
                         strbuf_append_str(&sb, value);
@@ -1459,14 +1482,7 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             }
             assert(rt);
 
-            String type;
-            if (node->node.var_decl.type_or_let.is_let) {
-                type = gen_type_resolved(codegen, rt);
-            } else {
-                ResolvedType* trt = packages_type_by_type(codegen->packages, node->node.var_decl.type_or_let.maybe_type->id)->type;
-                assert(trt);
-                type = gen_type(codegen, *node->node.var_decl.type_or_let.maybe_type, trt->from_pkg);
-            }
+            String type = gen_type_resolved(codegen, rt);
 
             assert(node->node.var_decl.lhs.type == VDLT_NAME);
             String name = user_var_name(

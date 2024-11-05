@@ -151,7 +151,9 @@ void packages_register_generic_impl(Packages* packages, ASTNode* src, size_t res
     assert(src);
     assert(resolved_types);
 
-    assert(src->type == ANT_STRUCT_DECL || src->type == ANT_FUNCTION_DECL);
+    // if (src->type != ANT_STRUCT_DECL && src->type != ANT_FUNCTION_DECL) {
+    //     return;
+    // }
 
     LL_GenericImpl* generic_impls = packages->generic_impls_nodes_raw + src->id.val;
     assert(generic_impls);
