@@ -3,14 +3,18 @@ import std/conv;
 import std/io;
 
 void main() {
+    // std::args is type std::Array<std::String>
+    // it contains the arguments passed in to the program (ie. argc, argv in c)
     let args = std::args;
 
+    // parse cli arg as uint8
     if args.length != 2 {
-        CRASH "Usage: fibonacci [integer]";
+        std::String prog = args.data[0];
+        CRASH `Usage: {prog} [integer]`;
     }
-    let n_res = conv::parse_uint8(args.data[1]);
+    let res = conv::parse_uint8(args.data[1]);
 
-    uint8 n = std::assert_ok<uint8>(n_res);
+    uint8 n = std::assert_ok<uint8>(res);
 
     foreach i in 0..n {
         io::println(`fib({i}) = {nth_fib(i)}`);
