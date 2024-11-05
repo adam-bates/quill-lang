@@ -72,7 +72,7 @@ static size_t unique_id(void) {
 
 String unique_var_name(Arena* arena) {
     StringBuffer sb = strbuf_create(arena);
-    strbuf_append_chars(&sb, "ql_GEN_");
+    strbuf_append_chars(&sb, "_ql_");
     strbuf_append_uint(&sb, unique_id());
     return strbuf_to_str(sb);
 }
