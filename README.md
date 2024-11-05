@@ -36,7 +36,8 @@ void main() {
 
     // parse cli arg as uint8
     if args.length != 2 {
-        CRASH "Usage: fibonacci [integer]";
+        let prog = args.data[0];
+        CRASH `Usage: {prog} [integer]`;
     }
     let res = conv::parse_uint8(args.data[1]);
 
@@ -77,7 +78,8 @@ void main() {
     let args = std::args;
 
     if args.length != 2 {
-        CRASH "Usage: fizzbuzz [integer]";
+        let prog = args.data[0];
+        CRASH `Usage: {prog} [integer]`;
     }
 
     std::Result<uint> res = conv::parse_uint(args.data[1]);
