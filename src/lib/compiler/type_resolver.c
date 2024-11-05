@@ -1742,6 +1742,13 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 if (has_init) {
                     changed |= resolve_type_node(type_resolver, scope, node->node.var_decl.initializer);
                     type_resolver->packages->types[node->id.val] = type_resolver->packages->types[node->node.var_decl.initializer->id.val];
+
+                    // ResolvedType* rt = type_resolver->packages->types[node->id.val].type;
+                    // if (rt && rt->kind == RTK_GENERIC) {
+                    //     assert(node->node.var_decl.initializer->type == ANT_FUNCTION_CALL);
+                    //     assert(node->node.var_decl.initializer->node.function_call.generic_args.length == 1);
+                    //     assert(false);
+                    // }
                 } else {
                     type_resolver->packages->types[node->id.val] = (TypeInfo){
                         .status = TIS_UNKNOWN,
@@ -1920,7 +1927,7 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                     assert(fn_rt->type.function_decl.generic_params.length > 0);
                     assert(fn_rt->src->type == ANT_FUNCTION_DECL);
 
-                    ResolvedType* new_fn_rt = arena_alloc(type_resolver->arena, sizeof *fn_rt);
+                    ResolvedType* new_fn_rt = arena_alloc(type_resolver->arena, sizeof *new_fn_rt);
                     *new_fn_rt = (ResolvedType){
                         .from_pkg = fn_rt->from_pkg,
                         .src = fn_rt->src,
@@ -1935,6 +1942,18 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                         },
                     };
                     fn_rt = new_fn_rt;
+
+                    LLNode_Type* curr = node->node.function_call.generic_args.head;
+                    while (curr) {
+                        ResolvedType* generic_arg = calc_resolved_type(type_resolver, scope, &curr->data);
+                        assert(generic_arg);
+
+                        assert(fn_rt->type.function_ref.generic_args.length < node->node.function_call.generic_args.length);
+                        fn_rt->type.function_ref.generic_args.resolved_types[fn_rt->type.function_ref.generic_args.length++] = *generic_arg;
+
+                        curr = curr->next;
+                    }
+                    assert(fn_rt->type.function_ref.generic_args.length == node->node.function_call.generic_args.length);
 
                     ArrayList_LL_Type* generic_impls = &fn_rt->src->node.function_decl.header.generic_impls;
 
@@ -1984,6 +2003,12 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
                 }
 
                 ResolvedType* type = fn_rt->type.function_ref.decl.return_type;
+                if (type->kind == RTK_GENERIC) {
+                    assert(fn_rt->type.function_ref.generic_args.length > 0);
+                    assert(fn_rt->type.function_ref.generic_args.length > type->type.generic.idx);
+                    type = &fn_rt->type.function_ref.generic_args.resolved_types[type->type.generic.idx];
+                }
+                
                 type_resolver->packages->types[node->id.val] = (TypeInfo){
                     .status = TIS_CONFIDENT,
                     .type = type,
