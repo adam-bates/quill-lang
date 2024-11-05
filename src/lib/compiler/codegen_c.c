@@ -2406,7 +2406,7 @@ static LL_IR_C_Node transform_to_nodes(CodegenC* codegen, Package* package, File
         strbuf_append_chars(&sb, "std_args = (std_Array_0){0};\n");
         strbuf_append_chars(&sb, "    if (argc > 0) {\n");
         strbuf_append_chars(&sb, "        std_args.length = argc;\n");
-        strbuf_append_chars(&sb, "        std_args.data = calloc(argc, sizeof *std_args.data);\n");
+        strbuf_append_chars(&sb, "        std_args.data = calloc(std_args.length, sizeof *std_args.data);\n");
         strbuf_append_chars(&sb, "        for (size_t i = 0; i < argc; ++i) { std_args.data[i] = (std_String){ strlen(argv[i]), argv[i] }; }\n");
         strbuf_append_chars(&sb, "    }\n");
 
