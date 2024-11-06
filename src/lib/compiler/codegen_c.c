@@ -116,7 +116,12 @@ static String* get_mapped_generic(GenericImplMap* map, String generic) {
 }
 
 static void ll_node_push(Arena* const arena, LL_IR_C_Node* const ll, IR_C_Node const node) {
+    assert(arena);
+    assert(ll);
+
     LLNode_IR_C_Node* const llnode = arena_alloc(arena, sizeof *llnode);
+    assert(llnode);
+
     llnode->data = node;
     llnode->next = NULL;
     
@@ -124,6 +129,8 @@ static void ll_node_push(Arena* const arena, LL_IR_C_Node* const ll, IR_C_Node c
         ll->head = llnode;
         ll->tail = ll->head;
     } else {
+        assert(ll->tail);
+
         ll->tail->next = llnode;
         ll->tail = llnode;
     }
@@ -1367,6 +1374,9 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
             if (ll.length > 0) {
                 ll.tail->next = codegen->stmt_block->to_defer->head;
+                if (!ll.tail->next) {
+                    codegen->stmt_block->to_defer->tail = ll.tail;
+                }
                 codegen->stmt_block->to_defer->head = ll.head;
                 codegen->stmt_block->to_defer->length += ll.length;
             }
