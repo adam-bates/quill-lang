@@ -1505,28 +1505,93 @@ static ParseResult parser_parse_sizeof(Parser* const parser, LL_Directive const 
     });
 }
 
-static ParseResult parser_parse_tuple(Parser* const parser, LL_Directive const directives) {
+static ParseResult parser_parse_tuple_or_cast(Parser* const parser, LL_Directive const directives) {
     if (!parser_consume(parser, TT_LEFT_PAREN, "Expected '('.")) {
         return parseres_none();
     }
+
+    size_t cached_current = parser->cursor_current;
+    bool failed = false;
 
     LL_ASTNode exprs = {0};
 
     Token t = parser_peek(parser);
     while (t.type != TT_RIGHT_PAREN && t.type != TT_EOF) {
         ParseResult res = parser_parse_expr(parser, (LL_Directive){0});
-        assert(res.status == PRS_OK);
+        if (res.status != PRS_OK) {
+            failed = true;
+            break;
+        }
 
         ll_ast_push(parser->arena, &exprs, res.node);
 
         t = parser_peek(parser);
         if (t.type != TT_RIGHT_PAREN && t.type != TT_EOF) {
-            assert(parser_consume(parser, TT_COMMA, "Expected ','"));
+            if (t.type != TT_COMMA) {
+                failed = true;
+                break;
+            }
             t = parser_peek(parser);
         }
     }
 
-    assert(parser_consume(parser, TT_RIGHT_PAREN, "Exptected ')'."));
+    if (failed) {
+        parser->cursor_current = cached_current;
+
+        Type* type = parser_parse_type(parser);
+        assert(type);
+
+        assert(parser_consume(parser, TT_RIGHT_PAREN, "Expected ')'."));
+
+        ParseResult res = parser_parse_expr(parser, (LL_Directive){0});
+        assert(res.status == PRS_OK);
+
+        ASTNode* target = arena_alloc(parser->arena, sizeof *target);
+        *target = res.node;
+
+        return parseres_ok((ASTNode){
+            .id = { parser->next_node_id++ },
+            .type = ANT_CAST,
+            .node.cast = {
+                .type = type,
+                .target = target,
+            },
+            .directives = directives,
+        });
+    }
+
+    assert(parser_consume(parser, TT_RIGHT_PAREN, "Expected ')'."));
+
+    if (exprs.length == 1) {
+        size_t cached_current_post = parser->cursor_current;
+
+        ParseResult cast_test = parser_parse_expr(parser, (LL_Directive){0});
+        if (cast_test.status == PRS_OK) {
+            parser->cursor_current = cached_current;
+
+            Type* type = parser_parse_type(parser);
+            assert(type);
+
+            assert(parser_consume(parser, TT_RIGHT_PAREN, "Expected ')'."));
+
+            ParseResult res = parser_parse_expr(parser, (LL_Directive){0});
+            assert(res.status == PRS_OK);
+
+            ASTNode* target = arena_alloc(parser->arena, sizeof *target);
+            *target = res.node;
+
+            return parseres_ok((ASTNode){
+                .id = { parser->next_node_id++ },
+                .type = ANT_CAST,
+                .node.cast = {
+                    .type = type,
+                    .target = target,
+                },
+                .directives = directives,
+            });
+        }
+        parser->cursor_current = cached_current_post;
+    }
 
     return parseres_ok((ASTNode){
         .id = { parser->next_node_id++ },
@@ -1785,7 +1850,7 @@ static ParseResult parser_parse_simple_expr(Parser* const parser, LL_Directive c
             });
         }
         case TT_SIZEOF: return parser_wrap_simple_expr(parser, parser_parse_sizeof(parser, directives));
-        case TT_LEFT_PAREN: return parser_wrap_simple_expr(parser, parser_parse_tuple(parser, directives));
+        case TT_LEFT_PAREN: return parser_wrap_simple_expr(parser, parser_parse_tuple_or_cast(parser, directives));
 
         default: break;
     }

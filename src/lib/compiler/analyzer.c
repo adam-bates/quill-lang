@@ -333,7 +333,17 @@ static void verify_node(Analyzer* analyzer, ASTNode const* const ast, size_t dep
         }
 
         case ANT_SWITCH: assert(false); // TODO
-        case ANT_CAST: assert(false); // TODO
+
+        case ANT_CAST: {
+            verify_type(analyzer, ast->node.cast.type, depth + 1, iter);
+            verify_node(analyzer, ast->node.cast.target, depth + 1, iter);
+            break;
+        }
+
+        case ANT_POSTFIX_OP: {
+            verify_node(analyzer, ast->node.postfix_op.left, depth + 1, iter);
+            break;
+        }
 
         case ANT_STRUCT_DECL: {
             LLNode_StructField* curr = ast->node.struct_decl.fields.head;

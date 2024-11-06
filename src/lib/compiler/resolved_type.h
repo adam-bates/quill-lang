@@ -137,6 +137,7 @@ typedef struct ResolvedType {
     } type;
 } ResolvedType;
 
+bool resolved_type_cast_to(ResolvedType* from, ResolvedType* to);
 bool resolved_type_implict_to(ResolvedType* from, ResolvedType* to);
 bool resolved_type_eq(ResolvedType* a, ResolvedType* b);
 bool resolved_struct_decl_eq(ResolvedStructDecl* a, ResolvedStructDecl* b);

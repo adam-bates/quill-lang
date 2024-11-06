@@ -2476,7 +2476,28 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
         }
 
         case ANT_SWITCH: assert(false); // TODO
-        case ANT_CAST: assert(false); // TODO
+
+        case ANT_CAST: {
+            ResolvedType* rt = calc_resolved_type(type_resolver, scope, node->node.cast.type);
+
+            changed |= resolve_type_node(type_resolver, scope, node->node.cast.target);
+
+            if (type_resolver->packages->types[node->node.cast.target->id.val].type) {
+                assert(resolved_type_cast_to(type_resolver->packages->types[node->node.cast.target->id.val].type, rt));
+
+                if (type_resolver->packages->types[node->id.val].status == TIS_CONFIDENT) {
+                    break;
+                }
+
+                type_resolver->packages->types[node->id.val] = (TypeInfo){
+                    .status = TIS_CONFIDENT,
+                    .type = rt,
+                };
+                changed = true;
+            }
+
+            break;
+        }
 
         case ANT_STRUCT_DECL: {
             assert(node->node.struct_decl.maybe_name); // TODO

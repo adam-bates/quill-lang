@@ -326,6 +326,79 @@ bool resolved_type_implict_to(ResolvedType* from, ResolvedType* to) {
     }
 }
 
+bool resolved_type_cast_to(ResolvedType* from, ResolvedType* to) {
+    if (resolved_type_implict_to(from, to)) {
+        return true;
+    }
+
+    if (
+        (from->kind == RTK_POINTER || from->kind == RTK_MUT_POINTER)
+        && (to->kind == RTK_POINTER || to->kind == RTK_MUT_POINTER)
+    ) {
+        return true;
+    }
+
+    switch (from->kind) {
+        case RTK_BOOL:
+        case RTK_CHAR:
+        case RTK_INT8:
+        case RTK_INT16:
+        case RTK_INT32:
+        case RTK_INT64:
+        case RTK_UINT8:
+        case RTK_UINT16:
+        case RTK_UINT32:
+        case RTK_UINT64:
+        case RTK_FLOAT:
+        case RTK_FLOAT32:
+        case RTK_FLOAT64:
+        case RTK_POINTER:
+        case RTK_MUT_POINTER:
+        {
+            switch (to->kind) {
+                case RTK_BOOL:
+                case RTK_CHAR:
+                case RTK_INT:
+                case RTK_INT8:
+                case RTK_INT16:
+                case RTK_INT32:
+                case RTK_INT64:
+                case RTK_UINT:
+                case RTK_UINT8:
+                case RTK_UINT16:
+                case RTK_UINT32:
+                case RTK_UINT64:
+                case RTK_FLOAT:
+                case RTK_FLOAT32:
+                case RTK_FLOAT64:
+                case RTK_POINTER:
+                case RTK_MUT_POINTER:
+                    return true;
+
+                default: return false;
+            }
+        }
+
+        case RTK_STRUCT_REF: switch (to->kind) {
+            case RTK_STRUCT_REF:
+            case RTK_STRUCT_DECL:
+                return true;
+
+            default: return false;
+        }
+
+        case RTK_STRUCT_DECL: switch (to->kind) {
+            case RTK_STRUCT_REF:
+            case RTK_STRUCT_DECL:
+                return true;
+
+            default: return false;
+        }
+
+        default: return false;
+    }
+}
+
 void print_resolved_type(ResolvedType* rt) {
     if (!rt) {
         printf("null");

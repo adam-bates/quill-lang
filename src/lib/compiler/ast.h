@@ -588,7 +588,7 @@ typedef struct {
 //
 
 typedef struct {
-    Type type;
+    Type* type;
     struct ASTNode* target;
 } ASTNodeCast;
 

@@ -2324,6 +2324,35 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             break;
         }
 
+        case ANT_CAST: {
+            TypeInfo* ti = packages_type_by_type(codegen->packages, node->node.cast.type->id);
+            assert(ti);
+
+            ResolvedType* rt = ti->type;
+            assert(rt);
+
+            String type = gen_type_resolved(codegen, rt);
+
+            StringBuffer sb = strbuf_create(codegen->arena);
+            strbuf_append_chars(&sb, "((");
+            strbuf_append_str(&sb, type);
+            strbuf_append_char(&sb, ')');
+
+            LL_IR_C_Node exprs = {0};
+            fill_nodes(codegen, &exprs, node->node.cast.target, ftype, stage, false);
+            assert(exprs.length == 1);
+
+            ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                .type = ICNT_RAW_WRAP,
+                .node.raw_wrap = {
+                    .pre = strbuf_to_str(sb),
+                    .wrapped = &exprs.head->data,
+                    .post = c_str(")"),
+                },
+            });
+            break;
+        }
+
         default: {
             printf("TODO: transform (%d) [", node->type);
                 print_astnode(*node);
