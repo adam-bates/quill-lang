@@ -192,13 +192,13 @@ bool resolved_type_implict_to(ResolvedType* from, ResolvedType* to) {
         }
      }
 
-    switch (to->kind) {
+    switch (from->kind) {
         case RTK_BOOL:
         case RTK_CHAR:
         case RTK_INT8:
         case RTK_UINT8:
         {
-            switch (from->kind) {
+            switch (to->kind) {
                 case RTK_BOOL:
                 case RTK_CHAR:
                 case RTK_INT:
@@ -223,7 +223,7 @@ bool resolved_type_implict_to(ResolvedType* from, ResolvedType* to) {
         case RTK_INT16:
         case RTK_UINT16:
         {
-            switch (from->kind) {
+            switch (to->kind) {
                 case RTK_BOOL:
                 case RTK_INT:
                 case RTK_INT16:
@@ -246,7 +246,7 @@ bool resolved_type_implict_to(ResolvedType* from, ResolvedType* to) {
         case RTK_UINT32:
         case RTK_FLOAT32:
         {
-            switch (from->kind) {
+            switch (to->kind) {
                 case RTK_BOOL:
                 case RTK_INT:
                 case RTK_INT16:
@@ -272,7 +272,7 @@ bool resolved_type_implict_to(ResolvedType* from, ResolvedType* to) {
         case RTK_FLOAT:
         case RTK_FLOAT64:
         {
-            switch (from->kind) {
+            switch (to->kind) {
                 case RTK_BOOL:
                 case RTK_INT:
                 case RTK_INT64:
@@ -288,19 +288,19 @@ bool resolved_type_implict_to(ResolvedType* from, ResolvedType* to) {
             }
         }
 
-        case RTK_POINTER: switch (from->kind) {
+        case RTK_POINTER: switch (to->kind) {
             case RTK_POINTER: return resolved_type_implict_to(from->type.ptr.of, to->type.ptr.of);
             case RTK_MUT_POINTER: return resolved_type_implict_to(from->type.ptr.of, to->type.mut_ptr.of);
             default: return false;
         }
 
-        case RTK_MUT_POINTER: switch (from->kind) {
+        case RTK_MUT_POINTER: switch (to->kind) {
             case RTK_POINTER: return resolved_type_eq(from->type.mut_ptr.of, to->type.ptr.of);
             case RTK_MUT_POINTER: return resolved_type_eq(from->type.mut_ptr.of, to->type.mut_ptr.of);
             default: return false;
         }
 
-        case RTK_STRUCT_REF: switch (from->kind) {
+        case RTK_STRUCT_REF: switch (to->kind) {
             case RTK_STRUCT_REF: {
                 if (from->type.struct_ref.generic_args.length != to->type.struct_ref.generic_args.length) {
                     return false;
@@ -316,7 +316,7 @@ bool resolved_type_implict_to(ResolvedType* from, ResolvedType* to) {
             default: return false;
         }
 
-        case RTK_STRUCT_DECL: switch (from->kind) {
+        case RTK_STRUCT_DECL: switch (to->kind) {
             case RTK_STRUCT_REF: return resolved_struct_decl_eq(&from->type.struct_decl, &to->type.struct_ref.decl);
             case RTK_STRUCT_DECL: return resolved_struct_decl_eq(&from->type.struct_decl, &to->type.struct_decl);
             default: return false;
