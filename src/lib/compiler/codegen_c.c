@@ -2528,6 +2528,7 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
                 }
 
                 curr = curr->next;
+                idx += 1;
                 if (!curr || idx >= block.length) {
                     if (block.to_defer) {
                         block = *block.to_defer;
@@ -2671,16 +2672,22 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
                         }
                     }
                     curr = curr->next;
+                    idx += 1;
+                    bool should_break = false;
                     while (!curr || idx >= block.length) {
                         if (block.to_defer) {
                             block = *block.to_defer;
                             curr = block.head;
                             idx = 0;
                         } else {
+                            should_break = true;
                             break;
                         }
                     }
                     for (size_t idnt = 0; idnt < indent; ++idnt) { strbuf_append_chars(sb, "    "); }
+                    if (should_break) {
+                        break;
+                    }
                 }
             }
 
@@ -2767,6 +2774,7 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
                         }
                     }
                     curr = curr->next;
+                    idx += 1;
                     while (!curr || idx >= block.length) {
                         if (block.to_defer) {
                             block = *block.to_defer;
@@ -2853,6 +2861,7 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
                     }
                 }
                 curr = curr->next;
+                idx += 1;
                 if (!curr || idx >= block.length) {
                     if (block.to_defer && !is_defers) {
                         is_defers = true;
@@ -2905,6 +2914,7 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
                     }
                 }
                 curr = curr->next;
+                idx += 1;
                 if (!curr || idx >= block.length) {
                     if (block.to_defer && !is_defers) {
                         is_defers = true;
@@ -2947,6 +2957,7 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
                     }
                 }
                 curr = curr->next;
+                idx += 1;
                 if (!curr || idx >= block.length) {
                     if (block.to_defer && !is_defers) {
                         is_defers = true;
