@@ -28,7 +28,7 @@ typedef enum {
 
     ICNT_RAW,
     ICNT_RAW_WRAP,
-    ICNT_MANY,
+    ICNT_BLOCK,
     ICNT_ARRAY_INIT,
     ICNT_GET_FIELD,
     ICNT_SIZEOF_EXPR,
@@ -63,7 +63,7 @@ typedef struct {
 
 typedef struct {
     LL_IR_C_Node nodes;
-} IR_C_Many;
+} IR_C_Block;
 
 typedef struct {
     String condition;
@@ -181,7 +181,7 @@ typedef struct IR_C_Node {
     union {
         IR_C_Raw raw;
         IR_C_RawWrap raw_wrap;
-        IR_C_Many many;
+        IR_C_Block block;
         IR_C_MacroIfndef ifndef;
         IR_C_MacroDefine define;
         IR_C_MacroInclude include;

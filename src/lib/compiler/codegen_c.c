@@ -1362,7 +1362,15 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
         }
 
         case ANT_DEFER: {
-            fill_nodes(codegen, codegen->stmt_block->to_defer, node->node.defer.stmt, ftype, stage, false);
+            LL_IR_C_Node ll = {0};
+            fill_nodes(codegen, &ll, node->node.defer.stmt, ftype, stage, false);
+
+            if (ll.length > 0) {
+                ll.tail->next = codegen->stmt_block->to_defer->head;
+                codegen->stmt_block->to_defer->head = ll.head;
+                codegen->stmt_block->to_defer->length += ll.length;
+            }
+
             break;
         }
 
@@ -2293,8 +2301,8 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             codegen->stmt_block = prev_block;
 
             ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
-                .type = ICNT_MANY,
-                .node.many.nodes = then,
+                .type = ICNT_BLOCK,
+                .node.block.nodes = then,
             });
 
             break;
@@ -2541,8 +2549,11 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
             break;
         }
 
-        case ICNT_MANY: {
-            LL_IR_C_Node block = node->node.many.nodes;
+        case ICNT_BLOCK: {
+            strbuf_append_chars(sb, "{\n");
+            indent += 1;
+
+            LL_IR_C_Node block = node->node.block.nodes;
             LLNode_IR_C_Node* curr = block.head;
             size_t idx = 0;
             bool is_defers = false;
@@ -2570,6 +2581,11 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
                     }
                 }
             }
+
+            indent -= 1;
+            for (size_t idnt = 0; idnt < indent; ++idnt) { strbuf_append_chars(sb, "    "); }
+            strbuf_append_chars(sb, "}\n");
+
             break;
         }
 
