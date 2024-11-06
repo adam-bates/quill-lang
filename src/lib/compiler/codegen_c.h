@@ -103,6 +103,7 @@ typedef struct {
 } IR_C_FunctionCall;
 
 typedef struct {
+    LL_IR_C_Node* defer_block;
     struct IR_C_Node* expr;
 } IR_C_Return;
 

@@ -131,6 +131,22 @@ static void ll_node_push(Arena* const arena, LL_IR_C_Node* const ll, IR_C_Node c
     ll->length += 1;
 }
 
+static LL_IR_C_Node* ll_clone(Arena* arena, LL_IR_C_Node* const ll) {
+    if (!ll) {
+        return NULL;
+    }
+
+    LL_IR_C_Node* clone = arena_alloc(arena, sizeof *clone);
+    *clone = (LL_IR_C_Node){
+        .head = ll->head,
+        .tail = ll->tail,
+        .length = ll->length,
+        .to_defer = ll_clone(arena, ll->to_defer),
+    };
+
+    return clone;
+}
+
 static void _append_file_path(StringBuffer* sb, PackagePath* package_path) {
     PackagePath* curr = package_path;
     while (curr) {
@@ -1325,8 +1341,6 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
         }
 
         case ANT_RETURN: {
-            // TODO: defer
-
             IR_C_Node* expr = NULL;
             if (node->node.return_.maybe_expr) {
                 LL_IR_C_Node expr_ll = {0};
@@ -1338,8 +1352,12 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
 
             ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
                 .type = ICNT_RETURN,
-                .node.return_.expr = expr,
+                .node.return_ = {
+                    .defer_block = ll_clone(codegen->arena, codegen->stmt_block->to_defer),
+                    .expr = expr,
+                },
             });
+            codegen->stmt_block->to_defer = arena_alloc(codegen->arena, sizeof *codegen->stmt_block->to_defer);
             break;
         }
 
@@ -1736,8 +1754,9 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                     }
                 }
 
-                LL_IR_C_Node statements = {0};
-                statements.to_defer = arena_alloc(codegen->arena, sizeof *statements.to_defer);
+                LL_IR_C_Node statements = {
+                    .to_defer = arena_alloc(codegen->arena, sizeof *statements.to_defer),
+                };
                 *statements.to_defer = (LL_IR_C_Node){0};
 
                 codegen->stmt_block = &statements;
@@ -2037,9 +2056,12 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             fill_nodes(codegen, &cond_ll, node->node.while_.cond, ftype, stage, false);
             assert(cond_ll.length == 1);
 
-            LL_IR_C_Node then = {0};
-            then.to_defer = arena_alloc(codegen->arena, sizeof *then.to_defer);
-            *then.to_defer = (LL_IR_C_Node){0};
+            LL_IR_C_Node then = {
+                .to_defer = arena_alloc(codegen->arena, sizeof *then.to_defer),
+            };
+            *then.to_defer = (LL_IR_C_Node){
+                .to_defer = codegen->stmt_block->to_defer,
+            };
 
             LLNode_ASTNode* curr = node->node.while_.block->stmts.head;
             LL_IR_C_Node* prev_block = codegen->stmt_block;
@@ -2137,9 +2159,12 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                 };
             }
 
-            LL_IR_C_Node then = {0};
-            then.to_defer = arena_alloc(codegen->arena, sizeof *then.to_defer);
-            *then.to_defer = (LL_IR_C_Node){0};
+            LL_IR_C_Node then = {
+                .to_defer = arena_alloc(codegen->arena, sizeof *then.to_defer),
+            };
+            *then.to_defer = (LL_IR_C_Node){
+                .to_defer = codegen->stmt_block->to_defer,
+            };
 
             LLNode_ASTNode* curr = node->node.foreach.block->stmts.head;
             LL_IR_C_Node* prev_block = codegen->stmt_block;
@@ -2202,9 +2227,12 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             fill_nodes(codegen, &cond_ll, node->node.if_.cond, ftype, stage, false);
             assert(cond_ll.length == 1);
 
-            LL_IR_C_Node then = {0};
-            then.to_defer = arena_alloc(codegen->arena, sizeof *then.to_defer);
-            *then.to_defer = (LL_IR_C_Node){0};
+            LL_IR_C_Node then = {
+                .to_defer = arena_alloc(codegen->arena, sizeof *then.to_defer),
+            };
+            *then.to_defer = (LL_IR_C_Node){
+                .to_defer = codegen->stmt_block->to_defer,
+            };
 
             LLNode_ASTNode* curr = node->node.if_.block->stmts.head;
             LL_IR_C_Node* prev_block = codegen->stmt_block;
@@ -2218,12 +2246,19 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             IR_C_Node* else_ = NULL;
             if (node->node.if_.else_) {
                 assert(node->node.if_.else_->type == ANT_IF || node->node.if_.else_->type == ANT_STATEMENT_BLOCK);
-                LL_IR_C_Node else_ll = {0};
-                else_ll.to_defer = arena_alloc(codegen->arena, sizeof *else_ll.to_defer);
-                *else_ll.to_defer = (LL_IR_C_Node){0};
+                LL_IR_C_Node else_ll = {
+                    .to_defer = arena_alloc(codegen->arena, sizeof *else_ll.to_defer),
+                };
+                *else_ll.to_defer = (LL_IR_C_Node){
+                    .to_defer = codegen->stmt_block->to_defer,
+                };
+
+                prev_block = codegen->stmt_block;
+                codegen->stmt_block = &else_ll;
 
                 fill_nodes(codegen, &else_ll, node->node.if_.else_, ftype, stage, false);
                 assert(else_ll.length == 1);
+                codegen->stmt_block = prev_block;
 
                 else_ = &else_ll.head->data;
             }
@@ -2240,19 +2275,26 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
         }
 
         case ANT_STATEMENT_BLOCK: {
-            LL_IR_C_Node stmts = {0};
-            stmts.to_defer = arena_alloc(codegen->arena, sizeof *stmts.to_defer);
-            *stmts.to_defer = (LL_IR_C_Node){0};
+            LL_IR_C_Node then = {
+                .to_defer = arena_alloc(codegen->arena, sizeof *then.to_defer),
+            };
+            *then.to_defer = (LL_IR_C_Node){
+                .to_defer = codegen->stmt_block->to_defer,
+            };
+
+            LL_IR_C_Node* prev_block = codegen->stmt_block;
+            codegen->stmt_block = &then;
 
             LLNode_ASTNode* curr = node->node.statement_block.stmts.head;
             while (curr) {
-                fill_nodes(codegen, &stmts, &curr->data, ftype, stage, false);
+                fill_nodes(codegen, &then, &curr->data, ftype, stage, false);
                 curr = curr->next;
             }
+            codegen->stmt_block = prev_block;
 
             ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
                 .type = ICNT_MANY,
-                .node.many.nodes = stmts,
+                .node.many.nodes = then,
             });
 
             break;
@@ -2473,6 +2515,7 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
         case ICNT_MANY: {
             LL_IR_C_Node block = node->node.many.nodes;
             LLNode_IR_C_Node* curr = block.head;
+            size_t idx = 0;
             while (curr) {
                 for (size_t idnt = 0; idnt < indent; ++idnt) { strbuf_append_chars(sb, "    "); }
                 append_ir_node(sb, &curr->data, indent);
@@ -2485,9 +2528,14 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
                 }
 
                 curr = curr->next;
-                if (!curr && block.to_defer) {
-                    block = *block.to_defer;
-                    curr = block.head;
+                if (!curr || idx >= block.length) {
+                    if (block.to_defer) {
+                        block = *block.to_defer;
+                        curr = block.head;
+                        idx = 0;
+                    } else {
+                        break;
+                    }
                 }
             }
             break;
@@ -2598,6 +2646,44 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
         }
 
         case ICNT_RETURN: {
+            if (node->node.return_.defer_block) {
+                LL_IR_C_Node block = *node->node.return_.defer_block;
+                LLNode_IR_C_Node* curr = node->node.return_.defer_block->head;
+                size_t idx = 0;
+
+                while (!curr || idx >= block.length) {
+                    if (block.to_defer) {
+                        block = *block.to_defer;
+                        curr = block.head;
+                        idx = 0;
+                    } else {
+                        break;
+                    }
+                }
+
+                while (curr) {
+                    append_ir_node(sb, &curr->data, indent);
+                    if (sb->chars[sb->length - 1] != ';' && sb->chars[sb->length - 1] != '\n') {
+                        if (sb->chars[sb->length - 1] != '\n') {
+                            strbuf_append_chars(sb, ";\n");
+                        } else {
+                            strbuf_append_char(sb, ';');
+                        }
+                    }
+                    curr = curr->next;
+                    while (!curr || idx >= block.length) {
+                        if (block.to_defer) {
+                            block = *block.to_defer;
+                            curr = block.head;
+                            idx = 0;
+                        } else {
+                            break;
+                        }
+                    }
+                    for (size_t idnt = 0; idnt < indent; ++idnt) { strbuf_append_chars(sb, "    "); }
+                }
+            }
+
             strbuf_append_chars(sb, "return");
             if (node->node.return_.expr) {
                 strbuf_append_char(sb, ' ');
@@ -2668,6 +2754,7 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
             {
                 LL_IR_C_Node block = node->node.function_decl.statements;
                 LLNode_IR_C_Node* curr = block.head;
+                size_t idx = 0;
                 indent += 1;
                 while (curr) {
                     for (size_t idnt = 0; idnt < indent; ++idnt) { strbuf_append_chars(sb, "    "); }
@@ -2680,9 +2767,14 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
                         }
                     }
                     curr = curr->next;
-                    if (!curr && block.to_defer) {
-                        block = *block.to_defer;
-                        curr = block.head;
+                    while (!curr || idx >= block.length) {
+                        if (block.to_defer) {
+                            block = *block.to_defer;
+                            curr = block.head;
+                            idx = 0;
+                        } else {
+                            break;
+                        }
                     }
                 }
                 indent -= 1;
@@ -2747,7 +2839,9 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
             strbuf_append_chars(sb, ") {\n");
             LL_IR_C_Node block = node->node.if_.then;
             LLNode_IR_C_Node* curr = block.head;
+            size_t idx = 0;
             indent += 1;
+            bool is_defers = false;
             while (curr) {
                 for (size_t idnt = 0; idnt < indent; ++idnt) { strbuf_append_chars(sb, "    "); }
                 append_ir_node(sb, &curr->data, indent);
@@ -2759,9 +2853,15 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
                     }
                 }
                 curr = curr->next;
-                if (!curr && block.to_defer) {
-                    block = *block.to_defer;
-                    curr = block.head;
+                if (!curr || idx >= block.length) {
+                    if (block.to_defer && !is_defers) {
+                        is_defers = true;
+                        block = *block.to_defer;
+                        curr = block.head;
+                        idx = 0;
+                    } else {
+                        break;
+                    }
                 }
             }
             indent -= 1;
@@ -2790,7 +2890,9 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
             strbuf_append_chars(sb, ") {\n");
             LL_IR_C_Node block = node->node.while_.then;
             LLNode_IR_C_Node* curr = block.head;
+            size_t idx = 0;
             indent += 1;
+            bool is_defers = false;
             while (curr) {
                 for (size_t idnt = 0; idnt < indent; ++idnt) { strbuf_append_chars(sb, "    "); }
                 append_ir_node(sb, &curr->data, indent);
@@ -2803,9 +2905,15 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
                     }
                 }
                 curr = curr->next;
-                if (!curr && block.to_defer) {
-                    block = *block.to_defer;
-                    curr = block.head;
+                if (!curr || idx >= block.length) {
+                    if (block.to_defer && !is_defers) {
+                        is_defers = true;
+                        block = *block.to_defer;
+                        curr = block.head;
+                        idx = 0;
+                    } else {
+                        break;
+                    }
                 }
             }
             indent -= 1;
@@ -2824,7 +2932,9 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
             strbuf_append_chars(sb, ") {\n");
             LL_IR_C_Node block = node->node.for_.then;
             LLNode_IR_C_Node* curr = block.head;
+            size_t idx = 0;
             indent += 1;
+            bool is_defers = false;
             while (curr) {
                 for (size_t idnt = 0; idnt < indent; ++idnt) { strbuf_append_chars(sb, "    "); }
                 append_ir_node(sb, &curr->data, indent);
@@ -2837,9 +2947,15 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
                     }
                 }
                 curr = curr->next;
-                if (!curr && block.to_defer) {
-                    block = *block.to_defer;
-                    curr = block.head;
+                if (!curr || idx >= block.length) {
+                    if (block.to_defer && !is_defers) {
+                        is_defers = true;
+                        block = *block.to_defer;
+                        curr = block.head;
+                        idx = 0;
+                    } else {
+                        break;
+                    }
                 }
             }
             indent -= 1;
