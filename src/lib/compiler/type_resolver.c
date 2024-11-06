@@ -477,6 +477,66 @@ void resolve_generic_nodes(Packages* packages) {
     }
 }
 
+// This is my 3rd attempt ... comments are so I can understand again
+size_t* calculate_resolve_order(Arena* arena, AdjacencyList dependencies, size_t packages_length) {
+    // array of number of unresolved dependencies for each package
+    size_t* in_degree = arena_calloc(arena, packages_length, sizeof *in_degree);
+    assert(in_degree);
+
+    // calculate in-degrees (number of dependencies) for each package
+    for (size_t i = 0; i < dependencies.length; ++i) {
+        size_t dependent_idx = dependencies.dependent_idxs[i];
+        in_degree[dependent_idx] += 1;
+    }
+
+    // array of sorted order
+    size_t* resolve_order = arena_calloc(arena, packages_length, sizeof *resolve_order);
+    assert(resolve_order);
+
+    // queue for packages with no unresolved dependencies
+    size_t* queue = arena_calloc(arena, packages_length, sizeof *queue);
+    assert(queue);
+
+    size_t queue_start = 0;
+    size_t queue_end = 0;
+
+    // init queue with packages that have no dependencies
+    for (size_t i = 0; i < packages_length; ++i) {
+        if (in_degree[i] == 0) {
+            queue[queue_end++] = i;
+        }
+    }
+
+    // index for filling the resolve_order array
+    size_t order_index = 0;
+
+    while (queue_start < queue_end) {
+        size_t pkg = queue[queue_start++];
+        resolve_order[order_index++] = pkg;
+
+        // process all dependents of the current package
+        for (size_t i = 0; i < dependencies.length; ++i) {
+            if (dependencies.dependency_idxs[i] == pkg) {
+                size_t dependent = dependencies.dependent_idxs[i];
+                
+                // decrease the in-degree and add to queue if no more dependencies
+                in_degree[dependent] -= 1;
+                if (in_degree[dependent] == 0) {
+                    queue[queue_end++] = dependent;
+                }
+            }
+        }
+    }
+
+    // check if we were able to resolve all packages
+    if (order_index != packages_length) {
+        printf("Cycle detected!\n");
+        assert(false);
+    }
+
+    return resolve_order;
+}
+
 static void resolve_file(TypeResolver* type_resolver, Scope* scope, ASTNodeFileRoot file);
 
 void resolve_types(TypeResolver* type_resolver) {
@@ -583,91 +643,8 @@ void resolve_types(TypeResolver* type_resolver) {
         printf("\n");
     }
 
-    size_t to_sort_len = 0;
-    size_t* to_sort = arena_calloc(type_resolver->arena, packages_len, sizeof *to_sort);
-    for (size_t i = 0; i < packages_len; ++i) {
-        to_sort[i] = i;
-        to_sort_len += 1;
-    }
-
-    size_t resolve_order_len = 0;
-    size_t* resolve_order = arena_calloc(type_resolver->arena, packages_len, sizeof *resolve_order);
-    for (size_t i = 0; i < packages_len; ++i) {
-        bool found = false;
-        for (size_t j = 0; j < dependencies.length; ++j) {
-            if (dependencies.dependent_idxs[j] == i) {
-                found = true;
-                break;
-            }
-        }
-
-        if (!found) {
-            resolve_order[resolve_order_len++] = i;
-            for (size_t j = 0; j < to_sort_len; ++j) {
-                if (to_sort[j] == i) {
-                    to_sort_len -= 1;
-                    for (size_t k = j; k < to_sort_len; ++k) {
-                        to_sort[k] = to_sort[k + 1];
-                    }
-                    break;
-                }
-            }
-        }
-    }
-
-    bool* has_unresolved_dependencies = arena_alloc(type_resolver->arena, packages_len * sizeof *has_unresolved_dependencies);
-    while (resolve_order_len < packages_len) {
-        for (size_t i = 0; i < packages_len; ++i) {
-            has_unresolved_dependencies[i] = false;
-        }
-
-        for (size_t i_ = 0; i_ < to_sort_len; ++i_) {
-            size_t i = to_sort[i_];
-
-            for (size_t j = 0; j < dependencies.length; ++j) {
-                if (dependencies.dependent_idxs[j] == i) {
-                    for (size_t k = 0; k < to_sort_len; ++k) {
-                        if (dependencies.dependency_idxs[j] == to_sort[k]) {
-                            if (has_unresolved_dependencies[to_sort[k]]) {
-                                Package a = packages[i];
-                                Package b = packages[to_sort[k]];
-
-                                printf("Error: Import cycle detected!\n");
-                                printf("- [");
-                                printf("%s", package_path_to_str(type_resolver->arena, a.full_name).chars);
-                                printf("] depends on [");
-                                printf("%s", package_path_to_str(type_resolver->arena, b.full_name).chars);
-                                printf("]\n");
-                                printf("- [");
-                                printf("%s", package_path_to_str(type_resolver->arena, b.full_name).chars);
-                                printf("] depends on [");
-                                printf("%s", package_path_to_str(type_resolver->arena, a.full_name).chars);
-                                printf("]\n\n");
-
-                                assert(false);
-                            }
-                            has_unresolved_dependencies[i] = true;
-                            break;
-                        }
-                    }
-
-                    if (has_unresolved_dependencies[i]) {
-                        break;
-                    }
-                }
-            }
-
-            if (!has_unresolved_dependencies[i]) {
-                resolve_order[resolve_order_len++] = i;
-
-                to_sort_len -= 1;
-                for (size_t j = i_; j < to_sort_len; ++j) {
-                    to_sort[j] = to_sort[j + 1];
-                }
-                i_ -= 1;
-            }
-        }
-    }
+    size_t* resolve_order = calculate_resolve_order(type_resolver->arena, dependencies, packages_len);
+    assert(resolve_order);
 
     {
         printf("Resolve order:\n");

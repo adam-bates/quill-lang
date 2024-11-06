@@ -1325,6 +1325,8 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
         }
 
         case ANT_RETURN: {
+            // TODO: defer
+
             IR_C_Node* expr = NULL;
             if (node->node.return_.maybe_expr) {
                 LL_IR_C_Node expr_ll = {0};
