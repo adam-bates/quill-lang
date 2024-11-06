@@ -2516,6 +2516,7 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
             LL_IR_C_Node block = node->node.many.nodes;
             LLNode_IR_C_Node* curr = block.head;
             size_t idx = 0;
+            bool is_defers = false;
             while (curr) {
                 for (size_t idnt = 0; idnt < indent; ++idnt) { strbuf_append_chars(sb, "    "); }
                 append_ir_node(sb, &curr->data, indent);
@@ -2530,7 +2531,8 @@ static void append_ir_node(StringBuffer* sb, IR_C_Node* node, size_t indent) {
                 curr = curr->next;
                 idx += 1;
                 if (!curr || idx >= block.length) {
-                    if (block.to_defer) {
+                    if (block.to_defer && !is_defers) {
+                        is_defers = true;
                         block = *block.to_defer;
                         curr = block.head;
                         idx = 0;

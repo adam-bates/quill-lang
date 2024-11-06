@@ -2273,6 +2273,13 @@ static ParseResult parser_parse_stmt(Parser* const parser) {
     ParseResult stmt_res;
 
     switch (current.type) {
+        case TT_LEFT_BRACE: return parseres_ok((ASTNode){
+            .id = { parser->next_node_id++ },
+            .directives = directives,
+            .type = ANT_STATEMENT_BLOCK,
+            .node.statement_block = parser_parse_stmt_block(parser),
+        });
+        
         case TT_BREAK: {
             parser_advance(parser);
             return parseres_ok((ASTNode){
