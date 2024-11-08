@@ -2310,6 +2310,16 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             }
             codegen->stmt_block = prev_block;
 
+            if (then.length == 0) {
+                then.head = then.to_defer->head;
+                then.tail = then.to_defer->tail;
+                then.length = then.to_defer->length;
+
+                then.to_defer->head = NULL;
+                then.to_defer->tail = NULL;
+                then.to_defer->length = 0;
+            }
+
             ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
                 .type = ICNT_BLOCK,
                 .node.block.nodes = then,
