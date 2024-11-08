@@ -13,7 +13,7 @@ test: test-lexer
 
 example-hello: clean build
 	mkdir -p ./.bin/tmp \
-	&& .bin/quillc ./examples/hello.ql -D=./.bin/tmp -lstd=./runtime/std/std.ql ./runtime/std/io.ql ./runtime/std/ds.ql -llibc=./runtime/libc/stdlib.ql ./runtime/libc/stdio.ql ./runtime/libc/string.ql \
+	&& .bin/quillc ./examples/hello.ql -D=./.bin/tmp -lstd=./runtime/std/std.ql ./runtime/std/io.ql ./runtime/std/ds.ql ./runtime/std/conv.ql -llibc=./runtime/libc/stdlib.ql ./runtime/libc/stdio.ql ./runtime/libc/string.ql \
 	&& cd ./.bin \
 	&& gcc -std=c99 -o main -I./tmp ./tmp/*.c  \
 	&& clear \
@@ -36,6 +36,15 @@ example-fibonacci: clean build
 	&& gcc -std=c99 -o main -I./tmp ./tmp/*.c  \
 	&& clear \
 	&& ./main 50 \
+	&& cd ..
+
+example-defer: clean build
+	mkdir -p ./.bin/tmp \
+	&& .bin/quillc ./examples/defer.ql -D=./.bin/tmp -lstd=./runtime/std/std.ql ./runtime/std/io.ql ./runtime/std/ds.ql ./runtime/std/conv.ql -llibc=./runtime/libc/stdlib.ql ./runtime/libc/stdio.ql ./runtime/libc/string.ql \
+	&& cd ./.bin \
+	&& gcc -std=c99 -o main -I./tmp ./tmp/*.c  \
+	&& clear \
+	&& ./main \
 	&& cd ..
 
 setup:
