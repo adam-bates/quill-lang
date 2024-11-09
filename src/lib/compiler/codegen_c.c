@@ -1217,6 +1217,35 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
                             .node.raw.str = var_ptr,
                         });
                         already_done = true;
+                    } else if (node->node.unary_op.right->type == ANT_ARRAY_INIT) {
+                        String var_name = unique_var_name(codegen->arena);
+
+                        LL_IR_C_Node lit_ll = {0};
+                        fill_nodes(codegen, &lit_ll, node->node.unary_op.right, ftype, stage, false);
+                        assert(lit_ll.length == 1);
+
+                        ResolvedType* rt = codegen->packages->types[node->node.unary_op.right->id.val].type;
+                        assert(rt);
+
+                        StringBuffer pre = strbuf_create(codegen->arena);
+                        strbuf_append_str(&pre, gen_type_resolved(codegen, rt));
+                        strbuf_append_char(&pre, ' ');
+                        strbuf_append_str(&pre, var_name);
+                        strbuf_append_chars(&pre, "[] = ");
+
+                        ll_node_push(codegen->arena, codegen->stmt_block, (IR_C_Node){
+                            .type = ICNT_RAW_WRAP,
+                            .node.raw_wrap = {
+                                .pre = strbuf_to_str(pre),
+                                .wrapped = &lit_ll.head->data,
+                                .post = c_str(""),
+                            },
+                        });
+                        ll_node_push(codegen->arena, c_nodes, (IR_C_Node){
+                            .type = ICNT_RAW,
+                            .node.raw.str = var_name,
+                        });
+                        already_done = true;
                     }
                     break;
                 }
@@ -1321,10 +1350,57 @@ static void fill_nodes(CodegenC* codegen, LL_IR_C_Node* c_nodes, ASTNode* node, 
             *target = target_ll.head->data;
 
             if (target->type == ICNT_RAW && node->node.function_call.generic_args.length > 0) {
+                size_t version = node->node.function_call.impl_version;
+                {
+                    ResolvedType* rt = codegen->packages->types[node->node.function_call.function->id.val].type;
+                    if (rt && rt->kind == RTK_FUNCTION_DECL && rt->src) {
+                        LL_GenericImpl impls = codegen->packages->generic_impls_nodes_concrete[rt->src->id.val];
+                        assert(impls.length > 0);
+
+                        if (impls.length == 1) {
+                            version = 0;
+                        } else {
+                            size_t impl_idx = 0;
+                            LLNode_GenericImpl* curr = impls.head;
+                            while (curr) {
+                                if (curr->data.length == node->node.function_call.generic_args.length) {
+                                    size_t idx = 0;
+                                    LLNode_Type* arg_curr = node->node.function_call.generic_args.head;
+                                    bool match = true;
+                                    while (arg_curr && idx < curr->data.length) {
+                                        TypeInfo* ti = packages_type_by_type(codegen->packages, arg_curr->data.id);
+                                        assert(ti);
+                                        assert(ti->type);
+
+                                        if (!resolved_type_eq(ti->type, curr->data.resolved_types[idx])) {
+                                            match = false;
+                                            break;
+                                        }
+
+                                        idx += 1;
+                                        arg_curr = arg_curr->next;
+                                    }
+                                    if (arg_curr || idx < curr->data.length) {
+                                        match = false;
+                                    }
+
+                                    if (match) {
+                                        version = impl_idx;
+                                        break;
+                                    }
+                                }
+
+                                impl_idx += 1;
+                                curr = curr->next;
+                            }
+                        }
+                    }
+                }
+
                 StringBuffer sb = strbuf_create(codegen->arena);
                 strbuf_append_str(&sb, target->node.raw.str);
                 strbuf_append_chars(&sb, "_");
-                strbuf_append_uint(&sb, node->node.function_call.impl_version);
+                strbuf_append_uint(&sb, version);
                 target->node.raw.str = strbuf_to_str(sb);
             }
             

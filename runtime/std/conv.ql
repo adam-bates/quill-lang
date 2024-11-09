@@ -4,6 +4,8 @@ import std;
 import std::String;
 import std::Result;
 
+import std/ds;
+
 Result<uint> parse_uint(String str) {
 	if str.length == 0 {
 		return std::res_err<uint>("Empty string");
@@ -54,4 +56,18 @@ Result<uint8> parse_uint8(String str) {
 	}
 
 	return std::res_ok<uint8>(n);
+}
+
+String int_to_str(int val) {
+	let mut sb = ds::strbuf_create(1);
+	ds::strbuf_append_int(&sb, val);
+
+	return ds::strbuf_as_str(sb);
+}
+
+String uint_to_str(uint val) {
+	let mut sb = ds::strbuf_create(1);
+	ds::strbuf_append_uint(&sb, val);
+
+	return ds::strbuf_as_str(sb);
 }
