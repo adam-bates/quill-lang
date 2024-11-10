@@ -161,6 +161,7 @@ void packages_register_generic_impl(Packages* packages, ASTNode* src, size_t res
     LLNode_GenericImpl* curr = generic_impls->head;
     while (curr) {
         assert(curr->data.length == resolved_types_length);
+        assert(curr->data.length > 0);
 
         bool is_same = true;
 

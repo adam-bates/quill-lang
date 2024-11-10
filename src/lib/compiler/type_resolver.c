@@ -262,7 +262,7 @@ bool is_generic_impl_eq(GenericImpl* a, GenericImpl* b) {
     return true;
 }
 
-LL_GenericImpl map_generic_impls_to_concrete(Packages* packages, LL_GenericImpl* generic_impls) {
+LL_GenericImpl map_generic_impls_to_concrete(Packages* packages, LL_GenericImpl* generic_impls, size_t depth) {
     LL_GenericImpl to_generic_impls = {
         .length = 0,
         .head = NULL,
@@ -307,9 +307,39 @@ LL_GenericImpl map_generic_impls_to_concrete(Packages* packages, LL_GenericImpl*
                     size_t src_node_id = rt->src->id.val;
                     size_t idx = rt->type.generic.idx;
 
-                    LL_GenericImpl* generic_impls = packages->generic_impls_nodes_raw + src_node_id;
+                    printf("[%lu] recursively checking %lu...\n", depth, src_node_id);
 
-                    LL_GenericImpl nested_all = map_generic_impls_to_concrete(packages, generic_impls);
+                    TypeInfo* ti = packages_type_by_node(packages, (NodeId){src_node_id});
+                    assert(ti);
+                    assert(ti->type);
+
+                    if (ti->type->kind == RTK_STRUCT_REF && ti->type->type.struct_ref.decl.generic_params.length > 0) {
+                        assert(ti->type->type.struct_ref.generic_args.length == ti->type->type.struct_ref.decl.generic_params.length);
+
+                        ResolvedType** rts = arena_calloc(packages->arena, ti->type->type.struct_ref.generic_args.length, sizeof(uintptr_t));
+                        for (size_t i = 0; i < ti->type->type.struct_ref.generic_args.length; ++i) {
+                            rts[i] = ti->type->type.struct_ref.generic_args.resolved_types + i;
+                        }
+                        packages_register_generic_impl(packages, ti->type->src, ti->type->type.struct_ref.generic_args.length, rts);
+                    } else if (ti->type->kind == RTK_FUNCTION_REF && ti->type->type.function_ref.decl.generic_params.length > 0) {
+                        assert(ti->type->type.function_ref.generic_args.length == ti->type->type.function_ref.decl.generic_params.length);
+
+                        ResolvedType** rts = arena_calloc(packages->arena, ti->type->type.function_ref.generic_args.length, sizeof(uintptr_t));
+                        for (size_t i = 0; i < ti->type->type.function_ref.generic_args.length; ++i) {
+                            rts[i] = ti->type->type.function_ref.generic_args.resolved_types + i;
+                        }
+                        packages_register_generic_impl(packages, ti->type->src, ti->type->type.function_ref.generic_args.length, rts);
+                    }
+
+                    LL_GenericImpl generic_impls_cache = packages->generic_impls_nodes_raw[ti->type->src->id.val];
+                    packages->generic_impls_nodes_raw[ti->type->src->id.val] = (LL_GenericImpl){0};
+
+                    LL_GenericImpl nested_all = map_generic_impls_to_concrete(packages, &generic_impls_cache, depth + 1);
+
+                    packages->generic_impls_nodes_raw[ti->type->src->id.val] = generic_impls_cache;
+                    LL_GenericImpl* generic_impls = packages->generic_impls_nodes_raw + ti->type->src->id.val;
+
+                    printf("- mapped %lu raw to %lu concrete impls\n", generic_impls->length, nested_all.length);
 
                     // ArrayList<ResolvedType*>
                     ArrayList_Ptr nested = arraylist_ptr_create(packages->arena);
@@ -427,7 +457,8 @@ void resolve_generic_nodes(Packages* packages) {
     for (size_t i = 0; i < packages->generic_impls_nodes_length; ++i) {
         LL_GenericImpl* generic_impls = packages->generic_impls_nodes_raw + i;
         if (generic_impls->length > 0) {
-            LL_GenericImpl concrete_generic_impls = map_generic_impls_to_concrete(packages, generic_impls);
+            printf("RESOLVING %lu...\n", i);
+            LL_GenericImpl concrete_generic_impls = map_generic_impls_to_concrete(packages, generic_impls, 0);
 
             packages->generic_impls_nodes_concrete[i] = concrete_generic_impls;
 
@@ -2503,6 +2534,12 @@ static Changed resolve_type_node(TypeResolver* type_resolver, Scope* scope, ASTN
 
         case ANT_STRUCT_DECL: {
             assert(node->node.struct_decl.maybe_name); // TODO
+
+            // if (str_eq(*node->node.struct_decl.maybe_name, c_str("Maybe"))) {
+            //     static int x = 0;
+            //     int y = x++;
+            //     assert(y == 0);
+            // }
 
             ResolvedStructField* fields = arena_calloc(type_resolver->arena, node->node.struct_decl.fields.length, sizeof *fields);
 

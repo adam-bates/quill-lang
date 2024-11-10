@@ -831,6 +831,8 @@ void println_astnode(ASTNode const node) {
 }
 
 void print_astnode(ASTNode const node) {
+    printf("#%lu#", node.id.val);
+
     if (node.directives.length > 0) {
         print_directives(node.directives);
     }

@@ -226,6 +226,7 @@ typedef struct GenericImplMap {
     size_t length;
     String* generic_names;
     String* mapped_types;
+    ResolvedType* mapped_rtypes;
 } GenericImplMap;
 
 typedef struct {

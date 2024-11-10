@@ -74,6 +74,14 @@ void assert(bool expr) {
 	}
 }
 
+T assert_some<T>(Maybe<T> maybe) {
+	if !maybe.is_some {
+		CRASH "Expected some, found none";
+	}
+
+	return maybe.val;
+}
+
 T assert_ok<T>(Result<T> res) {
 	if !res.is_ok {
 		CRASH `{res.err}`;
